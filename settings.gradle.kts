@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "arc-android-tv"
+rootProject.name = "arc-android"
 include(":app")

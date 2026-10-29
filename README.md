@@ -1,7 +1,8 @@
-# Arc for Android TV
+# Arc for Android
 
-The Arc Media Server app for Android TV and Google TV: sign in with a code, pick a profile, browse
-Home and your libraries, and play. Native: Kotlin, Jetpack Compose for TV and Media3 (ExoPlayer).
+The Arc Media Server app for Android: one app for Android TV / Google TV and (later) phones and
+tablets, sharing its server connection and playback code. The TV interface comes first: sign in with
+a code, pick a profile, browse Home and your libraries, and play. Native: Kotlin, Jetpack Compose for TV and Media3 (ExoPlayer).
 It talks only to Arc's stable API, `/api/v1` (see `docs/API.md` in
 [arc-media-server](https://github.com/arc-media-server/arc-media-server)).
 
@@ -59,7 +60,7 @@ The sign-in appears in Arc's Settings > Devices, where it can be signed out.
 ## Layout
 
 ```
-app/src/main/java/org/arcmediaserver/tv/
+app/src/main/java/org/arcmediaserver/android/
   ArcApplication.kt, AppContainer.kt   app-wide objects (session, HTTP clients, image loader, caps)
   data/        ArcApi (the /api/v1 client), Models, ServerAddress, SessionStore (Keystore-encrypted
                token), HomeRows (the profile's Home layout, resolved as the web app does), ArcLog
