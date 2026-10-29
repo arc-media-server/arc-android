@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "org.arcmediaserver.tv"
+    namespace = "org.arcmediaserver.android"
     // 37: the current Compose, Navigation, Coil, Core and OkHttp libraries need it to compile
     // against; the app still targets 36 (runtime behaviour) and runs from 26.
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "org.arcmediaserver.tv"
+        applicationId = "org.arcmediaserver.android"
         // Android 8.0: older Android TV sets and boxes (Mi Box S, Sony and Philips TVs from 2018,
         // first Chromecast with Google TV is 10) are still in use; 8.0 brings Display.Mode and
         // adaptive icons, which the app relies on, and Media3 and Compose support it.

@@ -1,7 +1,10 @@
-# Arc for Android TV: notes for AI agents
+# Arc for Android: notes for AI agents
 
-The Android TV / Google TV client for Arc Media Server (arc-media-server/arc-media-server, a Go
-server with a web app). The owner (GitHub: JonzaUK) drives product vision; agents (Claude, Codex)
+The Android client for Arc Media Server: one app (`org.arcmediaserver.android`, one Play listing)
+with a TV interface (Android TV / Google TV, built first) and, later, a phone/tablet interface,
+sharing the API client, sign-in and playback code (split into `core`/`tv`/`mobile` modules when the
+phone interface starts). The server is arc-media-server/arc-media-server (Go, with a web
+app). The owner (GitHub: JonzaUK) drives product vision; agents (Claude, Codex)
 do most implementation. Read `README.md` (build, install, tests) and `docs/changes/` (what was
 built and why). The server repo's CLAUDE.md, ROADMAP.md (milestone 18) and docs/API.md are the
 wider context; decisions waiting for the owner are on arc-media-server#80.
@@ -39,7 +42,7 @@ wider context; decisions waiting for the owner are on arc-media-server#80.
 ## Layout
 
 ```
-app/src/main/java/org/arcmediaserver/tv/
+app/src/main/java/org/arcmediaserver/android/
   data/       API client (ArcApi), models, session store (Keystore-encrypted token), Home rows
   playback/   device capabilities for the playback decision, converted-stream offset clock
   ui/         one ViewModel + stateless screen per screen; theme/, components/
