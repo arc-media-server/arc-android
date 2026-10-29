@@ -2,14 +2,15 @@
 
 The Arc Media Server app for Android TV and Google TV: sign in with a code, pick a profile, browse
 Home and your libraries, and play. Native: Kotlin, Jetpack Compose for TV and Media3 (ExoPlayer).
-It talks only to Arc's stable API, `/api/v1` (see `docs/API.md` at the top of the repository).
+It talks only to Arc's stable API, `/api/v1` (see `docs/API.md` in
+[arc-media-server](https://github.com/arc-media-server/arc-media-server)).
 
-Status: a first working slice (milestone 18, issue #63). What it does and doesn't do yet is in
+Status: a first working slice (the server repo's milestone 18, arc-media-server#63). What it does and doesn't do yet is in
 `docs/changes/2026-10-29-android-tv-app.md`.
 
 ## Build
 
-You need JDK 21 and the Android SDK (platform 37, platform-tools). Then, in this folder:
+You need JDK 21 and the Android SDK (platform 37, platform-tools). Then:
 
 ```sh
 ./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
@@ -18,13 +19,12 @@ You need JDK 21 and the Android SDK (platform 37, platform-tools). Then, in this
 ```
 
 Release builds (`assembleRelease`) are signed with the debug key for now: there are no signing
-keys in git. Arc's Go server and web app build exactly as before; nothing here is part of them,
-and `clients/` is left out of the Docker image.
+keys in git. The server is a separate repository; this app only needs a running Arc to talk to.
 
 ### Setting up the SDK on a new machine
 
 - **Windows (the owner's PCs):** install Android Studio (`winget install Google.AndroidStudio`),
-  open `clients/android-tv` in it and let it install the SDK it asks for; or, without the IDE,
+  open this repository in it and let it install the SDK it asks for; or, without the IDE,
   download the "command line tools only" zip from developer.android.com, unzip it to
   `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest`, and run
   `sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"`. Set `ANDROID_HOME`
