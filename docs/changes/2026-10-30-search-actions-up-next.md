@@ -283,3 +283,13 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 - The shorter header leaves room for the cast row whole under the buttons when the page opens
   (it was cut off).
 - Logged: nothing new.
+
+## Labels on title pages (owner, 30 October)
+
+- A title's page shows the web's labels as small badges under its details line: the age rating,
+  then for one version the picture (4K, Dolby Vision, HDR10+, HDR10, HLG) and the main sound
+  (e.g. TrueHD Atmos 7.1), or how many versions there are. They come from the title's files
+  (`formatLabels`, with the naming already used by Media Info and the player, now shared in
+  Controls.kt). Owner: labels belong on the title page only, so Home's overview keeps the age
+  rating in its details line and shows no badges.
+- Logged: nothing new.

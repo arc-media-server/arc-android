@@ -455,12 +455,18 @@ private fun Overview(card: MediaCard) {
  * Home and on the title's page, at the same place, so moving between them doesn't jump.
  */
 @Composable
-fun TitleSummary(item: Item, meta: List<String>, modifier: Modifier = Modifier) {
+fun TitleSummary(item: Item, meta: List<String>, modifier: Modifier = Modifier, labels: Boolean = false) {
     Column(modifier.width(480.dp)) {
         TitleLogo(item, maxHeight = 72.dp, maxWidth = 360.dp)
         Spacer(Modifier.height(14.dp))
         val line = meta.filter { it.isNotBlank() }
         if (line.isNotEmpty()) Text(line.joinToString("  ·  "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // On a title's page only (as the web): its labels, the age rating, picture and sound.
+        val shown = if (labels) org.arcmediaserver.android.ui.components.formatLabels(item) else emptyList()
+        if (shown.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            org.arcmediaserver.android.ui.components.FormatBadges(shown)
+        }
         Spacer(Modifier.height(8.dp))
         item.overview?.takeIf { it.isNotBlank() }?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)

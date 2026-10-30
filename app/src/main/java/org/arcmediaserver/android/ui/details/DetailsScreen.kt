@@ -228,12 +228,12 @@ private fun Header(
             listOfNotNull(
                 if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
                 item.year?.toString(),
-                item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
                 item.genres.take(2).joinToString(", "),
             ),
+            labels = true,
         )
         Spacer(Modifier.height(24.dp))
         var focusedLabel by remember { mutableStateOf<String?>(null) }
