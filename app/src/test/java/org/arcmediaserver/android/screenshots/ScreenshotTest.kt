@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.screenshots
 
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
@@ -60,7 +62,7 @@ class ScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun shot(name: String, content: @Composable () -> Unit) {
+    private fun shot(name: String, keys: List<androidx.compose.ui.input.key.Key> = emptyList(), content: @Composable () -> Unit) {
         compose.setContent {
             CompositionLocalProvider(
                 LocalInspectionMode provides true,
@@ -73,6 +75,12 @@ class ScreenshotTest {
         // Let focus land (lazy rows compose their items a frame later) and the focus animation finish.
         compose.mainClock.advanceTimeBy(1_500)
         compose.waitForIdle()
+        for (key in keys) {
+            @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+            compose.onRoot().performKeyInput { pressKey(key) }
+            compose.mainClock.advanceTimeBy(600)
+            compose.waitForIdle()
+        }
         compose.onRoot().captureRoboImage("screenshots/tv-$name.png")
     }
 
@@ -151,6 +159,20 @@ class ScreenshotTest {
             ),
         ),
     )
+
+    @Test
+    fun libraryScrolled() = shot("library-scrolled", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        // Two rows down: the third row's titles show whole under its cards.
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], (1..4).flatMap { n -> Fixtures.movies.map { it.copy(id = it.id + n, title = it.title + " " + n) } })),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
 
     @Test
     fun librarySort() = shot("library-sort") {
