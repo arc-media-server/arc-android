@@ -21,8 +21,10 @@ data class Details(
     val seasons: List<Season> = emptyList(),
     /** For a show: the episode Play starts (the one part-way through, or the next unwatched). */
     val next: Item? = null,
-    /** The season to open on: the next episode's. */
+    /** The season to open on: the [focus] episode's, else the next episode's. */
     val initialSeason: Int = 0,
+    /** An episode opened from a row (Continue Watching, Recently Added): the page lands on it. */
+    val focus: Item? = null,
 )
 
 /** The episode to carry on with: one part-way through, else the first not watched, specials last. */
@@ -51,7 +53,7 @@ suspend fun optimistic(before: Item, after: Item, show: (Item) -> Unit, save: su
     }
 }
 
-class DetailsViewModel(private val container: AppContainer, private val itemId: String) : ViewModel() {
+class DetailsViewModel(private val container: AppContainer, private val itemId: String, private val episodeId: String? = null) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<Details>>(LoadState.Loading)
     val state: StateFlow<LoadState<Details>> = _state
 
@@ -111,8 +113,10 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
                 if (item.isSeries) {
                     val seasons = api.seasons(item.id).seasons.filter { it.episodes.isNotEmpty() }
                     val next = nextEpisode(seasons)
-                    val idx = seasons.indexOfFirst { s -> s.episodes.any { it.id == next?.id } }.coerceAtLeast(0)
-                    LoadState.Ready(Details(item, seasons, next, idx))
+                    val focus = episodeId?.let { id -> seasons.firstNotNullOfOrNull { s -> s.episodes.firstOrNull { it.id == id } } }
+                    val land = focus ?: next
+                    val idx = seasons.indexOfFirst { s -> s.episodes.any { it.id == land?.id } }.coerceAtLeast(0)
+                    LoadState.Ready(Details(item, seasons, next, idx, focus))
                 } else {
                     LoadState.Ready(Details(item))
                 }

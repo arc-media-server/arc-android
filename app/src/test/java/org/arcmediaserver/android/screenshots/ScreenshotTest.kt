@@ -156,6 +156,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showFromEpisode() = shot("show-from-episode") {
+        // Opened from an episode's card on Home: the show's page, focused on that episode.
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0, focus = Fixtures.seasons[0].episodes[3]),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun show() = shot("show-episodes") {
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),

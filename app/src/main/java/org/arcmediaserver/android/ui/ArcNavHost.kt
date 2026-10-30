@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui
 
+import org.arcmediaserver.android.data.Item
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +27,12 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 @Serializable object SignInDest
 @Serializable object ProfilesDest
 @Serializable object BrowseDest
-@Serializable data class DetailsDest(val itemId: String)
+/** A title's page; for an episode's card, its show's page landing on [episodeId] (as Plex). */
+@Serializable data class DetailsDest(val itemId: String, val episodeId: String? = null)
+
+/** Where a card opens: a title's own page, or for an episode, its show's page on that episode. */
+private fun detailsFor(item: Item) =
+    if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
 @Serializable data class PlayerDest(val itemId: String, val startMs: Long)
 @Serializable data class PersonDest(val personId: Long)
 
@@ -56,7 +62,7 @@ fun ArcNavHost() {
             }
             composable<BrowseDest> {
                 BrowseRoute(
-                    onOpen = { item -> nav.navigate(DetailsDest(item.id)) },
+                    onOpen = { item -> nav.navigate(detailsFor(item)) },
                     onPerson = { person -> nav.navigate(PersonDest(person.id)) },
                     onSwitchProfile = { nav.navigate(ProfilesDest) },
                     onSignedOut = { nav.startAt(SignInDest) },
@@ -66,12 +72,13 @@ fun ArcNavHost() {
                 val dest = entry.toRoute<DetailsDest>()
                 DetailsRoute(
                     itemId = dest.itemId,
+                    episodeId = dest.episodeId,
                     onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
                     onOpen = { id -> nav.navigate(DetailsDest(id)) },
                 )
             }
             composable<PersonDest> { entry ->
-                PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(DetailsDest(item.id)) })
+                PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })
             }
             composable<PlayerDest> { entry ->
                 val dest = entry.toRoute<PlayerDest>()

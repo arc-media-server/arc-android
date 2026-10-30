@@ -9,7 +9,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.runtime.mutableIntStateOf
-import org.arcmediaserver.android.ui.components.MinimalBringIntoView
+import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
@@ -269,7 +269,8 @@ fun HomeContent(
         // One row at a time, pinned to the bottom (as Plex): the band is exactly one row tall, the
         // focused row slides into it, and posters carry no captions because the overview above
         // names whatever has focus.
-        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+        // The band itself moves in whole rows (no margin); each row keeps its cards clear of the edge.
+        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(0.dp)) {
             // The band shows one row, so focus can't find the next row on its own: Up and Down
             // slide the neighbouring row in and return to the card last focused there.
             var current by remember { mutableIntStateOf(0) }
@@ -431,6 +432,7 @@ private fun Overview(card: MediaCard) {
 fun runtimeText(minutes: Int): String =
     if (minutes >= 60) stringResource(R.string.hours_minutes, minutes / 60, minutes % 60) else stringResource(R.string.minutes, minutes)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester, onOptions: () -> Unit) {
     Column {
@@ -443,7 +445,7 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                 androidx.tv.material3.OutlinedButton(onClick = onRetry, modifier = Modifier.focusRequester(rowFocus)) { Text(stringResource(R.string.action_retry)) }
             }
             // Vertical padding leaves room for the focused card to grow without being clipped.
-            is LoadState.Ready -> LazyRow(
+            is LoadState.Ready -> CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) { LazyRow(
                 // Focusing the row returns to the card last focused in it (or its first).
                 modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
@@ -463,7 +465,7 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
                 }
-            }
+            } }
         }
     }
 }
@@ -526,7 +528,7 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
             val landscape = page.library.kind == "videos"
             // About seven posters across, as Plex; rows scroll only as far as needed, so captions
             // stay in view (no TV pivot).
-            CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(if (landscape) 200.dp else 96.dp),
                 contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 48.dp),
