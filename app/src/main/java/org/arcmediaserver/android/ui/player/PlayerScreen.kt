@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.player
 
+import io.github.peerless2012.ass.media.kt.withAssSupport
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -235,6 +236,8 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     player = vm.player
+                    // libass draws ASS/SSA subtitles over the player's own subtitle view.
+                    subtitleView?.withAssSupport(vm.ass)
                 }
             },
             onRelease = { it.player = null },
