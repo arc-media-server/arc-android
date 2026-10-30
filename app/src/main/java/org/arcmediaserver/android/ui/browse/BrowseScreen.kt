@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.grid.items
 import org.arcmediaserver.android.ui.components.Shelf
@@ -389,24 +391,34 @@ fun backdropOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.
 fun logoOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seriesLogo ?: it.logo else it.logo }
 
 /**
- * The whole-screen backdrop behind Home and a title's page, fading between titles, darkened
- * towards the left and the bottom so text and rows stay readable.
+ * The whole-screen backdrop behind Home and a title's page, as Plex's TV app: the art sits in the
+ * top right, whole (16:9, 70% of the width), over an Ultra Blur wash of its own colours, and its
+ * left and bottom edges fade into that wash (not to black), so the picture stays clear and the
+ * text beside and under it sits on its colours.
  */
 @Composable
 fun ImmersiveBackdrop(url: String?) {
     val resolve = LocalImageUrl.current
-    Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        // As Plex's TV app: the art sits in the top right, whole (16:9, 70% of the width), and only
-        // its left and bottom edges fade into the page, so the picture stays clear and the text
-        // beside and under it sits on plain dark.
-        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.7f).aspectRatio(16f / 9f)) {
+    Box(Modifier.fillMaxSize()) {
+        UltraBlur(url)
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .fillMaxWidth(0.7f)
+                .aspectRatio(16f / 9f)
+                // The art's edges fade to see-through, so the wash shows through them.
+                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.45f to Color.Black.copy(alpha = 0.75f), 0.7f to Color.Black), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                    drawRect(Brush.verticalGradient(0.5f to Color.Black, 0.85f to Color.Black.copy(alpha = 0.3f), 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                },
+        ) {
             Crossfade(url, animationSpec = tween(600), label = "backdrop") { u ->
                 if (u != null) {
                     AsyncImage(model = resolve(u), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
             }
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to ArcColors.Background, 0.4f to ArcColors.Background.copy(alpha = 0.35f), 0.7f to Color.Transparent)))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 0.85f to ArcColors.Background.copy(alpha = 0.8f), 1f to ArcColors.Background)))
         }
     }
 }

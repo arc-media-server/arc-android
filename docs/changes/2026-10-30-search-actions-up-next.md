@@ -304,3 +304,15 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   8dp of slack, so going back to the first card stops at the row's real start. Screenshot tests
   go along the cast and the episodes and back (`tv-movie-row-back.png`, `tv-show-row-back.png`).
 - Logged: nothing new.
+
+## Ultra Blur behind the art (owner, 30 October)
+
+- As Plex's "Ultra Blur": behind Home's and a title page's art, the screen is now a soft wash of
+  the art's own colours instead of black. A tiny copy of the backdrop (48×27) gives the average
+  colour of each quarter; each is darkened (its brightest channel capped at 42%, then mixed a
+  quarter towards the page colour) so white text stays readable, and drawn as a glow from its
+  corner. The colours fade over 0.7 s as the focus moves. The art in the top right now fades to
+  see-through at its left and bottom edges, so the wash shows through instead of black.
+- Plex's server works these colours out; Arc's app does it from the artwork it already loads,
+  so there's no server change (logged on #80). Until the colours are known the page is plain.
+- Logged: nothing new (a failed colour read leaves the plain page).
