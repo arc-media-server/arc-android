@@ -123,6 +123,9 @@ class ArcApi(
         return get("items?$query", ItemPage.serializer(), route = "items")
     }
 
+    /** The values a library's filters can take (genres, decades, qualities). */
+    suspend fun facets(libraryId: Long): Facets = get("libraries/$libraryId/facets", Facets.serializer(), route = "libraries/{id}/facets")
+
     /** A library's Recommended view for the profile. */
     suspend fun recommended(libraryId: Long): List<RecommendedRow> =
         get("libraries/$libraryId/recommended", RecommendedPage.serializer(), route = "libraries/{id}/recommended").rows

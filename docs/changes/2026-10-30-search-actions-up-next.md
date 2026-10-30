@@ -224,3 +224,22 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 - Fixed in passing: Home now reloads its rows when you come back to it (from playing or a
   title's page), so Continue Watching is up to date.
 - Logged: a card change Arc refused, at warning with the error class.
+
+## Library: sort, filters and the A–Z bar (owner, 30 October)
+
+- A library's titles tab has Sort and Filters buttons in its header, as the web's library page:
+  - Sort: Title, Recently Added, Recently Watched, Release Date, Year, Rating, Length or Shuffle,
+    then which way (A–Z / Z–A, Newest / Oldest first…). Rotten Tomatoes waits while rating
+    sources are paused.
+  - Filters: only things I haven't watched, and a genre, decade or quality from what the library
+    has (`/libraries/{id}/facets`), with Clear Filters. The button says how many are on.
+  - Choices apply at once and are kept per library while the app runs. "Nothing matches" when a
+    filter leaves nothing.
+- With title sort, an A–Z bar runs down the right (letters with no titles left out, # for the
+  rest), as the web's LetterRail and Plex's. Choosing a letter moves to its first title.
+- The grid now loads pages wherever it is, not only from the top: a position not loaded yet shows
+  an empty card that fills in, and the focus stays on it. That lets a jump to a letter (or a long
+  scroll) skip loading everything before it. It relies on `/items`' `total`, `offset` and
+  `letters`, promised by arc-media-server#304.
+- Logged: a page or the first load failing, at warning with the library id and error class, as
+  before; facets failing quietly leave only the unwatched filter.

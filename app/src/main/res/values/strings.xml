@@ -87,6 +87,35 @@
     <string name="row_seasonal_christmas">Christmas Films</string>
     <string name="row_collection">Collection</string>
     <string name="row_playlist">Playlist</string>
+    <string name="library_filters">Filters</string>
+    <string name="library_nothing_matches">Nothing matches. Try fewer filters.</string>
+    <string name="library_sort_by">Sort by</string>
+    <string name="library_order">Order</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_added">Recently Added</string>
+    <string name="sort_watched">Recently Watched</string>
+    <string name="sort_release">Release Date</string>
+    <string name="sort_year">Year</string>
+    <string name="sort_rating">Rating</string>
+    <string name="sort_runtime">Length</string>
+    <string name="sort_shuffle">Shuffle</string>
+    <string name="direction_a_to_z">A–Z</string>
+    <string name="direction_z_to_a">Z–A</string>
+    <string name="direction_newest">Newest first</string>
+    <string name="direction_oldest">Oldest first</string>
+    <string name="direction_highest">Highest first</string>
+    <string name="direction_lowest">Lowest first</string>
+    <string name="direction_longest">Longest first</string>
+    <string name="direction_shortest">Shortest first</string>
+    <string name="direction_most_recent">Most recent first</string>
+    <string name="direction_least_recent">Least recent first</string>
+    <string name="filter_unwatched">Only things I haven\'t watched</string>
+    <string name="filter_genre">Genre</string>
+    <string name="filter_decade">Decade</string>
+    <string name="filter_decade_value">%1$ds</string>
+    <string name="filter_quality">Quality</string>
+    <string name="filter_any">Any</string>
+    <string name="filter_clear">Clear Filters</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
     <!-- Search -->
@@ -104,6 +133,10 @@
     </plurals>
 
     <!-- Library -->
+    <plurals name="library_filters_on">
+        <item quantity="one">Filters, %1$d on</item>
+        <item quantity="other">Filters, %1$d on</item>
+    </plurals>
     <plurals name="library_count">
         <item quantity="one">%1$d title</item>
         <item quantity="other">%1$d titles</item>

@@ -125,7 +125,8 @@ fun BrowseRoute(
         onRetry = vm::load,
         onRetryRow = vm::retryRow,
         onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
-        onNearEnd = vm::nearEnd,
+        onNeedTitles = vm::needTitles,
+        onLibraryQuery = vm::setLibraryQuery,
         onLibraryTab = vm::showLibraryTab,
         onOpenCollection = onOpenCollection,
         onRetryLibraryExtras = vm::retryLibraryExtras,
@@ -143,12 +144,13 @@ fun BrowseScreen(
     onRetry: () -> Unit,
     onRetryRow: (HomeRowSpec) -> Unit,
     onRetryLibrary: () -> Unit,
-    onNearEnd: () -> Unit,
+    onNeedTitles: (Int) -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
     onLibraryTab: (LibraryTab) -> Unit = {},
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
     onRetryLibraryExtras: () -> Unit = {},
+    onLibraryQuery: (LibraryQuery) -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
 ) {
@@ -172,7 +174,7 @@ fun BrowseScreen(
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
                             Section.Search -> searchContent()
-                            is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNearEnd)
+                            is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
                         }
                     }
                 }
@@ -494,8 +496,9 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
 }
 
 /**
- * A library: its name and tabs, as Plex's TV app and the web (Recommended, its titles A to Z,
- * Collections), then the chosen tab. Moving along the tabs switches what's shown.
+ * A library: its name and tabs, as Plex's TV app and the web (Recommended, its titles, Collections),
+ * then the chosen tab. Moving along the tabs switches what's shown. The titles have the web's sort
+ * and filters, and an A–Z bar down the right while they're sorted by title.
  */
 @Composable
 fun LibraryContent(
@@ -507,37 +510,129 @@ fun LibraryContent(
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit,
     onRetry: () -> Unit,
     onRetryExtras: () -> Unit,
-    onNearEnd: () -> Unit,
+    onNeed: (Int) -> Unit,
+    onQuery: (LibraryQuery) -> Unit = {},
 ) {
     Loaded(state, onRetry) { page ->
         val tabs = libraryTabs(page.library, extras)
         val shown = tab.takeIf { it in tabs } ?: LibraryTab.Titles
         val first = remember { FocusRequester() }
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.width(24.dp))
-                if (tabs.size > 1) {
-                    val titles = when (page.library.kind) { "shows" -> R.string.library_tab_shows; "videos" -> R.string.library_tab_videos; else -> R.string.library_tab_movies }
-                    val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> titles; LibraryTab.Collections -> R.string.library_tab_collections }) }
-                    PillTabs(labels, tabs.indexOf(shown), onSelect = { onTab(tabs[it]) })
+        var panel by remember { mutableStateOf<LibraryPanel?>(null) }
+        val sortButton = remember { FocusRequester() }
+        val filterButton = remember { FocusRequester() }
+        Box(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
+                    Spacer(Modifier.width(24.dp))
+                    if (tabs.size > 1) {
+                        val titles = when (page.library.kind) { "shows" -> R.string.library_tab_shows; "videos" -> R.string.library_tab_videos; else -> R.string.library_tab_movies }
+                        val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> titles; LibraryTab.Collections -> R.string.library_tab_collections }) }
+                        PillTabs(labels, tabs.indexOf(shown), onSelect = { onTab(tabs[it]) })
+                    }
+                    if (shown == LibraryTab.Titles) {
+                        Spacer(Modifier.weight(1f))
+                        Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+                        Spacer(Modifier.width(16.dp))
+                        HeaderButton(sortLabel(page.query.sort), Modifier.focusRequester(sortButton)) { panel = LibraryPanel.Sort }
+                        Spacer(Modifier.width(10.dp))
+                        val n = page.query.filterCount
+                        HeaderButton(if (n > 0) pluralStringResource(R.plurals.library_filters_on, n, n) else stringResource(R.string.library_filters), Modifier.focusRequester(filterButton)) { panel = LibraryPanel.Filters }
+                    }
                 }
-                if (shown == LibraryTab.Titles) {
-                    Spacer(Modifier.width(14.dp))
-                    Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+                when (shown) {
+                    LibraryTab.Titles -> if (page.total == 0) {
+                        Text(stringResource(if (page.query.filterCount > 0) R.string.library_nothing_matches else R.string.library_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
+                    } else {
+                        TitlesWithLetters(page, first, onOpen, onNeed)
+                    }
+                    LibraryTab.Recommended -> Loaded(extras.recommended, onRetryExtras) { rows -> RecommendedView(rows, page.library, first, onOpen) }
+                    LibraryTab.Collections -> Loaded(extras.collections, onRetryExtras) { collections -> CollectionGrid(collections, first, onOpenCollection) }
                 }
             }
-            when (shown) {
-                LibraryTab.Titles -> if (page.items.isEmpty()) {
-                    Text(stringResource(R.string.library_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
-                } else {
-                    TitleGrid(page.items, landscape = page.library.kind == "videos", first, onOpen, onNearEnd)
-                }
-                LibraryTab.Recommended -> Loaded(extras.recommended, onRetryExtras) { rows -> RecommendedView(rows, page.library, first, onOpen) }
-                LibraryTab.Collections -> Loaded(extras.collections, onRetryExtras) { collections -> CollectionGrid(collections, first, onOpenCollection) }
+            when (panel) {
+                LibraryPanel.Sort -> SortPanel(page.query, onChoose = onQuery, onClose = { panel = null; runCatching { sortButton.requestFocus() } })
+                LibraryPanel.Filters -> FilterPanel(page.query, extras.facets, onChoose = onQuery, onClose = { panel = null; runCatching { filterButton.requestFocus() } })
+                null -> Unit
             }
         }
-        LaunchedEffect(page.library.id) { first.requestWhenReady() }
+        LaunchedEffect(page.library.id, page.query) { first.requestWhenReady() }
+    }
+}
+
+/** A small rounded button in a screen's header (a library's Sort and Filters). */
+@Composable
+private fun HeaderButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    androidx.tv.material3.OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(36.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+    ) { Text(label, style = MaterialTheme.typography.labelLarge) }
+}
+
+/**
+ * The library's titles with the A–Z bar beside them (title sort only, as the web's LetterRail):
+ * choosing a letter moves to its first title, loading that part of the list if needed. Letters
+ * with no titles are left out.
+ */
+@Composable
+private fun TitlesWithLetters(page: LibraryPage, first: FocusRequester, onOpen: (Item) -> Unit, onNeed: (Int) -> Unit) {
+    val grid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    var target by remember(page.query) { mutableStateOf<Int?>(null) }
+    val offsets = remember(page.letters, page.query.reverse) { letterOffsets(page.letters, page.query.reverse) }
+    Row(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            TitleGrid(page.total, { page.items[it] }, landscape = page.library.kind == "videos", first, onOpen, onNeed, grid, target)
+        }
+        if (page.query.sort == "title" && offsets.size > 1) {
+            LetterBar(offsets.keys.toList()) { letter ->
+                val at = offsets.getValue(letter)
+                onNeed(at)
+                target = at
+                scope.launch { grid.scrollToItem(at) }
+            }
+        }
+    }
+}
+
+/** Where each letter's first title is in the list, in the list's order (web letterOffsets). */
+fun letterOffsets(letters: List<org.arcmediaserver.android.data.LetterCount>, reverse: Boolean): LinkedHashMap<String, Int> {
+    val out = LinkedHashMap<String, Int>()
+    var at = 0
+    for (l in if (reverse) letters.asReversed() else letters) {
+        val key = l.letter.uppercase().takeIf { it.length == 1 && it[0] in 'A'..'Z' } ?: "#"
+        if (key !in out) out[key] = at
+        at += l.count
+    }
+    return out
+}
+
+@Composable
+private fun LetterBar(letters: List<String>, onJump: (String) -> Unit) {
+    androidx.compose.foundation.lazy.LazyColumn(
+        Modifier.width(36.dp).fillMaxHeight().padding(end = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+        contentPadding = PaddingValues(vertical = 8.dp),
+    ) {
+        items(letters, key = { it }) { letter ->
+            androidx.tv.material3.Surface(
+                onClick = { onJump(letter) },
+                modifier = Modifier.size(24.dp, 17.dp),
+                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = ArcColors.Muted,
+                    focusedContainerColor = ArcColors.Foreground,
+                    focusedContentColor = ArcColors.Background,
+                ),
+                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(letter, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
     }
 }
 
@@ -548,16 +643,59 @@ fun LibraryContent(
  * library's titles and a collection's page.
  */
 @Composable
-fun TitleGrid(items: List<Item>, landscape: Boolean, first: FocusRequester, onOpen: (Item) -> Unit, onNearEnd: () -> Unit = {}) =
-    CardGrid(items.size, landscape, key = { items[it].id }) { i, mod ->
-        MediaCardView(cardFor(items[i]), landscape = landscape, onClick = { onOpen(items[i]) }, modifier = (if (i == 0) mod.focusRequester(first) else mod).onFocusChanged { if (it.hasFocus && i >= items.size - 18) onNearEnd() })
-    }
+fun TitleGrid(items: List<Item>, landscape: Boolean, first: FocusRequester, onOpen: (Item) -> Unit) =
+    TitleGrid(items.size, { items.getOrNull(it) }, landscape, first, onOpen)
+
+/**
+ * The grid over [count] positions, of which [itemAt] knows those loaded: a position not loaded
+ * yet shows an empty card (the same card, so the focus stays when its title arrives) and asks for
+ * its page through [onNeed]. [target] is a position to move the focus to (a letter's first title).
+ */
+@Composable
+fun TitleGrid(
+    count: Int,
+    itemAt: (Int) -> Item?,
+    landscape: Boolean,
+    first: FocusRequester,
+    onOpen: (Item) -> Unit,
+    onNeed: (Int) -> Unit = {},
+    state: androidx.compose.foundation.lazy.grid.LazyGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState(),
+    target: Int? = null,
+) = CardGrid(count, landscape, key = { it }, state = state) { i, mod ->
+    val item = itemAt(i)
+    if (item == null) LaunchedEffect(i) { onNeed(i) }
+    val card = item?.let { cardFor(it) } ?: placeholderCard(i)
+    val self = if (i == target) remember(target) { FocusRequester() } else null
+    if (self != null) LaunchedEffect(target) { self.requestWhenReady() }
+    MediaCardView(
+        card,
+        landscape = landscape,
+        onClick = { if (item != null) onOpen(item) },
+        modifier = mod
+            .then(if (i == 0) Modifier.focusRequester(first) else Modifier)
+            .then(if (self != null) Modifier.focusRequester(self) else Modifier)
+            // Load ahead of the focus, so titles are there by the time the grid reaches them.
+            .onFocusChanged { if (it.hasFocus) onNeed(i + 30) },
+    )
+}
+
+/** An empty card for a position whose title hasn't loaded yet. */
+private fun placeholderCard(i: Int) = MediaCard(key = "slot:$i", item = Item(id = "", kind = "placeholder", title = ""), poster = null, thumb = null, progress = null)
+
+private enum class LibraryPanel { Sort, Filters }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CardGrid(count: Int, landscape: Boolean, key: (Int) -> Any, card: @Composable (Int, Modifier) -> Unit) {
+private fun CardGrid(
+    count: Int,
+    landscape: Boolean,
+    key: (Int) -> Any,
+    state: androidx.compose.foundation.lazy.grid.LazyGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState(),
+    card: @Composable (Int, Modifier) -> Unit,
+) {
     CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(12.dp)) {
         LazyVerticalGrid(
+            state = state,
             columns = GridCells.Fixed(if (landscape) 4 else 6),
             contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp),

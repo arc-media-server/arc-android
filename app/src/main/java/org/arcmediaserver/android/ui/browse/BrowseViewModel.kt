@@ -29,7 +29,50 @@ data class HomeRowState(val spec: HomeRowSpec, val cards: LoadState<List<MediaCa
 /** What the sidebar lists and who's watching. */
 data class BrowseFrame(val libraries: List<Library>, val profile: Profile?, val canSwitchProfile: Boolean)
 
-data class LibraryPage(val library: Library, val items: List<Item>, val total: Int, val loadingMore: Boolean = false)
+/**
+ * How a library's titles are sorted and filtered, as the web's library page: a sort and its
+ * direction ([reverse] flips the usual one), unwatched only, and a genre, decade or quality.
+ */
+data class LibraryQuery(
+    val sort: String = "title",
+    val reverse: Boolean = false,
+    val unwatched: Boolean = false,
+    val genre: String? = null,
+    val decade: Int? = null,
+    val resolution: String? = null,
+) {
+    val filterCount get() = listOf(unwatched, genre != null, decade != null, resolution != null).count { it }
+
+    /** /items parameters for this view of [library]: a page of [limit] from [offset]. */
+    fun params(library: Library, limit: Int, offset: Int = 0): Map<String, String> = libraryQuery(library, sort, limit, offset) + buildMap {
+        if (reverse && sort != "shuffle") put("reverse", "1")
+        if (unwatched) put("unwatched", "1")
+        genre?.let { put("genre", it) }
+        decade?.let { put("decade", it.toString()) }
+        resolution?.let { put("resolution", it) }
+        // The A–Z bar needs to know where each letter starts.
+        if (offset == 0 && sort == "title") put("letters", "1")
+    }
+}
+
+/**
+ * A library's titles as far as they're loaded: [items] by position in the whole list of [total],
+ * loaded a page at a time wherever the grid is (so a jump to a letter needn't load what's before
+ * it). [letters] counts titles by first character, for the A–Z bar (title sort only).
+ */
+data class LibraryPage(
+    val library: Library,
+    val total: Int,
+    val items: Map<Int, Item>,
+    val query: LibraryQuery = LibraryQuery(),
+    val letters: List<org.arcmediaserver.android.data.LetterCount> = emptyList(),
+) {
+    companion object {
+        /** A page whose titles are all loaded, in order. */
+        fun of(library: Library, items: List<Item>, total: Int = items.size, query: LibraryQuery = LibraryQuery()) =
+            LibraryPage(library, total, items.withIndex().associate { it.index to it.value }, query)
+    }
+}
 
 /** A library's tabs, as Plex's and the web's: Recommended, its titles, and its collections. */
 enum class LibraryTab { Recommended, Titles, Collections }
@@ -38,6 +81,8 @@ enum class LibraryTab { Recommended, Titles, Collections }
 data class LibraryExtras(
     val recommended: LoadState<List<org.arcmediaserver.android.data.RecommendedRow>> = LoadState.Loading,
     val collections: LoadState<List<org.arcmediaserver.android.data.CollectionRef>> = LoadState.Loading,
+    /** What the library's filters can be set to; empty until loaded (or if it fails). */
+    val facets: org.arcmediaserver.android.data.Facets = org.arcmediaserver.android.data.Facets(),
 )
 
 /** The tabs a library has: no Recommended for home videos, no Collections tab when it has none. */
@@ -150,6 +195,10 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         if (section is Section.Library) loadLibrary(section.id)
     }
 
+    // Each library's sort and filters, kept while the app runs, as the web keeps them per library.
+    private val libraryQueries = mutableMapOf<Long, LibraryQuery>()
+    private val pagesLoading = mutableSetOf<Int>()
+
     fun loadLibrary(id: Long) {
         val api = container.api() ?: return
         val lib = (state.value.frame as? LoadState.Ready)?.value?.libraries?.find { it.id == id } ?: return
@@ -157,16 +206,56 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         val tab = if (lib.kind == "videos") LibraryTab.Titles else LibraryTab.Recommended
         _state.update { it.copy(library = LoadState.Loading, libraryTab = tab, libraryExtras = LibraryExtras()) }
         loadLibraryExtras(api, lib)
+        loadTitles(api, lib, libraryQueries[lib.id] ?: LibraryQuery())
+    }
+
+    /** Sorts or filters the library's titles another way, and remembers it for this library. */
+    fun setLibraryQuery(query: LibraryQuery) {
+        val api = container.api() ?: return
+        val lib = (state.value.library as? LoadState.Ready)?.value?.library ?: return
+        libraryQueries[lib.id] = query
+        loadTitles(api, lib, query)
+    }
+
+    private fun loadTitles(api: ArcApi, lib: Library, query: LibraryQuery) {
+        _state.update { it.copy(library = LoadState.Loading) }
+        pagesLoading.clear()
         viewModelScope.launch {
             val result = try {
-                val page = api.items(libraryQuery(lib, sort = "title", limit = PAGE))
-                LoadState.Ready(LibraryPage(lib, page.items, page.total))
+                val page = api.items(query.params(lib, PAGE))
+                LoadState.Ready(LibraryPage(lib, page.total, page.items.withIndex().associate { it.index to it.value }, query, page.letters))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ArcLog.Android.warn("library ${lib.id} failed to load: ${e.javaClass.simpleName}")
                 LoadState.Failed(e.toUiError())
             }
             _state.update { it.copy(library = result) }
+        }
+    }
+
+    /** Loads the page holding position [index] (and the next one), when the grid gets near it. */
+    fun needTitles(index: Int) {
+        val api = container.api() ?: return
+        val page = (state.value.library as? LoadState.Ready)?.value ?: return
+        for (p in listOf(index / PAGE, index / PAGE + 1)) {
+            val from = p * PAGE
+            if (from >= page.total || page.items.containsKey(from) || !pagesLoading.add(p)) continue
+            viewModelScope.launch {
+                val more = try {
+                    api.items(page.query.params(page.library, PAGE, offset = from)).items
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    ArcLog.Android.warn("library ${page.library.id} page failed: ${e.javaClass.simpleName}")
+                    emptyList()
+                } finally {
+                    pagesLoading.remove(p)
+                }
+                _state.update { s ->
+                    val cur = (s.library as? LoadState.Ready)?.value ?: return@update s
+                    if (cur.library.id != page.library.id || cur.query != page.query) return@update s
+                    s.copy(library = LoadState.Ready(cur.copy(items = cur.items + more.withIndex().associate { from + it.index to it.value })))
+                }
+            }
         }
     }
 
@@ -188,6 +277,10 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         }
         if (lib.kind != "videos") load("recommended", { api.recommended(lib.id) }) { x, r -> x.copy(recommended = r) }
         load("collections", { api.libraryCollections(lib.id) }) { x, r -> x.copy(collections = r) }
+        viewModelScope.launch {
+            val facets = runCatching { api.facets(lib.id) }.getOrNull() ?: return@launch
+            _state.update { s -> if ((s.section as? Section.Library)?.id != lib.id) s else s.copy(libraryExtras = s.libraryExtras.copy(facets = facets)) }
+        }
     }
 
     fun retryLibraryExtras() {
@@ -195,28 +288,6 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         val lib = (state.value.library as? LoadState.Ready)?.value?.library ?: return
         _state.update { it.copy(libraryExtras = LibraryExtras()) }
         loadLibraryExtras(api, lib)
-    }
-
-    /** Loads the next page when the focus nears the end of what's loaded. */
-    fun nearEnd() {
-        val api = container.api() ?: return
-        val page = (state.value.library as? LoadState.Ready)?.value ?: return
-        if (page.loadingMore || page.items.size >= page.total) return
-        _state.update { it.copy(library = LoadState.Ready(page.copy(loadingMore = true))) }
-        viewModelScope.launch {
-            val more = try {
-                api.items(libraryQuery(page.library, sort = "title", limit = PAGE, offset = page.items.size)).items
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                ArcLog.Android.warn("library ${page.library.id} page failed: ${e.javaClass.simpleName}")
-                emptyList()
-            }
-            _state.update { s ->
-                val cur = (s.library as? LoadState.Ready)?.value ?: return@update s
-                if (cur.library.id != page.library.id) return@update s
-                s.copy(library = LoadState.Ready(cur.copy(items = cur.items + more, loadingMore = false, total = if (more.isEmpty()) cur.items.size else cur.total)))
-            }
-        }
     }
 
     fun signOut(done: () -> Unit) = container.signOut(done)
