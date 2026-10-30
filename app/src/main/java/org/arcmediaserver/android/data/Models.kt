@@ -142,6 +142,8 @@ data class Item(
 ) {
     val isEpisode get() = kind == "episode"
     val isSeries get() = kind == "series"
+    /** A movie, an episode or a show (its episodes): what a play queue takes. */
+    val queueable get() = kind == "movie" || kind == "episode" || kind == "series"
     val playable get() = kind == "movie" || kind == "episode"
 
     /** How long it runs, as well as Arc knows: the file's length, or the listed runtime. */
@@ -470,3 +472,60 @@ data class ProgressReport(
     /** playing, paused or stopped. */
     val state: String,
 )
+
+/** This server's own identity (GET /identity): its friendly name, set in Arc's settings. */
+@Serializable
+data class Identity(
+    val id: String = "",
+    val name: String = "",
+    val version: String = "",
+    @SerialName("api_version") val apiVersion: Int = 0,
+)
+
+/**
+ * What the server supports (GET /capabilities). A feature is usable when it's supported,
+ * available now and allowed for the profile; a missing key means this server doesn't have it.
+ */
+@Serializable
+data class Capabilities(
+    @SerialName("api_version") val apiVersion: Int = 0,
+    val features: Map<String, Feature> = emptyMap(),
+) {
+    @Serializable
+    data class Feature(val supported: Boolean = false, val available: Boolean = false, val allowed: Boolean = false)
+
+    fun usable(key: String): Boolean = features[key]?.let { it.supported && it.available && it.allowed } == true
+}
+
+/**
+ * This TV and profile's play queue, kept by Arc (so it's there again after the app restarts).
+ * Entries are told apart by their own ids: the same title can be queued twice.
+ */
+@Serializable
+data class PlayQueue(
+    val id: String,
+    val revision: Long,
+    /** Empty once the queue has played through. */
+    @SerialName("current_entry_id") val currentEntryId: String = "",
+    val shuffled: Boolean = false,
+    val entries: List<PlayQueueEntry> = emptyList(),
+) {
+    val currentIndex: Int get() = entries.indexOfFirst { it.id == currentEntryId }
+
+    /** The first entry after the current one that can be played. */
+    fun nextAvailable(): PlayQueueEntry? = currentIndex.takeIf { it >= 0 }?.let { at -> entries.drop(at + 1).firstOrNull { it.playable } }
+
+    /** The current entry and those after it that can be played (Home's Queue row). */
+    fun upcoming(): List<PlayQueueEntry> = currentIndex.takeIf { it >= 0 }?.let { at -> entries.drop(at).filter { it.playable } }.orEmpty()
+}
+
+/** A queued title; one that's gone or no longer allowed carries only its id. */
+@Serializable
+data class PlayQueueEntry(
+    val id: String,
+    val available: Boolean = false,
+    @SerialName("item_id") val itemId: String? = null,
+    val item: Item? = null,
+) {
+    val playable: Boolean get() = available && item != null
+}

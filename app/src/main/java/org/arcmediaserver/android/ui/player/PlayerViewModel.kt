@@ -67,12 +67,17 @@ data class PlayerUiState(
     /** Arc stopped this playback (from its Dashboard), with the admin's message. */
     val stopped: String? = null,
     val ended: Boolean = false,
-    /** The episode that follows, for Next and Play Next. */
+    /** The episode that follows, for Next and Play Next: the queue's next title, else Auto-Play's. */
     val next: Item? = null,
+    /** [next]'s entry in the play queue, when it comes from the queue. */
+    val nextEntryId: String? = null,
     /** -1 Automatic, 0 Original, or a limit in kbit/s (the web player's quality menu). */
     val quality: Int = -1,
     val speed: Float = 1f,
-    /** The profile's Auto-Play: whether the next episode is offered (and counted down to). */
+    /**
+     * Whether the next title is offered (and counted down to): the profile's Auto-Play, or always
+     * for the play queue's next title (it was queued on purpose).
+     */
     val autoPlay: Boolean = true,
     /** The playing file's timeline thumbnails, or null when it has none. */
     val trickplay: Trickplay? = null,
@@ -123,6 +128,10 @@ class PlayerViewModel(
     context: Context,
     private val itemId: String,
     private val startMs: Long,
+    /** This title's entry in the play queue (playing on through it), or null to start a new queue. */
+    private val entryId: String? = null,
+    /** Auto-Play's next episode: it joins the end of the queue rather than starting a new one. */
+    private val carryOn: Boolean = false,
 ) : ViewModel() {
     private val api: ArcApi = container.api() ?: error("no server")
     private val log = ArcLog.Android
@@ -173,6 +182,8 @@ class PlayerViewModel(
                     val p = plan ?: return
                     report("stopped", position = p.durationMs)
                     _state.update { it.copy(ended = true) }
+                    // Nothing after it: the queue is done, and Arc forgets it.
+                    if (_state.value.next == null) container.appScope.launch { container.queues.end() }
                 }
             }
 
@@ -187,6 +198,18 @@ class PlayerViewModel(
             val item = runCatching { api.item(itemId) }.getOrNull()
             _state.update { it.copy(item = item) }
             val autoPlay = loadedPrefs.await().autoPlay
+            // The play queue follows what's playing: this title's entry, or a new queue of it.
+            val queues = container.queues
+            val entry = when {
+                entryId != null -> entryId.also { queues.moveTo(it) }
+                carryOn -> queues.carryOnWith(itemId)
+                else -> queues.start(listOf(itemId))?.currentEntryId
+            }
+            val queued = queues.queue.value?.takeIf { entry != null && it.currentEntryId == entry }?.nextAvailable()
+            if (queued?.item != null) {
+                _state.update { it.copy(next = queued.item, nextEntryId = queued.id, autoPlay = true) }
+                return@launch
+            }
             val next = if (item?.isEpisode == true && autoPlay) runCatching { api.next(itemId) }.getOrNull() else null
             _state.update { it.copy(next = UpNext.offered(next, autoPlay), autoPlay = autoPlay) }
         }

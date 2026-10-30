@@ -84,7 +84,15 @@ internal fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, con
  * which Arc's API doesn't offer to apps; the server owner's tools stay in the browser.)
  */
 @Composable
-fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMediaInfo: () -> Unit, onClose: () -> Unit) {
+fun MoreMenu(
+    item: Item,
+    onWatched: () -> Unit,
+    onWatchlist: () -> Unit,
+    onMediaInfo: () -> Unit,
+    onClose: () -> Unit,
+    /** Play Next ([true]) or Add to Queue; null when this server keeps no queue. */
+    onQueue: ((next: Boolean) -> Unit)? = null,
+) {
     val first = remember { FocusRequester() }
     Overlay(420.dp, onBack = onClose) {
         Text(item.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -92,6 +100,11 @@ fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMedia
         MenuItem(ArcIcons.CircleCheck, stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched), Modifier.focusRequester(first)) { onWatched(); onClose() }
         if (item.canWatchlist) {
             MenuItem(if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark, stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist)) { onWatchlist(); onClose() }
+        }
+        // The web's queue choices, for what can be played (a show queues its episodes).
+        if (onQueue != null && item.queueable) {
+            MenuItem(ArcIcons.ListStart, stringResource(R.string.queue_play_next)) { onQueue(true); onClose() }
+            MenuItem(ArcIcons.ListVideo, stringResource(R.string.queue_add)) { onQueue(false); onClose() }
         }
         if (item.files.isNotEmpty()) {
             MenuItem(ArcIcons.Info, stringResource(R.string.media_info)) { onMediaInfo() }

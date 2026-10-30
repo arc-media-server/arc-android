@@ -1,0 +1,55 @@
+# Play queues and the server's name
+
+The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.md):
+`/capabilities`, `/identity` and play queues. Pairs with arc-media-server#316 (the web side).
+
+## What changed
+
+- **Server name.** The profile picker shows the server's name under "Who's watching?" (as set in
+  Arc's Settings → Access & devices). Arc only gives it once a profile is chosen
+  (`GET /identity`), so the TV remembers the last name it learnt for the picker. The name is
+  forgotten when the server address changes.
+- **Capabilities.** `GET /capabilities` is read once per profile. Queue features only show when
+  `play_queues` is supported, available and allowed. An older Arc gets none of this, and every
+  queue call does nothing.
+- **Play queues** (`data/PlayQueues.kt`, one store in AppContainer). Calls run one at a time with
+  the latest revision. A 409 (the queue changed elsewhere) reads the queue again and retries the
+  edit once on it.
+  - Playing a title starts a new queue of it, replacing the last one, as the web player does.
+  - The player plays on through the queue. Next, the Up Next countdown and the credits button go
+    to the queue's next playable entry, whatever Auto-Play is set to, because it was queued on
+    purpose. Moving on advances the queue, or selects when it isn't the next entry.
+  - When the queue has nothing after the current title, Auto-Play's next episode is added to the
+    end, so the queue stays a true record.
+  - A queue that plays to its end is deleted. Leaving the player with Back keeps it: the TV has no
+    mini player, so Back is how you browse to add more.
+  - **Home's Queue row** comes first, while there's a queue to carry on. It shows the current title
+    and what follows (unavailable entries are left out), and it's there again after the app
+    restarts (`GET /play-queues/current`). Picking a card plays on from that entry.
+  - **Play Next / Add to Queue** are in every card's menu and the title page's ⋯ menu, for movies,
+    episodes and shows (a show adds its episodes). A note at the bottom says what happened. With no
+    queue yet, they start one without starting playback, and the Queue row appears.
+  - **Shuffle** is on a show's page (after Play): its available episodes in a random order, as a
+    new queue, starting with the first.
+
+## Decisions (logged on arc-media-server#80)
+
+- Queue entries play on even with Auto-Play off.
+- Back keeps the queue; playing it to the end deletes it.
+- Home's Queue row is the app's own row (the server has no Home row for queues), placed first.
+
+## Logging
+
+- Queue failures are warnings with the operation and exception type (e.g. "adding to the queue
+  failed: IOException").
+- A refused edit that was reloaded is logged at info. Starting a queue, with its entry count, and
+  shuffling are logged at debug. A capabilities failure is logged at debug and asked again later.
+- No ids, tokens or URLs are logged beyond what ArcApi already logs (route names only).
+
+## Limits
+
+- Queue entries can't be removed or reordered from the TV yet; the web can. Clearing happens by
+  starting something new or playing to the end.
+- Collections and playlists don't have Play All / Shuffle on the TV yet.
+- Checked with unit tests against a stand-in server (`PlayQueuesTest`), screenshots, and the real
+  server's answers from a scratch Arc via curl. Not yet on a TV or emulator.

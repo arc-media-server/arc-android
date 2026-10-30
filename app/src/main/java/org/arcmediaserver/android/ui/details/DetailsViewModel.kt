@@ -123,8 +123,30 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         }
     }
 
+    private val _canShuffle = MutableStateFlow(false)
+    /** A show can be shuffled when this server keeps play queues (the episodes play on in that order). */
+    val canShuffle: StateFlow<Boolean> = _canShuffle
+
     init {
         load()
+        viewModelScope.launch { _canShuffle.value = container.queues.supported() }
+    }
+
+    /** Shuffle (a show): its available episodes in a random order, as a new queue; [play] starts it. */
+    fun shuffle(play: (Item, String) -> Unit) {
+        val details = (_state.value as? LoadState.Ready)?.value ?: return
+        val episodes = details.seasons.flatMap { it.episodes }.filter { it.available }.shuffled()
+        if (episodes.isEmpty()) return
+        viewModelScope.launch {
+            val queue = container.queues.start(episodes.map { it.id })
+            val first = queue?.entries?.firstOrNull { it.id == queue.currentEntryId && it.playable }
+            if (queue == null || first?.item == null) {
+                ArcLog.Android.warn("shuffling a show failed")
+                return@launch
+            }
+            ArcLog.Android.debug("shuffled ${episodes.size} episodes")
+            play(first.item, first.id)
+        }
     }
 
     /** Loads the page; [quiet] keeps what's shown while it refreshes (coming back from playing). */

@@ -33,7 +33,8 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 /** Where a card opens: a title's own page, or for an episode, its show's page on that episode. */
 private fun detailsFor(item: Item) =
     if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
-@Serializable data class PlayerDest(val itemId: String, val startMs: Long)
+/** The player: [entryId] plays on through the queue from that entry; [carryOn] adds Auto-Play's episode to it. */
+@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false)
 @Serializable data class PersonDest(val personId: Long)
 
 /** A collection's page. */
@@ -74,6 +75,7 @@ fun ArcNavHost() {
                         onSwitchProfile = { nav.navigate(ProfilesDest) },
                         onSignedOut = { nav.startAt(SignInDest) },
                         onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
+                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
                     )
                 }
                 composable<CollectionDest> { entry ->
@@ -88,6 +90,7 @@ fun ArcNavHost() {
                         onOpen = { id -> nav.navigate(DetailsDest(id)) },
                         onPerson = { id -> nav.navigate(PersonDest(id)) },
                         onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
+                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
                     )
                 }
                 composable<ExtraDest> { entry ->
@@ -101,9 +104,13 @@ fun ArcNavHost() {
                     PlayerRoute(
                         dest.itemId,
                         dest.startMs,
+                        dest.entryId,
+                        dest.carryOn,
                         onClose = { nav.popBackStack() },
-                        // The next episode replaces this one, so Back still returns to where play began.
-                        onPlayNext = { next -> nav.navigate(PlayerDest(next.id, next.resumeMs)) { popUpTo<PlayerDest> { inclusive = true } } },
+                        // The next title replaces this one, so Back still returns to where play began.
+                        onPlayNextEntry = { next, entry ->
+                            nav.navigate(PlayerDest(next.id, next.resumeMs, entryId = entry, carryOn = entry == null)) { popUpTo<PlayerDest> { inclusive = true } }
+                        },
                     )
                 }
             }

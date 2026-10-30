@@ -65,10 +65,14 @@ class AppContainer(private val context: Context) {
      */
     val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
 
+    /** This TV's play queue on Arc, for the profile. */
+    val queues = org.arcmediaserver.android.data.PlayQueues(::api)
+
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
     fun profileChanged() {
         palettes.clear()
         itemChanges.clear()
+        queues.reset()
     }
 
     /** [item] with any change made in the app since it was loaded. */

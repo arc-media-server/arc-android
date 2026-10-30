@@ -90,6 +90,7 @@ import org.arcmediaserver.android.data.Library
 import org.arcmediaserver.android.data.MediaCard
 import org.arcmediaserver.android.data.RowSource
 import org.arcmediaserver.android.data.cardFor
+import org.arcmediaserver.android.data.queueEntryId
 import org.arcmediaserver.android.ui.arcViewModel
 import org.arcmediaserver.android.ui.components.ArcIcons
 import org.arcmediaserver.android.ui.components.Artwork
@@ -111,6 +112,7 @@ fun BrowseRoute(
     onSwitchProfile: () -> Unit,
     onSignedOut: () -> Unit,
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+    onPlayQueued: (Item, String) -> Unit = { _, _ -> },
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -136,6 +138,7 @@ fun BrowseRoute(
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
+        onPlayQueued = onPlayQueued,
     )
 }
 
@@ -156,6 +159,7 @@ fun BrowseScreen(
     onLibraryQuery: (LibraryQuery) -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
+    onPlayQueued: (Item, String) -> Unit = { _, _ -> },
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
@@ -175,7 +179,7 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 48.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued)
                             Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
                         }
@@ -284,6 +288,7 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
     )
     is RowSource.Collection -> s.title.ifBlank { stringResource(R.string.row_collection) }
     is RowSource.Playlist -> s.title.ifBlank { stringResource(R.string.row_playlist) }
+    RowSource.Queue -> stringResource(R.string.row_queue)
 }
 
 /**
@@ -298,6 +303,7 @@ fun HomeContent(
     onOpen: (Item) -> Unit,
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
+    onPlayQueued: (Item, String) -> Unit = { _, _ -> },
 ) {
 
     var focused by remember { mutableStateOf<MediaCard?>(null) }
@@ -356,7 +362,8 @@ fun HomeContent(
                     Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) current = index }, contentAlignment = Alignment.BottomStart) {
                         HomeRow(
                             row,
-                            onOpen = onOpen,
+                            // A queue card plays on from its entry; every other card opens its title.
+                            onOpen = { card -> card.queueEntryId()?.let { onPlayQueued(card.item, it) } ?: onOpen(card.item) },
                             onFocused = { focused = it },
                             onRetry = { onRetryRow(row.spec) },
                             firstCard = if (isFirst) firstCard else null,
@@ -496,7 +503,7 @@ fun runtimeText(minutes: Int): String =
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
+private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -522,7 +529,7 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                         backdrop = style == CardStyle.Backdrop,
                         seasonPoster = row.spec.seasonPosters,
                         width = when (style) { CardStyle.Thumb -> HomeThumbWidth; CardStyle.Backdrop -> HomeBackdropWidth; CardStyle.Poster -> HomePosterWidth },
-                        onClick = { onOpen(card.item) },
+                        onClick = { onOpen(card) },
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
                 }

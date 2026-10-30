@@ -105,6 +105,44 @@ class ScreenshotTest {
     }
 
     @Test
+    fun profilesServerName() = shot("profiles-server-name") {
+        // The server's own name (Arc's Settings), under the heading.
+        ProfilesScreen(ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles), serverName = "Living Room"), onChoose = {}, onRetry = {}, onDigit = {}, onDelete = {})
+    }
+
+    @Test
+    fun homeQueue() = shot("home-queue") {
+        // The play queue, first while there's one to carry on: from the title it's on.
+        val queued = listOf(Fixtures.movies[2], Fixtures.seasons[0].episodes[4], Fixtures.movies[4])
+            .mapIndexed { i, item -> org.arcmediaserver.android.data.cardFor(item, key = "queue:e$i") }
+        val rows = listOf(org.arcmediaserver.android.ui.browse.HomeRowState(org.arcmediaserver.android.data.QueueRow, LoadState.Ready(queued))) + Fixtures.homeRows
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = rows))
+    }
+
+    @Test
+    fun moreMenuQueue() = shot("movie-more-menu-queue") {
+        // On a server that keeps play queues: Play Next and Add to Queue.
+        val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
+            override fun current(item: Item) = item
+            override fun open(item: Item, onClose: () -> Unit) = Unit
+            override val queue: ((Item, Boolean) -> Unit)? = { _, _ -> }
+        }
+        androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
+            DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
+        }
+    }
+
+    @Test
+    fun showShuffle() = shot("show-shuffle") {
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(onShuffle = {}),
+        )
+    }
+
+    @Test
     fun pin() = shot("pin") {
         ProfilesScreen(
             ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles), pin = PinPrompt(Fixtures.profiles[1], digits = "12")),
