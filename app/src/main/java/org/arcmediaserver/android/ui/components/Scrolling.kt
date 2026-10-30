@@ -19,7 +19,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun minimalBringIntoView(margin: Dp = 48.dp, after: Dp = margin): BringIntoViewSpec {
     val density = LocalDensity.current
-    val px = with(density) { margin.toPx() }
+    // A focused card is drawn up to 8% larger, so its edge reaches past where it sits; the slack
+    // covers that, so scrolling back to a row's first card stops at the row's own start (scrolling
+    // can't go past the beginning) instead of lining up the enlarged edge a few dp short of it.
+    val slack = with(density) { 8.dp.toPx() }
+    val px = with(density) { margin.toPx() } + slack
     val afterPx = with(density) { after.toPx() }
     return remember(px, afterPx) {
         object : BringIntoViewSpec {

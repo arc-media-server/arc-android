@@ -256,11 +256,16 @@ fun MediaCardView(
 fun Shelf(title: String, start: Dp = 48.dp, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Column {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = start, bottom = 8.dp))
-        androidx.compose.foundation.lazy.LazyRow(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = start, vertical = 10.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
-            content = content,
-        )
+        // Scrolling keeps the row's own start beside the card it brings in, so coming back to the
+        // first card puts it where it began.
+        @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start)) {
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = start, vertical = 10.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
+                content = content,
+            )
+        }
     }
 }
 
