@@ -171,3 +171,17 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   extras player share `arcPlayer`.
 - Logged: an extra that fails to play, at warning with the error code. Related rows that fail
   are left out quietly; the API client already logs server errors.
+
+## Library tabs: Recommended, titles, Collections (owner, 30 October)
+
+- A library has tabs beside its name, as Plex's TV app and the web: Recommended (the server's
+  rows, titled in the app's language from each row's type, in the style the server owner chose),
+  its titles (Movies / Shows / Videos, the 6×2 grid) and Collections (posters; each opens a page
+  with the collection's titles in the same grid). Moving along the tabs switches what's shown.
+- A library opens on Recommended, as Plex's TV app does (the web opens on the titles; logged on
+  #80). Home videos have no Recommended, as on the web; Collections shows only when the library
+  has some (the TV can't make collections).
+- Recommended and the collections load alongside the titles, each on its own; a failure shows
+  Try Again in that tab only. Season and library tabs share `PillTabs`; the library grid and a
+  collection's page share `TitleGrid`. Collection pages need arc-media-server#303.
+- Logged: a library's recommended or collections failing, at warning with the error class.

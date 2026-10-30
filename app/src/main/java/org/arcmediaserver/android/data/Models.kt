@@ -250,8 +250,31 @@ data class Extra(
     @SerialName("duration_ms") val durationMs: Long = 0,
 )
 
+/** A collection: on a title (id, title), in a library's Collections tab (with its poster and size too). */
 @Serializable
-data class CollectionRef(val id: String, val title: String, val kind: String = "")
+data class CollectionRef(val id: String, val title: String, val kind: String = "", val count: Int = 0, val images: Images? = null)
+
+/**
+ * A row of a library's Recommended view. [type] says what it is (continue, recently_released,
+ * recently_added, start_watching, because_you_watched, top_rated, recently_watched, rediscover,
+ * more_in_genre, top_in_genre, top_by_person, top_unwatched) for the app to title in its own
+ * language from [name], [genre] and [role]; [title] is Arc's English title for anything newer.
+ * [style] is the card style the server owner chose (poster, thumb, arc) or "" for automatic.
+ */
+@Serializable
+data class RecommendedRow(
+    val type: String = "",
+    val title: String = "",
+    val name: String? = null,
+    val genre: String? = null,
+    @SerialName("person_id") val personId: Long? = null,
+    val role: String? = null,
+    val style: String = "",
+    val items: List<Item> = emptyList(),
+)
+
+@Serializable
+data class RecommendedPage(val rows: List<RecommendedRow> = emptyList())
 
 /** GET /collections/{id}: a collection and its titles. A folder collection (home videos) is shown as thumbnails. */
 @Serializable

@@ -31,6 +31,22 @@ data class BrowseFrame(val libraries: List<Library>, val profile: Profile?, val 
 
 data class LibraryPage(val library: Library, val items: List<Item>, val total: Int, val loadingMore: Boolean = false)
 
+/** A library's tabs, as Plex's and the web's: Recommended, its titles, and its collections. */
+enum class LibraryTab { Recommended, Titles, Collections }
+
+/** What a library shows besides its titles; loaded alongside them. */
+data class LibraryExtras(
+    val recommended: LoadState<List<org.arcmediaserver.android.data.RecommendedRow>> = LoadState.Loading,
+    val collections: LoadState<List<org.arcmediaserver.android.data.CollectionRef>> = LoadState.Loading,
+)
+
+/** The tabs a library has: no Recommended for home videos, no Collections tab when it has none. */
+fun libraryTabs(library: Library, extras: LibraryExtras): List<LibraryTab> = buildList {
+    if (library.kind != "videos") add(LibraryTab.Recommended)
+    add(LibraryTab.Titles)
+    if ((extras.collections as? LoadState.Ready)?.value?.isNotEmpty() == true) add(LibraryTab.Collections)
+}
+
 sealed interface Section {
     data object Home : Section
     data object Search : Section
@@ -42,6 +58,8 @@ data class BrowseUiState(
     val section: Section = Section.Home,
     val rows: List<HomeRowState> = emptyList(),
     val library: LoadState<LibraryPage> = LoadState.Loading,
+    val libraryTab: LibraryTab = LibraryTab.Recommended,
+    val libraryExtras: LibraryExtras = LibraryExtras(),
 )
 
 /** Loads one Home row's cards. */
@@ -132,7 +150,10 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
     fun loadLibrary(id: Long) {
         val api = container.api() ?: return
         val lib = (state.value.frame as? LoadState.Ready)?.value?.libraries?.find { it.id == id } ?: return
-        _state.update { it.copy(library = LoadState.Loading) }
+        // A library opens on Recommended, as Plex's TV app; home videos on their videos.
+        val tab = if (lib.kind == "videos") LibraryTab.Titles else LibraryTab.Recommended
+        _state.update { it.copy(library = LoadState.Loading, libraryTab = tab, libraryExtras = LibraryExtras()) }
+        loadLibraryExtras(api, lib)
         viewModelScope.launch {
             val result = try {
                 val page = api.items(libraryQuery(lib, sort = "title", limit = PAGE))
@@ -144,6 +165,33 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
             }
             _state.update { it.copy(library = result) }
         }
+    }
+
+    fun showLibraryTab(tab: LibraryTab) = _state.update { it.copy(libraryTab = tab) }
+
+    /** Recommended and the collections, each on its own so a slow one doesn't hold the other. */
+    private fun loadLibraryExtras(api: ArcApi, lib: Library) {
+        fun <T> load(what: String, fetch: suspend () -> T, put: (LibraryExtras, LoadState<T>) -> LibraryExtras) = viewModelScope.launch {
+            val result: LoadState<T> = try {
+                LoadState.Ready(fetch())
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("library ${lib.id} $what failed: ${e.javaClass.simpleName}")
+                LoadState.Failed(e.toUiError())
+            }
+            _state.update { s ->
+                if ((s.section as? Section.Library)?.id != lib.id) s else s.copy(libraryExtras = put(s.libraryExtras, result))
+            }
+        }
+        if (lib.kind != "videos") load("recommended", { api.recommended(lib.id) }) { x, r -> x.copy(recommended = r) }
+        load("collections", { api.libraryCollections(lib.id) }) { x, r -> x.copy(collections = r) }
+    }
+
+    fun retryLibraryExtras() {
+        val api = container.api() ?: return
+        val lib = (state.value.library as? LoadState.Ready)?.value?.library ?: return
+        _state.update { it.copy(libraryExtras = LibraryExtras()) }
+        loadLibraryExtras(api, lib)
     }
 
     /** Loads the next page when the focus nears the end of what's loaded. */
