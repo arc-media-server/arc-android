@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
-import org.arcmediaserver.android.data.CardStyle
 import org.arcmediaserver.android.data.HomeLayout
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -145,11 +144,15 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         saveLayout("move") { saved, libraries -> HomeLayout.move(saved, libraries, shown, id, step) }
     }
 
-    /** Shows a Home row as posters or wide thumbnails. */
-    fun setRowStyle(spec: HomeRowSpec, style: CardStyle) {
-        if (spec.style == style) return
-        _state.update { s -> s.copy(rows = s.rows.map { if (it.spec.id == spec.id) it.copy(spec = it.spec.copy(style = style)) else it }) }
-        saveLayout("style") { saved, libraries -> HomeLayout.style(saved, libraries, spec, style) }
+    /** Gives a Home row a new look: [look] is its spec with the style, posters or grouping changed. */
+    fun setRowLook(look: HomeRowSpec) {
+        val before = _state.value.rows.firstOrNull { it.spec.id == look.id }?.spec ?: return
+        if (before == look) return
+        // Grouping a TV library's new episodes (or not) changes what the row shows: load it again.
+        val reload = before.source != look.source
+        _state.update { s -> s.copy(rows = s.rows.map { if (it.spec.id == look.id) it.copy(spec = look, cards = if (reload) LoadState.Loading else it.cards) else it }) }
+        container.api()?.let { api -> if (reload) viewModelScope.launch { loadRowInto(api, look) } }
+        saveLayout("look") { saved, libraries -> HomeLayout.look(saved, libraries, look) }
     }
 
     /** Reads the saved layout fresh, changes it and saves it; on failure Home is reloaded as it's saved. */

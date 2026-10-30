@@ -13,10 +13,33 @@ sealed interface RowSource {
     data class Custom(val title: String, val library: Library, val filter: JsonObject) : RowSource
 }
 
-enum class CardStyle { Poster, Thumb }
+/** Posters, wide thumbnails, or Backdrops (the web's "arc": squarer cards with background art and the logo). */
+enum class CardStyle { Poster, Thumb, Backdrop }
 
-/** [defaultStyle] is the look the web gives the row when the profile hasn't chosen one. */
-data class HomeRowSpec(val id: String, val source: RowSource, val style: CardStyle, val defaultStyle: CardStyle = style)
+/**
+ * A Home row and its look. [defaultStyle] is the look the web gives the row when the profile hasn't
+ * chosen one; [seasonPosters] shows an episode's or season's own poster rather than its show's.
+ */
+data class HomeRowSpec(
+    val id: String,
+    val source: RowSource,
+    val style: CardStyle,
+    val defaultStyle: CardStyle = style,
+    val seasonPosters: Boolean = false,
+) {
+    /** Recently Added starts with season posters, rows carrying on watching with the show's (web defaultPosters). */
+    val defaultSeasonPosters get() = source is RowSource.Recent
+
+    /** Whether the row can show episodes or seasons, so season posters mean something (web hasEpisodes). */
+    val hasEpisodes get() = source is RowSource.Continue || source is RowSource.NextUp || (source is RowSource.Recent && source.library.kind == "shows")
+}
+
+private fun styleOf(saved: String?): CardStyle? = when (saved) {
+    "poster" -> CardStyle.Poster
+    "thumb" -> CardStyle.Thumb
+    "arc" -> CardStyle.Backdrop
+    else -> null
+}
 
 /**
  * The profile's Home rows in its order, as the web app arranges them (web/src/lib/home.ts):
@@ -27,19 +50,15 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
     val out = mutableListOf<Pair<HomeRowSpec?, String>>() // spec (null: placed but not shown here), id
     val placed = mutableSetOf<String>()
     fun builtIn(id: String, saved: HomeRowPref?): HomeRowSpec? {
-        val style = saved?.style
-        fun look(default: CardStyle) = when (style) {
-            "poster" -> CardStyle.Poster
-            "thumb", "arc" -> CardStyle.Thumb
-            else -> default
+        fun spec(source: RowSource, default: CardStyle) = HomeRowSpec(id, source, styleOf(saved?.style) ?: default, default).let {
+            it.copy(seasonPosters = saved?.posters?.let { p -> p == "season" } ?: it.defaultSeasonPosters)
         }
         return when {
-            id == "continue" -> HomeRowSpec(id, RowSource.Continue(withUpNext = !prefs.splitUpNext), look(CardStyle.Thumb), CardStyle.Thumb)
-            id == "next-up" -> if (prefs.splitUpNext) HomeRowSpec(id, RowSource.NextUp, look(CardStyle.Thumb), CardStyle.Thumb) else null
-            id == "watchlist" -> HomeRowSpec(id, RowSource.Watchlist, look(CardStyle.Poster), CardStyle.Poster)
+            id == "continue" -> spec(RowSource.Continue(withUpNext = !prefs.splitUpNext), CardStyle.Thumb)
+            id == "next-up" -> if (prefs.splitUpNext) spec(RowSource.NextUp, CardStyle.Thumb) else null
+            id == "watchlist" -> spec(RowSource.Watchlist, CardStyle.Poster)
             id.startsWith("recent:") -> libraries.find { "recent:${it.id}" == id }?.let { lib ->
-                val default = if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster
-                HomeRowSpec(id, RowSource.Recent(lib, saved?.showsOnly == true), look(default), default)
+                spec(RowSource.Recent(lib, saved?.showsOnly == true), if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster)
             }
             else -> null
         }
@@ -54,7 +73,7 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
                 val lib = libraries.find { it.id == libId }
                 if (filter == null || lib == null || row.title.isNullOrBlank()) null
                 // The web shows a custom row as posters unless it was given another look.
-                else HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), if (row.style == "thumb" || row.style == "arc" || lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster, CardStyle.Poster)
+                else HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), styleOf(row.style) ?: if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster, CardStyle.Poster)
             }
             else -> builtIn(row.id, row)
         }
@@ -100,12 +119,20 @@ object HomeLayout {
         return out
     }
 
-    /** Gives row [spec] the [style] (its default look is saved as no style, as the web does). */
-    fun style(saved: List<JsonObject>, libraries: List<Library>, spec: HomeRowSpec, style: CardStyle): List<JsonObject> =
+    /**
+     * Gives row [look]'s look (its style, season posters and, for a TV library's Recently Added,
+     * one card per show). What matches the row's default is saved as nothing, as the web does.
+     */
+    fun look(saved: List<JsonObject>, libraries: List<Library>, look: HomeRowSpec): List<JsonObject> =
         withDefaults(saved, { it.rowId }, libraries) { JsonObject(mapOf("id" to JsonPrimitive(it))) }.map { row ->
-            if (row.rowId != spec.id) return@map row
-            val rest = row - "style"
-            JsonObject(if (style == spec.defaultStyle) rest else rest + ("style" to JsonPrimitive(if (style == CardStyle.Thumb) "thumb" else "poster")))
+            if (row.rowId != look.id) return@map row
+            val out = (row - "style" - "posters" - "shows_only").toMutableMap()
+            if (look.style != look.defaultStyle) {
+                out["style"] = JsonPrimitive(when (look.style) { CardStyle.Poster -> "poster"; CardStyle.Thumb -> "thumb"; CardStyle.Backdrop -> "arc" })
+            }
+            if (look.seasonPosters != look.defaultSeasonPosters) out["posters"] = JsonPrimitive(if (look.seasonPosters) "season" else "series")
+            if ((look.source as? RowSource.Recent)?.showsOnly == true) out["shows_only"] = JsonPrimitive(true)
+            JsonObject(out)
         }
 }
 
@@ -117,7 +144,12 @@ data class MediaCard(
     val seasonNumber: Int? = null,
     val newEpisodes: Int = 0,
     val poster: String?,
+    /** The episode's season poster, or a new season's own: shown on rows set to season posters. */
+    val seasonPoster: String? = null,
     val thumb: String?,
+    /** A Backdrops card's art: the title's background (the show's, for an episode), and its logo. */
+    val backdrop: String? = null,
+    val logo: String? = null,
     /** How far through, 0–1, or null when not started. */
     val progress: Float?,
 )
@@ -133,7 +165,10 @@ fun cardFor(item: Item, key: String = item.id): MediaCard {
         key = key,
         item = item,
         poster = poster,
+        seasonPoster = if (item.isEpisode) img?.seasonPrimary else null,
         thumb = thumb,
+        backdrop = if (item.isEpisode) img?.seriesBackdrop ?: img?.primary else img?.backdrop ?: img?.primary,
+        logo = if (item.isEpisode) img?.seriesLogo else img?.logo,
         progress = progress,
     )
 }
@@ -142,7 +177,7 @@ fun cardFor(item: Item, key: String = item.id): MediaCard {
 fun cardFor(card: RecentCard): MediaCard {
     val base = cardFor(card.item, key = "${card.type}:${card.item.id}:${card.seasonNumber ?: ""}")
     return if (card.type == "season") {
-        base.copy(seasonNumber = card.seasonNumber, newEpisodes = card.episodes, poster = card.seasonPoster ?: base.poster)
+        base.copy(seasonNumber = card.seasonNumber, newEpisodes = card.episodes, seasonPoster = card.seasonPoster ?: base.poster)
     } else {
         base
     }

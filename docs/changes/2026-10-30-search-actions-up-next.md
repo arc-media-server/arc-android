@@ -124,7 +124,10 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   filters, `posters`, `shows_only`, hidden rows, collections and playlists). Rows the TV doesn't
   show keep their places; a move swaps with the next row Home shows. A look that matches the
   row's default is saved as no style, as the web does.
-- The web's third look, Backdrops (`arc`), still shows as wide thumbnails on the TV and isn't
-  offered there yet. Season-vs-show posters (`posters`) are kept but not offered either.
-- Logged: each save at info ("home layout saved (move|style)"); a failed save at warning with the
+- The TV offers the same looks as the web's Edit Home (owner: "why don't we have all the same
+  options as the web UI?"): Posters (Show Posters and Season Posters on rows with episodes),
+  Thumbnails and Backdrops (squarer cards with the background art and logo, as the web's
+  ArcArtwork), plus Group New Episodes by Season on a TV library's Recently Added, which reloads
+  the row. Season posters use the episode's `season_primary` or the new season's own poster.
+- Logged: each save at info ("home layout saved (move|look)"); a failed save at warning with the
   error class, after which Home reloads as saved.

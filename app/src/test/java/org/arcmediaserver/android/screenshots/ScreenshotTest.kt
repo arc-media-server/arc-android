@@ -120,7 +120,13 @@ class ScreenshotTest {
     @Test
     fun homeRowOptions() = shot("home-row-options") {
         browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
-        org.arcmediaserver.android.ui.browse.RowOptions(Fixtures.homeRows[1].spec, canMoveUp = true, canMoveDown = true, onMove = {}, onStyle = {}, onClose = {})
+        org.arcmediaserver.android.ui.browse.RowOptions(Fixtures.homeRows.first { it.spec.id == "recent:2" }.spec, canMoveUp = true, canMoveDown = true, onMove = {}, onLook = {}, onClose = {})
+    }
+
+    @Test
+    fun homeBackdrops() = shot("home-backdrops") {
+        val rows = Fixtures.homeRows.map { if (it.spec.id == "continue") it.copy(spec = it.spec.copy(style = org.arcmediaserver.android.data.CardStyle.Backdrop)) else it }
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = rows))
     }
 
     @Test
