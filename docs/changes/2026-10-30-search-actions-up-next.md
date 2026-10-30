@@ -293,3 +293,14 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   Controls.kt). Owner: labels belong on the title page only, so Home's overview keeps the age
   rating in its details line and shows no badges.
 - Logged: nothing new.
+
+## Rows return to their own start (owner, 30 October)
+
+- Moving along a row and back left the first card out of line with the text above it (owner's
+  screenshot: a show's episodes). Two causes: a row's scrolling kept the page's margin rather
+  than the row's own start (the title page briefly had a 96dp start with 48dp scrolling), and a
+  focused card is drawn up to 8% larger, so lining up its enlarged edge stopped a few dp short.
+  Every row (`Shelf`, a show's episodes) now scrolls with its own start, and the scrolling keeps
+  8dp of slack, so going back to the first card stops at the row's real start. Screenshot tests
+  go along the cast and the episodes and back (`tv-movie-row-back.png`, `tv-show-row-back.png`).
+- Logged: nothing new.

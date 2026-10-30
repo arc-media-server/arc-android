@@ -321,6 +321,7 @@ fun clock(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
     if (details.seasons.isEmpty()) {
@@ -336,14 +337,16 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
             val idx = season.episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
-        LazyRow(
-            state = listState,
-            contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            items(season.episodes, key = { it.id }) { ep ->
-                val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
-                EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod)
+        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(PageStart)) {
+            LazyRow(
+                state = listState,
+                contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                items(season.episodes, key = { it.id }) { ep ->
+                    val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
+                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod)
+                }
             }
         }
     }

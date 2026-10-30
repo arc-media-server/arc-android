@@ -239,6 +239,23 @@ class ScreenshotTest {
     }
 
     @Test
+    fun movieRowBack() = shot("movie-row-back", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown) + List(9) { androidx.compose.ui.input.key.Key.DirectionRight } + List(9) { androidx.compose.ui.input.key.Key.DirectionLeft }) {
+        // Into the cast, along it and back: the first card returns to the row's start, not the edge.
+        val cast = (1..10).map { org.arcmediaserver.android.data.Credit(personId = it.toLong(), name = "Actor $it", role = "actor", character = "Role $it") }
+        DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
+    fun showRowBack() = shot("show-row-back", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(6) { androidx.compose.ui.input.key.Key.DirectionLeft }) {
+        // Into the episodes and left to the first: it lines up with the row's start (48dp).
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun show() = shot("show-episodes") {
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
