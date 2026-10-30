@@ -36,6 +36,9 @@ private fun detailsFor(item: Item) =
 @Serializable data class PlayerDest(val itemId: String, val startMs: Long)
 @Serializable data class PersonDest(val personId: Long)
 
+/** A collection's page. */
+@Serializable data class CollectionDest(val id: String)
+
 /** A trailer or other extra, played from its file. */
 @Serializable data class ExtraDest(val url: String)
 
@@ -69,7 +72,11 @@ fun ArcNavHost() {
                     onPerson = { person -> nav.navigate(PersonDest(person.id)) },
                     onSwitchProfile = { nav.navigate(ProfilesDest) },
                     onSignedOut = { nav.startAt(SignInDest) },
+                    onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
                 )
+            }
+            composable<CollectionDest> { entry ->
+                org.arcmediaserver.android.ui.browse.CollectionRoute(entry.toRoute<CollectionDest>().id, onOpen = { item -> nav.navigate(detailsFor(item)) })
             }
             composable<DetailsDest> { entry ->
                 val dest = entry.toRoute<DetailsDest>()

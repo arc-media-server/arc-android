@@ -41,6 +41,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Tab
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import org.arcmediaserver.android.R
@@ -261,3 +262,38 @@ fun PersonCard(name: String, image: String?, sub: String?, onClick: () -> Unit) 
 }
 
 private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
+
+/**
+ * Pill tabs (a show's seasons, a library's Recommended / titles / Collections): moving the focus
+ * along them switches what's shown, as Google TV's tabs do.
+ */
+@Composable
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    androidx.tv.material3.TabRow(
+        selectedTabIndex = selected,
+        modifier = modifier,
+        indicator = { tabPositions, doesTabRowHaveFocus ->
+            androidx.tv.material3.TabRowDefaults.PillIndicator(
+                currentTabPosition = tabPositions[selected],
+                doesTabRowHaveFocus = doesTabRowHaveFocus,
+                activeColor = ArcColors.Foreground,
+                inactiveColor = ArcColors.Surface3,
+            )
+        },
+    ) {
+        labels.forEachIndexed { i, label ->
+            Tab(
+                selected = i == selected,
+                onFocus = { onSelect(i) },
+                colors = androidx.tv.material3.TabDefaults.pillIndicatorTabColors(
+                    contentColor = ArcColors.Muted,
+                    selectedContentColor = ArcColors.Foreground,
+                    focusedContentColor = ArcColors.Background,
+                    focusedSelectedContentColor = ArcColors.Background,
+                ),
+            ) {
+                Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
+    }
+}

@@ -123,6 +123,13 @@ class ArcApi(
         return get("items?$query", ItemPage.serializer(), route = "items")
     }
 
+    /** A library's Recommended view for the profile. */
+    suspend fun recommended(libraryId: Long): List<RecommendedRow> =
+        get("libraries/$libraryId/recommended", RecommendedPage.serializer(), route = "libraries/{id}/recommended").rows
+
+    suspend fun libraryCollections(libraryId: Long): List<CollectionRef> =
+        get("libraries/$libraryId/collections", kotlinx.serialization.builtins.ListSerializer(CollectionRef.serializer()), route = "libraries/{id}/collections")
+
     suspend fun recentShows(libraryId: Long): List<RecentCard> =
         get("libraries/$libraryId/recent-shows", kotlinx.serialization.builtins.ListSerializer(RecentCard.serializer()), route = "libraries/{id}/recent-shows")
 

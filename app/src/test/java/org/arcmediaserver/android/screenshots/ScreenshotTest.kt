@@ -131,6 +131,49 @@ class ScreenshotTest {
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
                 library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies + Fixtures.movies.map { it.copy(id = it.id + "b", title = it.title + " II") }, 16)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
+
+    private val libraryExtras = org.arcmediaserver.android.ui.browse.LibraryExtras(
+        recommended = LoadState.Ready(
+            listOf(
+                org.arcmediaserver.android.data.RecommendedRow(type = "recently_added", items = Fixtures.movies),
+                org.arcmediaserver.android.data.RecommendedRow(type = "because_you_watched", name = "The Long Orbit", items = Fixtures.movies.reversed()),
+            ),
+        ),
+        collections = LoadState.Ready(
+            listOf(
+                org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Trilogy", "auto", 3, org.arcmediaserver.android.data.Images(primary = "art:poster:The Orbit Trilogy")),
+                org.arcmediaserver.android.data.CollectionRef("c2", "Harbour Nights", "manual", 5, org.arcmediaserver.android.data.Images(primary = "art:poster:Harbour Nights")),
+            ),
+        ),
+    )
+
+    @Test
+    fun libraryRecommended() = shot("library-recommended") {
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies, 8)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
+
+    @Test
+    fun libraryCollections() = shot("library-collections") {
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies, 8)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Collections,
+                libraryExtras = libraryExtras,
             ),
         )
     }

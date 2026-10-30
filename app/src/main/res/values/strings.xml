@@ -58,6 +58,30 @@
     <string name="row_recent">Recently Added in %1$s</string>
     <string name="home_empty_title">Nothing here yet</string>
     <string name="home_empty_body">Add a library in Arc in a browser, and what you add will appear here.</string>
+    <string name="library_tab_recommended">Recommended</string>
+    <string name="library_tab_movies">Movies</string>
+    <string name="library_tab_shows">Shows</string>
+    <string name="library_tab_videos">Videos</string>
+    <string name="library_tab_collections">Collections</string>
+    <string name="library_recommended_empty">Recommendations appear here once this library has titles you can watch.</string>
+    <string name="rec_continue">Continue Watching</string>
+    <string name="rec_recently_released">Recently Released</string>
+    <string name="rec_recently_added">Recently Added in %1$s</string>
+    <string name="rec_start_watching">Start Watching</string>
+    <string name="rec_because_you_watched">Because you watched %1$s</string>
+    <string name="rec_top_rated_movies">Top Rated Movies</string>
+    <string name="rec_top_rated_shows">Top Rated Shows</string>
+    <string name="rec_recently_watched">Recently Watched</string>
+    <string name="rec_recently_watched_episodes">Recently Watched Episodes</string>
+    <string name="rec_rediscover">Rediscover</string>
+    <string name="rec_more_in_genre">More in %1$s</string>
+    <string name="rec_top_movies_in_genre">Top Movies in %1$s</string>
+    <string name="rec_top_shows_in_genre">Top Shows in %1$s</string>
+    <string name="rec_top_movies_with">Top Movies with %1$s</string>
+    <string name="rec_top_movies_by">Top Movies by %1$s</string>
+    <string name="rec_top_shows_with">Top Shows with %1$s</string>
+    <string name="rec_top_shows_by">Top Shows by %1$s</string>
+    <string name="rec_top_unwatched">Top Unwatched</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
     <!-- Search -->

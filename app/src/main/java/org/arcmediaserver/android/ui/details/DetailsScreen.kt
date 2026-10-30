@@ -3,6 +3,7 @@ package org.arcmediaserver.android.ui.details
 import org.arcmediaserver.android.ui.components.MediaCardView
 import org.arcmediaserver.android.ui.components.PersonCard
 import org.arcmediaserver.android.ui.components.Shelf
+import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -57,10 +58,6 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Tab
-import androidx.tv.material3.TabDefaults
-import androidx.tv.material3.TabRow
-import androidx.tv.material3.TabRowDefaults
 import androidx.tv.material3.Text
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.ui.components.requestWhenReady
@@ -350,33 +347,7 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
     }
     var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, details.seasons.lastIndex)) }
     Column(Modifier.padding(top = 24.dp)) {
-        TabRow(
-            selectedTabIndex = selected,
-            modifier = Modifier.padding(start = 48.dp),
-            indicator = { tabPositions, doesTabRowHaveFocus ->
-                TabRowDefaults.PillIndicator(
-                    currentTabPosition = tabPositions[selected],
-                    doesTabRowHaveFocus = doesTabRowHaveFocus,
-                    activeColor = ArcColors.Foreground,
-                    inactiveColor = ArcColors.Surface3,
-                )
-            },
-        ) {
-            details.seasons.forEachIndexed { i, season ->
-                Tab(
-                    selected = i == selected,
-                    onFocus = { selected = i },
-                    colors = TabDefaults.pillIndicatorTabColors(
-                        contentColor = ArcColors.Muted,
-                        selectedContentColor = ArcColors.Foreground,
-                        focusedContentColor = ArcColors.Background,
-                        focusedSelectedContentColor = ArcColors.Background,
-                    ),
-                ) {
-                    Text(seasonName(season), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                }
-            }
-        }
+        PillTabs(details.seasons.map { seasonName(it) }, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = 48.dp))
         val season = details.seasons[selected]
         val listState = rememberLazyListState()
         LaunchedEffect(selected) {

@@ -1,5 +1,8 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.foundation.lazy.grid.items
+import org.arcmediaserver.android.ui.components.Shelf
+import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.input.key.type
@@ -98,7 +101,13 @@ import org.arcmediaserver.android.ui.profiles.Avatar
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.data.Person) -> Unit, onSwitchProfile: () -> Unit, onSignedOut: () -> Unit) {
+fun BrowseRoute(
+    onOpen: (Item) -> Unit,
+    onPerson: (org.arcmediaserver.android.data.Person) -> Unit,
+    onSwitchProfile: () -> Unit,
+    onSignedOut: () -> Unit,
+    onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     BrowseScreen(
@@ -109,6 +118,9 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.da
         onRetryRow = vm::retryRow,
         onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
         onNearEnd = vm::nearEnd,
+        onLibraryTab = vm::showLibraryTab,
+        onOpenCollection = onOpenCollection,
+        onRetryLibraryExtras = vm::retryLibraryExtras,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
@@ -126,6 +138,9 @@ fun BrowseScreen(
     onNearEnd: () -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
+    onLibraryTab: (LibraryTab) -> Unit = {},
+    onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+    onRetryLibraryExtras: () -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
 ) {
@@ -147,7 +162,7 @@ fun BrowseScreen(
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
                             Section.Search -> searchContent()
-                            is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
+                            is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNearEnd)
                         }
                     }
                 }
@@ -454,41 +469,153 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
     }
 }
 
-/** A library's titles in a grid, A to Z, loading more as the focus nears the end. */
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * A library: its name and tabs, as Plex's TV app and the web (Recommended, its titles A to Z,
+ * Collections), then the chosen tab. Moving along the tabs switches what's shown.
+ */
 @Composable
-fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetry: () -> Unit, onNearEnd: () -> Unit) {
+fun LibraryContent(
+    state: LoadState<LibraryPage>,
+    tab: LibraryTab,
+    extras: LibraryExtras,
+    onTab: (LibraryTab) -> Unit,
+    onOpen: (Item) -> Unit,
+    onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit,
+    onRetry: () -> Unit,
+    onRetryExtras: () -> Unit,
+    onNearEnd: () -> Unit,
+) {
     Loaded(state, onRetry) { page ->
+        val tabs = libraryTabs(page.library, extras)
+        val shown = tab.takeIf { it in tabs } ?: LibraryTab.Titles
         val first = remember { FocusRequester() }
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
+            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.width(14.dp))
-                Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
-            }
-            if (page.items.isEmpty()) {
-                Text(stringResource(R.string.library_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
-                return@Column
-            }
-            val landscape = page.library.kind == "videos"
-            // Six posters across and two whole rows on screen, as Plex (owner, 30 October); home
-            // videos four wide. Rows scroll only as far as needed, so captions stay in view (no TV
-            // pivot), with a small margin so the second row isn't pushed up for no reason.
-            CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(12.dp)) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(if (landscape) 4 else 6),
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                verticalArrangement = Arrangement.spacedBy(22.dp),
-            ) {
-                itemsIndexed(page.items, key = { _, it -> it.id }) { i, item ->
-                    val mod = Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus && i >= page.items.size - 18) onNearEnd() }
-                    MediaCardView(cardFor(item), landscape = landscape, onClick = { onOpen(item) }, modifier = if (i == 0) mod.focusRequester(first) else mod)
+                Spacer(Modifier.width(24.dp))
+                if (tabs.size > 1) {
+                    val titles = when (page.library.kind) { "shows" -> R.string.library_tab_shows; "videos" -> R.string.library_tab_videos; else -> R.string.library_tab_movies }
+                    val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> titles; LibraryTab.Collections -> R.string.library_tab_collections }) }
+                    PillTabs(labels, tabs.indexOf(shown), onSelect = { onTab(tabs[it]) })
+                }
+                if (shown == LibraryTab.Titles) {
+                    Spacer(Modifier.width(14.dp))
+                    Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
                 }
             }
+            when (shown) {
+                LibraryTab.Titles -> if (page.items.isEmpty()) {
+                    Text(stringResource(R.string.library_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
+                } else {
+                    TitleGrid(page.items, landscape = page.library.kind == "videos", first, onOpen, onNearEnd)
+                }
+                LibraryTab.Recommended -> Loaded(extras.recommended, onRetryExtras) { rows -> RecommendedView(rows, page.library, first, onOpen) }
+                LibraryTab.Collections -> Loaded(extras.collections, onRetryExtras) { collections -> CollectionGrid(collections, first, onOpenCollection) }
             }
         }
         LaunchedEffect(page.library.id) { first.requestWhenReady() }
+    }
+}
+
+/**
+ * Titles in a grid: six posters across and two whole rows on screen, as Plex (owner, 30
+ * October); home videos four wide. Rows scroll only as far as needed, so captions stay in view
+ * (no TV pivot), with a small margin so the second row isn't pushed up for no reason. Shared by a
+ * library's titles and a collection's page.
+ */
+@Composable
+fun TitleGrid(items: List<Item>, landscape: Boolean, first: FocusRequester, onOpen: (Item) -> Unit, onNearEnd: () -> Unit = {}) =
+    CardGrid(items.size, landscape, key = { items[it].id }) { i, mod ->
+        MediaCardView(cardFor(items[i]), landscape = landscape, onClick = { onOpen(items[i]) }, modifier = (if (i == 0) mod.focusRequester(first) else mod).onFocusChanged { if (it.hasFocus && i >= items.size - 18) onNearEnd() })
+    }
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CardGrid(count: Int, landscape: Boolean, key: (Int) -> Any, card: @Composable (Int, Modifier) -> Unit) {
+    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(12.dp)) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(if (landscape) 4 else 6),
+            contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
+            items(count, key = key) { i -> card(i, Modifier.fillMaxWidth()) }
+        }
+    }
+}
+
+/** A library's collections, as posters; each opens its own page. */
+@Composable
+private fun CollectionGrid(collections: List<org.arcmediaserver.android.data.CollectionRef>, first: FocusRequester, onOpen: (org.arcmediaserver.android.data.CollectionRef) -> Unit) {
+    // Folder collections (home videos) are wide, as their videos are.
+    val landscape = collections.isNotEmpty() && collections.all { it.kind == "folder" }
+    CardGrid(collections.size, landscape, key = { collections[it].id }) { i, mod ->
+        val c = collections[i]
+        val card = MediaCard(key = c.id, item = Item(id = c.id, kind = "collection", title = c.title, images = c.images), poster = c.images?.primary, thumb = c.images?.backdrop ?: c.images?.primary, progress = null)
+        MediaCardView(card, landscape = landscape, onClick = { onOpen(c) }, modifier = if (i == 0) mod.focusRequester(first) else mod)
+    }
+}
+
+/**
+ * A library's Recommended view: the server's rows in its order (web Library.tsx), each titled in
+ * the app's language from its type. Rows carrying on and episodes use thumbnails unless the server
+ * owner chose a style.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RecommendedView(rows: List<org.arcmediaserver.android.data.RecommendedRow>, library: Library, first: FocusRequester, onOpen: (Item) -> Unit) {
+    if (rows.isEmpty()) {
+        Text(stringResource(R.string.library_recommended_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
+        return
+    }
+    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
+        LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            itemsIndexed(rows, key = { i, r -> "$i:${r.type}:${r.name}:${r.genre}" }) { index, row ->
+                val episodes = row.items.any { it.isEpisode }
+                val style = row.style.ifEmpty { if (row.type == "continue" || episodes) "thumb" else "poster" }
+                Shelf(recommendedTitle(row, library)) {
+                    itemsIndexed(row.items, key = { _, it -> it.id }) { i, item ->
+                        MediaCardView(
+                            cardFor(item),
+                            landscape = style == "thumb",
+                            backdrop = style == "arc",
+                            onClick = { onOpen(item) },
+                            modifier = if (index == 0 && i == 0) Modifier.focusRequester(first) else Modifier,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A Recommended row's title in the app's language, from what the server says it is (web recommendedTitle). */
+@Composable
+private fun recommendedTitle(row: org.arcmediaserver.android.data.RecommendedRow, library: Library): String {
+    val shows = library.kind == "shows"
+    val name = row.name.orEmpty()
+    return when (row.type) {
+        "continue" -> stringResource(R.string.rec_continue)
+        "recently_released" -> stringResource(R.string.rec_recently_released)
+        "recently_added" -> stringResource(R.string.rec_recently_added, row.name ?: library.name)
+        "start_watching" -> stringResource(R.string.rec_start_watching)
+        "because_you_watched" -> stringResource(R.string.rec_because_you_watched, name)
+        "top_rated" -> stringResource(if (shows) R.string.rec_top_rated_shows else R.string.rec_top_rated_movies)
+        "recently_watched" -> stringResource(if (shows) R.string.rec_recently_watched_episodes else R.string.rec_recently_watched)
+        "rediscover" -> stringResource(R.string.rec_rediscover)
+        "more_in_genre" -> stringResource(R.string.rec_more_in_genre, name)
+        "top_in_genre" -> stringResource(if (shows) R.string.rec_top_shows_in_genre else R.string.rec_top_movies_in_genre, name)
+        "top_by_person" -> stringResource(
+            when {
+                row.role == "director" && shows -> R.string.rec_top_shows_by
+                row.role == "director" -> R.string.rec_top_movies_by
+                shows -> R.string.rec_top_shows_with
+                else -> R.string.rec_top_movies_with
+            },
+            name,
+        )
+        "top_unwatched" -> stringResource(R.string.rec_top_unwatched)
+        else -> row.title
     }
 }
 
