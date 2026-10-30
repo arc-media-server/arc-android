@@ -243,3 +243,12 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   `letters`, promised by arc-media-server#304.
 - Logged: a page or the first load failing, at warning with the library id and error class, as
   before; facets failing quietly leave only the unwatched filter.
+
+## Library: whole rows when scrolling (owner, 30 October)
+
+- Moving down past the second row cut off the titles under the cards: the grid scrolled only far
+  enough to show the focused card, not its caption. The grid now moves a whole row at a time
+  (`rowsBringIntoView`), as Plex's: the next row comes up into the bottom row's place, with its
+  caption, and the row above stays whole; moving up brings the row above in at the top. A
+  screenshot test presses Down twice to check (`tv-library-scrolled.png`).
+- Logged: nothing new.

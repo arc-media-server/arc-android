@@ -14,6 +14,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
+import org.arcmediaserver.android.ui.components.rowsBringIntoView
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
@@ -693,7 +694,8 @@ private fun CardGrid(
     state: androidx.compose.foundation.lazy.grid.LazyGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState(),
     card: @Composable (Int, Modifier) -> Unit,
 ) {
-    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(12.dp)) {
+    // Whole rows at a time, captions included (the title and year under each card, then the gap).
+    CompositionLocalProvider(LocalBringIntoViewSpec provides rowsBringIntoView(top = 8.dp, below = 58.dp)) {
         LazyVerticalGrid(
             state = state,
             columns = GridCells.Fixed(if (landscape) 4 else 6),
