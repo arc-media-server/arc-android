@@ -81,6 +81,33 @@ class ArcApi(
 
     suspend fun prefs(): Prefs = get("me/prefs", Prefs.serializer())
 
+    /** Changes only the preferences in [changes] (e.g. audio_language), answering with them all. */
+    suspend fun updatePrefs(changes: Map<String, String>): Prefs =
+        send("PATCH", "me/prefs", JsonObject(changes.mapValues { JsonPrimitive(it.value) }).toString(), Prefs.serializer())
+
+    suspend fun search(query: String): SearchResults = get("search?q=${enc(query)}", SearchResults.serializer(), route = "search")
+
+    suspend fun person(id: Long): PersonPage = get("people/$id", PersonPage.serializer(), route = "people/{id}")
+
+    /** Marks a movie or episode (or all of a show's episodes) watched or not, for the profile. */
+    suspend fun setPlayed(itemId: String, played: Boolean) =
+        put("items/${enc(itemId)}/played", JsonObject(mapOf("played" to JsonPrimitive(played))).toString(), "items/{id}/played")
+
+    /** Puts a movie or show on the profile's watchlist, or takes it off. */
+    suspend fun setWatchlist(itemId: String, on: Boolean) =
+        put("items/${enc(itemId)}/watchlist", JsonObject(mapOf("on" to JsonPrimitive(on))).toString(), "items/{id}/watchlist")
+
+    /** A file's timeline thumbnails, or null when it has none (yet): Arc answers 404 then. */
+    suspend fun trickplay(itemId: String, fileId: Long): Trickplay? {
+        val route = "items/{id}/trickplay"
+        val (status, body) = raw("GET", "items/${enc(itemId)}/trickplay?file=$fileId", null, route = route)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, Trickplay.serializer(), route)
+            else -> throw failure(status, body, route)
+        }
+    }
+
     suspend fun continueWatching(withUpNext: Boolean): List<Item> =
         get(if (withUpNext) "home/continue?with_up_next=1" else "home/continue", ItemList, route = "home/continue")
 
@@ -143,6 +170,11 @@ class ArcApi(
     }
 
     // --- plumbing ---
+
+    private suspend fun put(path: String, json: String, route: String) {
+        val (status, body) = raw("PUT", path, json, route)
+        if (status !in 200..299) throw failure(status, body, route)
+    }
 
     private suspend fun <T> get(path: String, de: DeserializationStrategy<T>, route: String = path): T = send("GET", path, null, de, route)
 

@@ -51,6 +51,7 @@ data class Library(
 data class UserData(
     @SerialName("position_ms") val positionMs: Long = 0,
     val played: Boolean = false,
+    val watchlisted: Boolean = false,
 )
 
 @Serializable
@@ -70,6 +71,42 @@ data class MediaFile(
     val id: Long,
     @SerialName("duration_ms") val durationMs: Long = 0,
     val missing: Boolean = false,
+    val container: String? = null,
+    val size: Long = 0,
+    /** Bits per second, the whole file. */
+    val bitrate: Long = 0,
+    val path: String? = null,
+    val edition: String? = null,
+    val part: Int = 0,
+    @SerialName("probe_error") val probeError: String? = null,
+    /** Only on a title's own details (GET /items/{id}). */
+    val streams: List<MediaStream> = emptyList(),
+)
+
+/** One of a file's tracks, as ffprobe read it (for Media Info). */
+@Serializable
+data class MediaStream(
+    val index: Int = 0,
+    /** video, audio or subtitle. */
+    val kind: String = "",
+    val codec: String? = null,
+    val profile: String? = null,
+    val language: String? = null,
+    val title: String? = null,
+    val width: Int = 0,
+    val height: Int = 0,
+    @SerialName("aspect_ratio") val aspectRatio: Double = 0.0,
+    @SerialName("frame_rate") val frameRate: Double = 0.0,
+    val bitrate: Long = 0,
+    @SerialName("bit_depth") val bitDepth: Int = 0,
+    val channels: Int = 0,
+    @SerialName("color_primaries") val colorPrimaries: String? = null,
+    @SerialName("color_transfer") val colorTransfer: String? = null,
+    @SerialName("pix_fmt") val pixFmt: String? = null,
+    @SerialName("dolby_vision") val dolbyVision: Boolean = false,
+    @SerialName("dolby_vision_profile") val dolbyVisionProfile: Int = 0,
+    @SerialName("hdr10_plus") val hdr10Plus: Boolean = false,
+    @SerialName("is_forced") val forced: Boolean = false,
 )
 
 @Serializable
@@ -107,6 +144,22 @@ data class Item(
 
     /** A resume point, if the profile is part-way through. */
     val resumeMs: Long get() = userData?.takeIf { !it.played }?.positionMs ?: 0
+
+    /** Watched: a movie or episode played to the end, a show with nothing left to watch. */
+    val watched: Boolean get() = if (isSeries) unwatchedCount == 0 else userData?.played == true
+
+    /** Movies and shows go on the watchlist (PUT /items/{id}/watchlist); episodes don't. */
+    val canWatchlist: Boolean get() = kind == "movie" || kind == "series"
+
+    val onWatchlist: Boolean get() = userData?.watchlisted == true
+
+    /** This title marked watched or not, as Arc will have it (a show: all its episodes). */
+    fun withWatched(played: Boolean): Item = copy(
+        userData = (userData ?: UserData()).copy(played = played, positionMs = 0),
+        unwatchedCount = if (isSeries) (if (played) 0 else unwatchedCount?.takeIf { it > 0 }) else unwatchedCount,
+    )
+
+    fun withWatchlist(on: Boolean): Item = copy(userData = (userData ?: UserData()).copy(watchlisted = on))
 }
 
 @Serializable
@@ -139,8 +192,54 @@ data class Prefs(
     @SerialName("split_up_next") val splitUpNext: Boolean = false,
     @SerialName("library_order") val libraryOrder: List<Long> = emptyList(),
     @SerialName("subtitle_language") val subtitleLanguage: String = "",
+    /** "" (the language last chosen), "manual" (forced only), "foreign" or "always", as Plex's. */
+    @SerialName("subtitle_mode") val subtitleMode: String = "",
+    @SerialName("audio_language") val audioLanguage: String = "",
+    /** Play the next episode by itself (the Up Next countdown); absent means on. */
+    @SerialName("auto_play") val autoPlay: Boolean = true,
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
 )
+
+/** GET /search: best matches first in each group. Collections and genres aren't shown on the TV yet. */
+@Serializable
+data class SearchResults(
+    val movies: List<Item> = emptyList(),
+    val shows: List<Item> = emptyList(),
+    val episodes: List<Item> = emptyList(),
+    val people: List<Person> = emptyList(),
+)
+
+@Serializable
+data class Person(
+    val id: Long,
+    val name: String,
+    val image: String? = null,
+    /** How many titles in the libraries they're in. */
+    val count: Int = 0,
+    /** actor, director, writer or creator. */
+    @SerialName("known_for") val knownFor: String? = null,
+)
+
+@Serializable
+data class PersonCredit(val item: Item, val roles: List<String> = emptyList(), val character: String? = null)
+
+@Serializable
+data class PersonPage(val person: Person, val credits: List<PersonCredit> = emptyList())
+
+/** A file's timeline thumbnails: tiles of [width]x[height], [columns]x[rows] to a sheet, one per [intervalMs]. */
+@Serializable
+data class TrickplayInfo(
+    @SerialName("interval_ms") val intervalMs: Long,
+    val width: Int,
+    val height: Int,
+    val columns: Int,
+    val rows: Int,
+    val count: Int,
+    val sheets: Int = 0,
+)
+
+@Serializable
+data class Trickplay(val info: TrickplayInfo, val sheets: List<String> = emptyList())
 
 @Serializable
 data class Ordering(val id: Long, val name: String = "")

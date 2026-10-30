@@ -33,6 +33,7 @@ data class LibraryPage(val library: Library, val items: List<Item>, val total: I
 
 sealed interface Section {
     data object Home : Section
+    data object Search : Section
     data class Library(val id: Long) : Section
 }
 

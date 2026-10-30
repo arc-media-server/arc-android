@@ -81,7 +81,7 @@ import org.arcmediaserver.android.ui.profiles.Avatar
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun BrowseRoute(onOpen: (Item) -> Unit, onSwitchProfile: () -> Unit, onSignedOut: () -> Unit) {
+fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.data.Person) -> Unit, onSwitchProfile: () -> Unit, onSignedOut: () -> Unit) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     BrowseScreen(
@@ -94,6 +94,7 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onSwitchProfile: () -> Unit, onSignedOut
         onNearEnd = vm::nearEnd,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
+        searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
     )
 }
 
@@ -109,6 +110,7 @@ fun BrowseScreen(
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
     drawerValue: DrawerValue = DrawerValue.Closed,
+    searchContent: @Composable () -> Unit = {},
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
@@ -127,6 +129,7 @@ fun BrowseScreen(
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
+                            Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
                         }
                     }
@@ -153,6 +156,7 @@ private fun NavigationDrawerScope.Sidebar(
         Box(Modifier.padding(start = 8.dp, top = 12.dp, bottom = 20.dp)) {
             Icon(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), tint = Color.Unspecified, modifier = Modifier.size(28.dp))
         }
+        SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
         SidebarItem(ArcIcons.Home, stringResource(R.string.nav_home), section == Section.Home) { onSection(Section.Home) }
         frame.libraries.forEach { lib ->
             SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }

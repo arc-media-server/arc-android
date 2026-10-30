@@ -70,6 +70,13 @@ object ArcIcons {
     val Info = icon("info", circle(12f, 12f, 10f), "M12 16v-4", "M12 8h.01")
     val Close = icon("x", "M18 6 6 18", "m6 6 12 12")
 
+    // Search and a title's actions (web/src/components/ItemActions.tsx).
+    val Search = icon("search", circle(11f, 11f, 8f), "m21 21-4.3-4.3")
+    val CircleCheck = icon("circle-check", circle(12f, 12f, 10f), "m9 12 2 2 4-4")
+    val Bookmark = icon("bookmark", "m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z")
+    val BookmarkCheck = icon("bookmark-check", "m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z", "m9 10 2 2 4-4")
+    val More = icon("ellipsis", circle(12f, 12f, 1f), circle(19f, 12f, 1f), circle(5f, 12f, 1f))
+
     // Elsewhere.
     val Check = icon("check", "M20 6 9 17l-5-5")
     val Lock = icon("lock", rect(3f, 11f, 18f, 11f, 2f), "M7 11V7a5 5 0 0 1 10 0v4")

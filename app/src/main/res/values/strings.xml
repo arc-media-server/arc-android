@@ -45,6 +45,7 @@
     <string name="profiles_needs_password">The admin profile needs its PIN or the household password. Pick it in Arc in a browser, or set a PIN for it.</string>
 
     <!-- Navigation -->
+    <string name="nav_search">Search</string>
     <string name="nav_home">Home</string>
     <string name="nav_switch_profile">Switch Profile</string>
     <string name="nav_sign_out">Sign Out</string>
@@ -57,6 +58,20 @@
     <string name="home_empty_title">Nothing here yet</string>
     <string name="home_empty_body">Add a library in Arc in a browser, and what you add will appear here.</string>
     <string name="row_failed">This row couldn\'t load.</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Search movies, shows and people</string>
+    <string name="search_hint">Type or say what you\'re looking for.</string>
+    <string name="search_empty">Nothing in your libraries matches “%1$s”.</string>
+    <string name="search_failed">Search didn\'t work.</string>
+    <string name="search_movies">Movies</string>
+    <string name="search_shows">Shows</string>
+    <string name="search_people">People</string>
+    <string name="search_episodes">Episodes</string>
+    <plurals name="person_titles">
+        <item quantity="one">%1$d title</item>
+        <item quantity="other">%1$d titles</item>
+    </plurals>
 
     <!-- Library -->
     <plurals name="library_count">
@@ -89,6 +104,30 @@
     <string name="details_unplaced">Not in this order</string>
     <string name="details_missing">Not on disk</string>
     <string name="details_no_episodes">No episodes on disk yet.</string>
+    <string name="action_mark_watched">Mark as Watched</string>
+    <string name="action_mark_unwatched">Mark as Unwatched</string>
+    <string name="action_add_watchlist">Add to Watchlist</string>
+    <string name="action_remove_watchlist">Remove from Watchlist</string>
+    <string name="action_more">More</string>
+    <string name="action_watched_failed">Couldn\'t change whether it\'s watched. Try again.</string>
+    <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
+
+    <!-- Media Info (as the web\'s "About This File") -->
+    <string name="media_info">Media Info</string>
+    <string name="media_video">Video</string>
+    <string name="media_file">File</string>
+    <string name="media_unknown">Unknown</string>
+    <string name="media_version">About This Version: %1$s</string>
+    <string name="media_part">Part %1$d</string>
+    <string name="media_megabits">%1$s Mb/s</string>
+    <string name="media_kilobits">%1$s kb/s</string>
+    <string name="media_fps">%1$s fps</string>
+    <string name="media_bit_depth">%1$d-bit</string>
+    <string name="media_dv_profile">Dolby Vision profile %1$d</string>
+    <string name="media_terabytes">%1$s TB</string>
+    <string name="media_gigabytes">%1$s GB</string>
+    <string name="media_megabytes">%1$s MB</string>
+    <string name="media_probe_error">Couldn\'t read this file: %1$s</string>
 
     <!-- Player -->
     <string name="player_play">Play</string>
@@ -133,4 +172,9 @@
     <string name="player_failed_detail">Playback stopped: %1$s</string>
     <string name="player_stopped_title">Playback was stopped</string>
     <string name="player_close">Close</string>
+    <plurals name="player_up_next_in">
+        <item quantity="one">Next episode in %1$ds</item>
+        <item quantity="other">Next episode in %1$ds</item>
+    </plurals>
+    <string name="player_play_now">Play Now</string>
 </resources>
