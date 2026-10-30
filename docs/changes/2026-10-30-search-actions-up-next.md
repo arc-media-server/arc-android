@@ -102,3 +102,13 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
    per device (or documenting playlists as the way) would let TV apps match the web's menu.
 3. **Sheet URLs come back unversioned** (`/api/items/.../trickplay/...`), like artwork and streams
    (gap 1 in the first change note); the app rewrites them to `/api/v1/`.
+
+## Home: one row at a time (owner's emulator feedback, 30 October)
+
+- Like Plex, Home shows the overview in the top half and one row at a time in a band at the
+  bottom, about 7 posters across. Because the band holds one row, focus can't find the next row
+  by itself: Up and Down slide the neighbouring row in (skipping rows still loading) and return to
+  the card last focused in it (`focusRestorer`), or a failed row's Retry button.
+- Wide cards (Continue Watching) are bigger (236dp) and keep their caption (show, episode);
+  posters go without one, as on Plex.
+- Logged: nothing new (focus moves are ordinary UI).
