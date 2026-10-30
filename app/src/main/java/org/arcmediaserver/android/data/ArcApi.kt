@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -86,6 +87,15 @@ class ArcApi(
     /** Changes only the preferences in [changes] (e.g. audio_language), answering with them all. */
     suspend fun updatePrefs(changes: Map<String, String>): Prefs =
         send("PATCH", "me/prefs", JsonObject(changes.mapValues { JsonPrimitive(it.value) }).toString(), Prefs.serializer())
+
+    /** The profile's saved Home layout as Arc stores it, every field kept, for [saveHomeLayout]. */
+    suspend fun homeLayout(): List<JsonObject> =
+        (get("me/prefs", JsonObject.serializer())["home"] as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+
+    /** Saves the whole Home layout (order, looks, hidden rows), as the web's Edit Home does. */
+    suspend fun saveHomeLayout(rows: List<JsonObject>) {
+        send("PATCH", "me/prefs", JsonObject(mapOf("home" to JsonArray(rows))).toString(), JsonObject.serializer())
+    }
 
     suspend fun search(query: String): SearchResults = get("search?q=${enc(query)}", SearchResults.serializer(), route = "search")
 

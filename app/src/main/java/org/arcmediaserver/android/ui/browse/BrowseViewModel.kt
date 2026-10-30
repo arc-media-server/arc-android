@@ -2,6 +2,11 @@ package org.arcmediaserver.android.ui.browse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonObject
+import org.arcmediaserver.android.data.CardStyle
+import org.arcmediaserver.android.data.HomeLayout
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -117,6 +122,53 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
             LoadState.Failed(e.toUiError())
         }
         setRow(spec, result)
+    }
+
+    // Layout edits are saved one at a time, each on the layout the last one left.
+    private val layoutSaves = Mutex()
+
+    /** Moves a Home row up (-1) or down (1) past its neighbour among [shown], the rows Home shows. */
+    fun moveRow(id: String, step: Int, shown: List<String>) {
+        val at = shown.indexOf(id)
+        if (at < 0 || at + step !in shown.indices) return
+        // On screen at once: rows Home leaves out (empty ones) stay where they were relative to the rest.
+        _state.update { s ->
+            val moved = s.rows.toMutableList()
+            val from = moved.indexOfFirst { it.spec.id == id }
+            val other = moved.indexOfFirst { it.spec.id == shown[at + step] }
+            if (from < 0 || other < 0) return@update s
+            val row = moved.removeAt(from)
+            val to = moved.indexOfFirst { it.spec.id == shown[at + step] }
+            moved.add(if (step > 0) to + 1 else to, row)
+            s.copy(rows = moved)
+        }
+        saveLayout("move") { saved, libraries -> HomeLayout.move(saved, libraries, shown, id, step) }
+    }
+
+    /** Shows a Home row as posters or wide thumbnails. */
+    fun setRowStyle(spec: HomeRowSpec, style: CardStyle) {
+        if (spec.style == style) return
+        _state.update { s -> s.copy(rows = s.rows.map { if (it.spec.id == spec.id) it.copy(spec = it.spec.copy(style = style)) else it }) }
+        saveLayout("style") { saved, libraries -> HomeLayout.style(saved, libraries, spec, style) }
+    }
+
+    /** Reads the saved layout fresh, changes it and saves it; on failure Home is reloaded as it's saved. */
+    private fun saveLayout(what: String, change: (List<JsonObject>, List<Library>) -> List<JsonObject>?) {
+        val api = container.api() ?: return
+        val libraries = (_state.value.frame as? LoadState.Ready)?.value?.libraries ?: return
+        viewModelScope.launch {
+            layoutSaves.withLock {
+                try {
+                    val next = change(api.homeLayout(), libraries) ?: return@withLock
+                    api.saveHomeLayout(next)
+                    ArcLog.Android.info("home layout saved ($what)")
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    ArcLog.Android.warn("home layout not saved ($what): ${e.javaClass.simpleName}")
+                    load()
+                }
+            }
+        }
     }
 
     private fun setRow(spec: HomeRowSpec, cards: LoadState<List<MediaCard>>) = _state.update { s ->

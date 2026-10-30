@@ -60,7 +60,7 @@ enum class DetailsPanel { None, More, MediaInfo }
  * closes it, as a Google TV dialog does.
  */
 @Composable
-private fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onBack)
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
         Column(
@@ -99,13 +99,14 @@ fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMedia
 }
 
 @Composable
-private fun MenuItem(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun MenuItem(icon: ImageVector?, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     ListItem(
         selected = false,
         onClick = onClick,
         modifier = modifier,
         headlineContent = { Text(label) },
-        leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        // A choice that isn't the current one keeps the icon's space, so labels line up.
+        leadingContent = { if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) else Spacer(Modifier.size(20.dp)) },
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = ArcColors.Foreground,

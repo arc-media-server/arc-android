@@ -118,6 +118,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeRowOptions() = shot("home-row-options") {
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+        org.arcmediaserver.android.ui.browse.RowOptions(Fixtures.homeRows[1].spec, canMoveUp = true, canMoveDown = true, onMove = {}, onStyle = {}, onClose = {})
+    }
+
+    @Test
     fun homeSidebar() = shot("home-sidebar") {
         browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows), drawerOpen = true)
     }
