@@ -194,3 +194,11 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   playlist rows last, in the order they were added. A collection or playlist row is titled with
   the name saved with it. Collection and playlist rows need arc-media-server#303.
 - Logged: a row that fails, at warning with its id and the error class, as other rows.
+
+## Half the gap beside the sidebar (owner, 30 October)
+
+- Content starts 48dp from the left edge plus each screen's own 48dp (it was 72dp plus 48dp):
+  the gap between the rail's icons and the content is about half what it was. The library grid
+  gains the width, so its six posters are bigger (about 116dp wide); its rows are 14dp apart so
+  two whole rows still fit inside the TV's safe area.
+- Logged: nothing new.

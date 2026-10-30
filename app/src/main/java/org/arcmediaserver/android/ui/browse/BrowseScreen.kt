@@ -157,7 +157,9 @@ fun BrowseScreen(
                     Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut)
                 },
             ) {
-                Box(Modifier.fillMaxSize().padding(start = 72.dp)) {
+                // The rail is 72dp wide but its icons end at 60dp: starting the content 48dp in
+                // (plus each screen's own 48dp) leaves half the gap there was (owner, 30 October).
+                Box(Modifier.fillMaxSize().padding(start = 48.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
@@ -546,7 +548,7 @@ private fun CardGrid(count: Int, landscape: Boolean, key: (Int) -> Any, card: @C
             columns = GridCells.Fixed(if (landscape) 4 else 6),
             contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(count, key = key) { i -> card(i, Modifier.fillMaxWidth()) }
         }
