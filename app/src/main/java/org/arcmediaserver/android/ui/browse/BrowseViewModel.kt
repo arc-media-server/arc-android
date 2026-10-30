@@ -19,6 +19,8 @@ import org.arcmediaserver.android.data.MediaCard
 import org.arcmediaserver.android.data.Profile
 import org.arcmediaserver.android.data.RowSource
 import org.arcmediaserver.android.data.cardFor
+import org.arcmediaserver.android.data.QueueRow
+import org.arcmediaserver.android.data.queueCards
 import org.arcmediaserver.android.data.customRowQuery
 import org.arcmediaserver.android.data.resolveHomeRows
 import org.arcmediaserver.android.ui.components.LoadState
@@ -119,6 +121,7 @@ suspend fun loadRow(api: ArcApi, spec: HomeRowSpec): List<MediaCard> = when (val
     is RowSource.Seasonal -> api.items(s.pick.query + ("limit" to "24")).items.map { cardFor(it) }
     is RowSource.Collection -> api.collection(s.id).items.map { cardFor(it) }
     is RowSource.Playlist -> api.playlist(s.id).entries.map { cardFor(it.item, key = "entry:${it.entryId}") }
+    RowSource.Queue -> emptyList() // BrowseViewModel follows the queue itself
 }
 
 fun libraryQuery(library: Library, sort: String, limit: Int, offset: Int = 0): Map<String, String> = buildMap {
@@ -135,6 +138,16 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         load()
+        // Play Next and Add to Queue (from any card's menu) show in the Queue row at once.
+        viewModelScope.launch {
+            container.queues.queue.collect { q ->
+                val cards = queueCards(q)
+                _state.update { s ->
+                    val rows = s.rows.filter { it.spec.source != RowSource.Queue }
+                    s.copy(rows = if (cards.isEmpty() || rows.isEmpty()) rows else listOf(HomeRowState(QueueRow, LoadState.Ready(cards))) + rows)
+                }
+            }
+        }
     }
 
     /** Loads the sidebar and Home; called again by Retry and when coming back from playing. */
@@ -155,10 +168,13 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                 _state.update {
                     it.copy(frame = LoadState.Ready(BrowseFrame(sorted, status.profile, canSwitchProfile = !status.friend)))
                 }
-                val specs = resolveHomeRows(prefs, sorted)
+                // The queue (when this server keeps one) comes before everything the profile arranged.
+                val queue = if (container.queues.supported()) container.queues.refresh() else null
+                val specs = (if (queue != null) listOf(QueueRow) else emptyList()) + resolveHomeRows(prefs, sorted)
                 val current = _state.value.rows.associateBy { it.spec.id }
                 _state.update { s -> s.copy(rows = specs.map { spec -> current[spec.id]?.copy(spec = spec) ?: HomeRowState(spec, LoadState.Loading) }) }
-                specs.map { spec -> async { loadRowInto(api, spec) } }.awaitAll()
+                if (queue != null) setRow(QueueRow, LoadState.Ready(queueCards(container.queues.queue.value)))
+                specs.filter { it.source != RowSource.Queue }.map { spec -> async { loadRowInto(api, spec) } }.awaitAll()
                 ArcLog.Android.debug("home loaded: ${specs.size} rows in ${System.currentTimeMillis() - started} ms")
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e

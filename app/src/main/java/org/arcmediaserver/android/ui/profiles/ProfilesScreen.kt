@@ -91,14 +91,30 @@ data class ProfilesUiState(
     /** Signed in with the password: the admin profile needs no PIN (else it shows a lock, as on the web). */
     val passwordSession: Boolean = true,
     val chosen: Boolean = false,
+    /** The server's name as set in Arc (e.g. "Living Room"), once this TV has learnt it. */
+    val serverName: String? = null,
 )
 
 class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
-    private val _state = MutableStateFlow(ProfilesUiState())
+    private val _state = MutableStateFlow(ProfilesUiState(serverName = container.session.serverName))
     val state: StateFlow<ProfilesUiState> = _state
 
     init {
         load()
+        learnServerName()
+    }
+
+    /**
+     * Arc tells its name only once a profile is chosen: kept for this picker next time. Before
+     * then (or from an older Arc) the name last learnt stays.
+     */
+    private fun learnServerName() {
+        val api = container.api() ?: return
+        container.appScope.launch {
+            val name = runCatching { api.identity().name }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+            container.session.serverName = name
+            _state.update { it.copy(serverName = name) }
+        }
     }
 
     fun signOut(done: () -> Unit) = container.signOut(done)
@@ -150,6 +166,7 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
             try {
                 api.chooseProfile(profile.id, pin)
                 container.profileChanged()
+                learnServerName()
                 _state.update { it.copy(chosen = true) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -208,6 +225,11 @@ fun ProfilesScreen(
                 ArcWordmark()
                 Spacer(Modifier.height(28.dp))
                 Text(stringResource(R.string.profiles_title), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 30.sp))
+                // Which server this is, by the name set in Arc's settings.
+                state.serverName?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted)
+                }
                 Spacer(Modifier.height(36.dp))
                 val first = remember { FocusRequester() }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(32.dp), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp)) {

@@ -32,7 +32,7 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
             prefs.edit().apply {
                 if (value == null) remove(KEY_SERVER) else putString(KEY_SERVER, value.toString())
                 // A token belongs to the server that gave it.
-                if (changed) remove(KEY_TOKEN)
+                if (changed) remove(KEY_TOKEN).remove(KEY_NAME)
             }.apply()
             if (changed) {
                 cached = null
@@ -60,7 +60,13 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
             }.apply()
         }
 
+    /** The server's own name (as set in Arc), remembered for the screens before a profile is chosen. */
+    var serverName: String?
+        get() = prefs.getString(KEY_NAME, null)
+        set(value) = prefs.edit().apply { if (value.isNullOrBlank()) remove(KEY_NAME) else putString(KEY_NAME, value) }.apply()
+
     private companion object {
+        const val KEY_NAME = "server_name"
         const val KEY_SERVER = "server"
         const val KEY_TOKEN = "token"
     }

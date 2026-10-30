@@ -79,6 +79,48 @@ class ArcApi(
         raw("POST", "auth/logout", "{}")
     }
 
+    /** This server's name and identity; needs a chosen profile. */
+    suspend fun identity(): Identity = get("identity", Identity.serializer())
+
+    suspend fun capabilities(): Capabilities = get("capabilities", Capabilities.serializer())
+
+    /** Starts this TV's queue with [itemIds] (a show adds its episodes), replacing [replace]. */
+    suspend fun createPlayQueue(itemIds: List<String>, replace: PlayQueue? = null): PlayQueue {
+        val body = buildMap {
+            put("item_ids", kotlinx.serialization.json.JsonArray(itemIds.map { JsonPrimitive(it) }))
+            if (replace != null) {
+                put("replace_id", JsonPrimitive(replace.id))
+                put("revision", JsonPrimitive(replace.revision))
+            }
+        }
+        return send("POST", "play-queues", JsonObject(body).toString(), PlayQueue.serializer())
+    }
+
+    /** This TV and profile's queue, or null when there's none (or it expired). */
+    suspend fun currentPlayQueue(): PlayQueue? {
+        val route = "play-queues/current"
+        val (status, body) = raw("GET", route, null)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, PlayQueue.serializer(), route)
+            else -> throw failure(status, body, route)
+        }
+    }
+
+    /**
+     * One edit to the queue: [operation] (append, next, remove, clear, advance, select...) with its
+     * [fields]. Arc refuses it (409) when [queue] isn't its latest revision.
+     */
+    suspend fun editPlayQueue(queue: PlayQueue, operation: String, fields: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap()): PlayQueue {
+        val body = JsonObject(mapOf("revision" to JsonPrimitive(queue.revision), "operation" to JsonPrimitive(operation)) + fields)
+        return send("PATCH", "play-queues/${enc(queue.id)}", body.toString(), PlayQueue.serializer(), route = "play-queues/{id}")
+    }
+
+    suspend fun deletePlayQueue(queue: PlayQueue) {
+        val (status, body) = raw("DELETE", "play-queues/${enc(queue.id)}?revision=${queue.revision}", null, route = "play-queues/{id}")
+        if (status !in 200..299 && status != 404) throw failure(status, body, "play-queues/{id}")
+    }
+
     suspend fun libraries(): List<Library> = get("libraries", kotlinx.serialization.builtins.ListSerializer(Library.serializer()))
 
     suspend fun prefs(): Prefs = get("me/prefs", Prefs.serializer())

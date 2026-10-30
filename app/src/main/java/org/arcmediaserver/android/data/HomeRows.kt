@@ -14,7 +14,20 @@ sealed interface RowSource {
     /** A collection or playlist: [title] is the name saved with the row, until its own loads. */
     data class Collection(val id: String, val title: String) : RowSource
     data class Playlist(val id: String, val title: String) : RowSource
+    /** This TV's play queue on Arc, from the title it's on: picking a card plays on from there. */
+    data object Queue : RowSource
 }
+
+/** Home's Queue row, first while there's a queue to carry on (the app's own row, not a saved one). */
+val QueueRow = HomeRowSpec("queue", RowSource.Queue, CardStyle.Thumb)
+
+/** The queue's cards, keyed by entry (the same title can be queued twice). */
+fun queueCards(queue: PlayQueue?): List<MediaCard> = queue?.upcoming().orEmpty().mapNotNull { e -> e.item?.let { cardFor(it, key = QUEUE_KEY + e.id) } }
+
+/** The queue entry a Queue row card stands for. */
+fun MediaCard.queueEntryId(): String? = key.takeIf { it.startsWith(QUEUE_KEY) }?.removePrefix(QUEUE_KEY)
+
+private const val QUEUE_KEY = "queue:"
 
 /**
  * The seasonal row's picks and their dates (web/src/lib/home.ts seasons): films for the time of

@@ -129,11 +129,13 @@ fun skippable(markers: List<Marker>, positionMs: Long): Marker? =
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: (Item) -> Unit) {
+fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
     val context = LocalContext.current
     val container = (context.applicationContext as ArcApplication).container
-    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs) } })
+    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn) } })
     val state by vm.state.collectAsStateWithLifecycle()
+    // The next title goes with its queue entry, when it's the queue's.
+    val onPlayNext: (Item) -> Unit = { next -> onPlayNextEntry(next, state.nextEntryId) }
     // Up Next (web Player.tsx): a countdown when the credits start and again at the end; Play Now
     // goes straight on, Cancel lets the credits play (or, at the end, closes the player, as Plex).
     var upNextIn by remember { mutableStateOf<Int?>(null) }

@@ -53,6 +53,13 @@
 
     <!-- Home -->
     <string name="row_continue">Continue Watching</string>
+    <string name="row_queue">Queue</string>
+    <string name="queue_play_next">Play Next</string>
+    <string name="queue_add">Add to Queue</string>
+    <string name="queue_added_next">%1$s plays next</string>
+    <string name="queue_added">%1$s added to the queue</string>
+    <string name="queue_failed">Couldn\'t add %1$s to the queue</string>
+    <string name="action_shuffle">Shuffle</string>
     <string name="row_next_up">Up Next</string>
     <string name="row_watchlist">Watchlist</string>
     <string name="row_recent">Recently Added in %1$s</string>

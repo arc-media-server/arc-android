@@ -60,6 +60,8 @@ interface CardMenu {
     fun current(item: Item): Item
     /** Opens [item]'s menu; [onClose] puts the focus back on the card. */
     fun open(item: Item, onClose: () -> Unit)
+    /** Play Next ([next]) or Add to Queue, with a note of what happened; null when the server keeps no queue. */
+    val queue: ((item: Item, next: Boolean) -> Unit)? get() = null
 }
 
 val LocalCardMenu = compositionLocalOf<CardMenu?> { null }

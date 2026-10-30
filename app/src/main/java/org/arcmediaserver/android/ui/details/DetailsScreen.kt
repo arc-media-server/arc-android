@@ -85,9 +85,11 @@ fun DetailsRoute(
     episodeId: String? = null,
     onPerson: (Long) -> Unit = {},
     onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
+    onPlayQueued: (Item, String) -> Unit = { _, _ -> },
 ) {
     val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val canShuffle by vm.canShuffle.collectAsStateWithLifecycle()
     var resumed by remember { mutableStateOf(false) }
     // Coming back from the player: show the new resume point and watched state.
     LifecycleResumeEffect(Unit) {
@@ -100,7 +102,10 @@ fun DetailsRoute(
         Loaded(state, onRetry = { vm.load() }) { details ->
             DetailsScreen(
                 details, onPlay, onOpen,
-                actions = TitleActions(onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown),
+                actions = TitleActions(
+                    onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
+                    onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
+                ),
                 onPerson = onPerson,
                 onExtra = onExtra,
             )
@@ -114,6 +119,8 @@ data class TitleActions(
     val onWatchlist: () -> Unit = {},
     val problem: ActionProblem? = null,
     val onProblemShown: () -> Unit = {},
+    /** A show's Shuffle; null where it can't be shuffled. */
+    val onShuffle: (() -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -194,7 +201,13 @@ fun DetailsScreen(
         }
         when (panel) {
             DetailsPanel.None -> Unit
-            DetailsPanel.More -> MoreMenu(item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel)
+            DetailsPanel.More -> {
+                val queue = org.arcmediaserver.android.ui.components.LocalCardMenu.current?.queue
+                MoreMenu(
+                    item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel,
+                    onQueue = queue?.let { q -> { next: Boolean -> q(item, next) } },
+                )
+            }
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
         }
     }
@@ -252,6 +265,10 @@ private fun Header(
                 if (resume > 0) {
                     ActionButton(ArcIcons.RotateCcw, stringResource(R.string.action_play_from_start)) { onPlay(target, 0) }
                 }
+            }
+            // Shuffle, after Play as on the web's show page.
+            if (item.isSeries && actions.onShuffle != null && details.seasons.any { s -> s.episodes.any { it.available } }) {
+                ActionButton(ArcIcons.Shuffle, stringResource(R.string.action_shuffle)) { actions.onShuffle.invoke() }
             }
             if (item.isEpisode && item.parentId != null) {
                 ActionButton(ArcIcons.Tv, stringResource(R.string.action_go_to_show)) { onOpen(item.parentId) }
