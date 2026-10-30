@@ -1,7 +1,7 @@
 package org.arcmediaserver.android.ui.browse
 
-import org.arcmediaserver.android.ui.details.MenuItem
-import org.arcmediaserver.android.ui.details.Overlay
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
@@ -107,8 +107,6 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.da
         onOpen = onOpen,
         onRetry = vm::load,
         onRetryRow = vm::retryRow,
-        onMoveRow = vm::moveRow,
-        onRowLook = vm::setRowLook,
         onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
         onNearEnd = vm::nearEnd,
         onSwitchProfile = onSwitchProfile,
@@ -125,8 +123,6 @@ fun BrowseScreen(
     onRetry: () -> Unit,
     onRetryRow: (HomeRowSpec) -> Unit,
     onRetryLibrary: () -> Unit,
-    onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
-    onRowLook: (HomeRowSpec) -> Unit = {},
     onNearEnd: () -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
@@ -149,7 +145,7 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 72.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onMoveRow = onMoveRow, onRowLook = onRowLook)
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
                             Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
                         }
@@ -160,7 +156,10 @@ fun BrowseScreen(
     }
 }
 
-/** The left rail, as in Plex and Google TV: icons that open into labels when focused. */
+/**
+ * The left rail, as in Plex and Google TV: icons that open into labels when focused. Entries are
+ * compact (40dp, as Google TV's own menu) so ten or so libraries fit without scrolling.
+ */
 @Composable
 private fun NavigationDrawerScope.Sidebar(
     frame: BrowseFrame,
@@ -171,10 +170,10 @@ private fun NavigationDrawerScope.Sidebar(
     onSignOut: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxHeight().background(if (value == DrawerValue.Open) ArcColors.Surface else Color.Transparent).padding(12.dp).selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        Modifier.fillMaxHeight().width(IntrinsicSize.Max).background(if (value == DrawerValue.Open) ArcColors.Surface else Color.Transparent).padding(12.dp).selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Box(Modifier.padding(start = 8.dp, top = 12.dp, bottom = 20.dp)) {
+        Box(Modifier.padding(start = 8.dp, top = 12.dp, bottom = 16.dp)) {
             Icon(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), tint = Color.Unspecified, modifier = Modifier.size(28.dp))
         }
         SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
@@ -185,35 +184,51 @@ private fun NavigationDrawerScope.Sidebar(
         Spacer(Modifier.weight(1f))
         val profile = frame.profile
         if (profile != null && frame.canSwitchProfile) {
-            NavigationDrawerItem(
+            SidebarEntry(
+                leading = { Avatar(profile, 22.dp) },
+                label = profile.name,
+                sub = stringResource(R.string.nav_switch_profile),
                 selected = false,
                 onClick = onSwitchProfile,
-                leadingContent = { Avatar(profile, 26.dp) },
-                supportingContent = { Text(stringResource(R.string.nav_switch_profile)) },
-                colors = itemColors(),
-            ) { Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            )
         }
         SidebarItem(ArcIcons.SignOut, stringResource(R.string.nav_sign_out), false, onSignOut)
     }
 }
 
 @Composable
-private fun itemColors() = NavigationDrawerItemDefaults.colors(
-    focusedContainerColor = ArcColors.Foreground,
-    focusedContentColor = ArcColors.Background,
-    selectedContainerColor = ArcColors.Surface3,
-    selectedContentColor = ArcColors.Foreground,
-    contentColor = ArcColors.Muted,
-)
+private fun NavigationDrawerScope.SidebarItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) =
+    SidebarEntry({ Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) }, label, null, selected, onClick)
 
+/**
+ * One sidebar entry, 40dp tall (48dp with a second line): the icon alone while the rail is closed,
+ * the label beside it once it opens. Drawn here because Compose for TV's drawer item is 56dp.
+ */
 @Composable
-private fun NavigationDrawerScope.SidebarItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    NavigationDrawerItem(
-        selected = selected,
+private fun NavigationDrawerScope.SidebarEntry(leading: @Composable () -> Unit, label: String, sub: String?, selected: Boolean, onClick: () -> Unit) {
+    androidx.tv.material3.Surface(
         onClick = onClick,
-        leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
-        colors = itemColors(),
-    ) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        modifier = Modifier.fillMaxWidth().height(if (sub != null) 48.dp else 40.dp),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) ArcColors.Surface3 else Color.Transparent,
+            contentColor = if (selected) ArcColors.Foreground else ArcColors.Muted,
+            focusedContainerColor = ArcColors.Foreground,
+            focusedContentColor = ArcColors.Background,
+        ),
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { leading() }
+            if (hasFocus) {
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.padding(end = 8.dp)) {
+                    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.7f))
+                }
+            }
+        }
+    }
 }
 
 fun libraryIcon(lib: Library): ImageVector = when (lib.kind) {
@@ -243,11 +258,8 @@ fun HomeContent(
     onOpen: (Item) -> Unit,
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
-    onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
-    onRowLook: (HomeRowSpec) -> Unit = {},
 ) {
-    // The row whose options are open (holding OK on one of its cards).
-    var options by remember { mutableStateOf<String?>(null) }
+
     var focused by remember { mutableStateOf<MediaCard?>(null) }
     val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
@@ -309,37 +321,9 @@ fun HomeContent(
                             onRetry = { onRetryRow(row.spec) },
                             firstCard = if (isFirst) firstCard else null,
                             rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
-                            onOptions = { options = row.spec.id },
                         )
                     }
                 }
-            }
-            val open = visible.firstOrNull { it.spec.id == options }
-            if (open != null) {
-                val shownIds = visible.map { it.spec.id }
-                val at = shownIds.indexOf(open.spec.id)
-                RowOptions(
-                    open.spec,
-                    canMoveUp = at > 0,
-                    canMoveDown = at < shownIds.lastIndex,
-                    onMove = { step ->
-                        onMoveRow(open.spec.id, step, shownIds)
-                        // Keep the moved row in the band, behind the menu.
-                        scope.launch { list.scrollToItem((at + step).coerceIn(0, shownIds.lastIndex)) }
-                    },
-                    onLook = onRowLook,
-                    onClose = {
-                        options = null
-                        // Back to the row, where the focus was before the menu opened.
-                        val index = visible.indexOfFirst { it.spec.id == open.spec.id }
-                        val requester = rowFocus[open.spec.id]
-                        scope.launch {
-                            if (index >= 0) list.scrollToItem(index)
-                            current = index.coerceAtLeast(0)
-                            requester?.requestWhenReady()
-                        }
-                    },
-                )
             }
         }
     }
@@ -434,7 +418,7 @@ fun runtimeText(minutes: Int): String =
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester, onOptions: () -> Unit) {
+private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -461,52 +445,12 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                         seasonPoster = row.spec.seasonPosters,
                         width = when (style) { CardStyle.Thumb -> HomeThumbWidth; CardStyle.Backdrop -> HomeBackdropWidth; CardStyle.Poster -> HomePosterWidth },
                         onClick = { onOpen(card.item) },
-                        onLongClick = onOptions,
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
                 }
             } }
         }
     }
-}
-
-/**
- * A Home row's options, opened by holding OK on one of its cards (as Plex's long press): move the
- * row up or down, and show it as posters or wide thumbnails. The menu stays open while moving, so
- * a row can go several places; the change is saved to the profile, so the web's Home follows.
- */
-@Composable
-internal fun RowOptions(spec: HomeRowSpec, canMoveUp: Boolean, canMoveDown: Boolean, onMove: (Int) -> Unit, onLook: (HomeRowSpec) -> Unit, onClose: () -> Unit) {
-    val first = remember { FocusRequester() }
-    Overlay(420.dp, onBack = onClose) {
-        Text(rowTitle(spec), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(12.dp))
-        // Both moves stay listed at either end (doing nothing there), so the focus never jumps.
-        MenuItem(ArcIcons.ArrowUp, stringResource(R.string.home_row_move_up), Modifier.focusRequester(first)) { if (canMoveUp) onMove(-1) }
-        MenuItem(ArcIcons.ArrowDown, stringResource(R.string.home_row_move_down)) { if (canMoveDown) onMove(1) }
-        Spacer(Modifier.height(10.dp))
-        Text(stringResource(R.string.home_row_show_as), style = MaterialTheme.typography.labelLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp))
-        // The same choices as the web's Edit Home (web/src/components/EditHome.tsx LookMenu).
-        @Composable
-        fun choice(label: Int, on: Boolean, look: HomeRowSpec) = MenuItem(if (on) ArcIcons.Check else null, stringResource(label)) { onLook(look) }
-        val poster = spec.style == CardStyle.Poster
-        if (spec.hasEpisodes) {
-            choice(R.string.home_row_show_posters, poster && !spec.seasonPosters, spec.copy(style = CardStyle.Poster, seasonPosters = false))
-            choice(R.string.home_row_season_posters, poster && spec.seasonPosters, spec.copy(style = CardStyle.Poster, seasonPosters = true))
-        } else {
-            choice(R.string.home_row_posters, poster, spec.copy(style = CardStyle.Poster))
-        }
-        choice(R.string.home_row_thumbs, spec.style == CardStyle.Thumb, spec.copy(style = CardStyle.Thumb))
-        choice(R.string.home_row_backdrops, spec.style == CardStyle.Backdrop, spec.copy(style = CardStyle.Backdrop))
-        val recent = spec.source as? RowSource.Recent
-        if (recent != null && recent.library.kind == "shows") {
-            Spacer(Modifier.height(10.dp))
-            MenuItem(if (!recent.showsOnly) ArcIcons.Check else null, stringResource(R.string.home_row_group_seasons)) {
-                onLook(spec.copy(source = recent.copy(showsOnly = !recent.showsOnly)))
-            }
-        }
-    }
-    LaunchedEffect(Unit) { first.requestWhenReady() }
 }
 
 /** A library's titles in a grid, A to Z, loading more as the focus nears the end. */

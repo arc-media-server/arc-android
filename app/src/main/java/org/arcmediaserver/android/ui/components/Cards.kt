@@ -87,12 +87,10 @@ fun FocusCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onFocused: (Boolean) -> Unit = {},
-    onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Card(
         onClick = onClick,
-        onLongClick = onLongClick,
         modifier = modifier.onFocusChanged { onFocused(it.isFocused) },
         shape = CardDefaults.shape(CardShape),
         scale = CardDefaults.scale(focusedScale = 1.08f),
@@ -186,8 +184,6 @@ fun MediaCardView(
     /** Home shows no captions: the overview above names whatever has focus, as Plex does. */
     caption: Boolean = true,
     width: Dp? = null,
-    /** Holding OK: Home's row options. */
-    onLongClick: (() -> Unit)? = null,
     /** Home's Backdrops look: a squarer card with the title's background art and its logo. */
     backdrop: Boolean = false,
     /** Home's season posters: an episode's or new season's own poster rather than the show's. */
@@ -196,7 +192,7 @@ fun MediaCardView(
     var focused by remember { mutableStateOf(false) }
     val cardWidth: Dp = width ?: if (landscape) ThumbWidth else PosterWidth
     Column(modifier.width(cardWidth)) {
-        FocusCard(onClick = onClick, onFocused = { focused = it }, onLongClick = onLongClick) {
+        FocusCard(onClick = onClick, onFocused = { focused = it }) {
             if (backdrop) {
                 BackdropArt(card)
             } else {

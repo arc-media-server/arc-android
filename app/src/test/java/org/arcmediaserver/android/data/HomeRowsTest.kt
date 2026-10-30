@@ -36,7 +36,7 @@ class HomeRowsTest {
     }
 
     @Test
-    fun `the saved order wins, hidden rows go, unplaced built-ins go where they'd be`() {
+    fun `rows follow the library order, not the saved order, and hidden rows go`() {
         val prefs = Prefs(
             home = listOf(
                 HomeRowPref("recent:2"),
@@ -46,8 +46,8 @@ class HomeRowsTest {
                 HomeRowPref("recent:99"),
             ),
         )
-        // recent:1 comes after watchlist by default (placed, though hidden); recent:3 after recent:2.
-        assertEquals(listOf("recent:2", "recent:3", "continue", "recent:1"), ids(resolveHomeRows(prefs, libs)))
+        // The libraries come in the profile's order (TV, Movies, Home Videos).
+        assertEquals(listOf("continue", "recent:2", "recent:1", "recent:3"), ids(resolveHomeRows(prefs, listOf(tv, movies, videos))))
     }
 
     @Test
@@ -61,12 +61,13 @@ class HomeRowsTest {
         }
         val prefs = Prefs(home = listOf(HomeRowPref("custom:a", title = "Scary", filter = filter, style = "thumb")))
         val rows = resolveHomeRows(prefs, libs)
-        // Built-ins the profile hasn't placed go where they'd be by default: Continue Watching first.
-        assertEquals(listOf("continue", "watchlist", "recent:1", "recent:2", "recent:3", "custom:a"), ids(rows))
+        // A filter row sits under its library's newest.
+        assertEquals(listOf("continue", "watchlist", "recent:1", "custom:a", "recent:2", "recent:3"), ids(rows))
         val row = rows.first { it.id == "custom:a" }
         val source = row.source as RowSource.Custom
         assertEquals("Scary", source.title)
-        assertEquals(CardStyle.Thumb, row.style)
+        // Only the rows carrying on watching take a saved look.
+        assertEquals(CardStyle.Poster, row.style)
         assertEquals(
             mapOf("library_id" to "1", "genre" to "Horror", "unwatched" to "1", "sort" to "rating", "kind" to "movie", "limit" to "24"),
             customRowQuery(source.filter, source.library),
@@ -104,67 +105,14 @@ class HomeRowsTest {
         assertEquals(3, card.newEpisodes)
     }
 
-    private fun row(id: String, vararg extra: Pair<String, Any>) = buildJsonObject {
-        put("id", id)
-        for ((k, v) in extra) when (v) {
-            is Boolean -> put(k, v)
-            is String -> put(k, v)
-            is JsonObject -> put(k, v)
-        }
-    }
-    private fun layoutIds(rows: List<JsonObject>?) = rows!!.map { it["id"]!!.jsonPrimitive.content }
-
     @Test
-    fun `moving a row on a fresh profile saves the whole default layout`() {
-        // Home shows continue, watchlist and each library's newest; seasonal and Up Next keep their places.
-        val shown = listOf("continue", "watchlist", "recent:1", "recent:2", "recent:3")
-        val moved = HomeLayout.move(emptyList(), libs, shown, "recent:2", -1)
-        assertEquals(listOf("continue", "next-up", "watchlist", "seasonal", "recent:2", "recent:1", "recent:3"), layoutIds(moved))
-    }
-
-    @Test
-    fun `moving skips rows Home doesn't show and keeps every saved field`() {
-        val filter = buildJsonObject { put("library_id", 1); put("genre", "Horror") }
-        val saved = listOf(
-            row("continue"),
-            row("watchlist", "hidden" to true),
-            row("collection:9", "title" to "Bond"),
-            row("custom:a", "title" to "Scary", "filter" to filter, "posters" to "season"),
-            row("recent:1"), row("recent:2"), row("recent:3"),
-        )
-        val shown = listOf("continue", "custom:a", "recent:1", "recent:2", "recent:3")
-        val moved = HomeLayout.move(saved, libs, shown, "custom:a", -1)!!
-        assertEquals(listOf("custom:a", "continue", "watchlist", "collection:9", "recent:1", "recent:2", "recent:3", "next-up", "seasonal").sorted(), layoutIds(moved).sorted())
-        // Unplaced built-ins (Up Next, seasonal) go where they are by default.
-        assertEquals(listOf("custom:a", "continue", "next-up", "watchlist"), layoutIds(moved).take(4))
-        assertEquals(saved[3], moved.first())
-        // Past either end there's nowhere to go.
-        assertNull(HomeLayout.move(saved, libs, shown, "continue", -1))
-        assertNull(HomeLayout.move(saved, libs, shown, "recent:3", 1))
-    }
-
-    @Test
-    fun `a row's look is saved only when it isn't the usual one`() {
-        val rows = resolveHomeRows(Prefs(), libs)
-        val recent = rows.first { it.id == "recent:2" }
-        fun saved(look: HomeRowSpec, from: List<JsonObject> = emptyList()) = HomeLayout.look(from, libs, look).first { it["id"]!!.jsonPrimitive.content == "recent:2" }
-        // Backdrops, show posters (Recently Added's usual is season posters) and one card per show.
-        val changed = saved(recent.copy(style = CardStyle.Backdrop, seasonPosters = false, source = (recent.source as RowSource.Recent).copy(showsOnly = true)))
-        assertEquals("arc", changed["style"]!!.jsonPrimitive.content)
-        assertEquals("series", changed["posters"]!!.jsonPrimitive.content)
-        assertEquals("true", changed["shows_only"]!!.jsonPrimitive.content)
-        // Back to the usual look: nothing saved, other fields kept.
-        val back = saved(recent, listOf(row("recent:2", "style" to "arc", "posters" to "series", "shows_only" to true, "hidden" to false)))
-        assertEquals(setOf("id", "hidden"), back.keys)
-    }
-
-    @Test
-    fun `saved looks are read back, Backdrops and season posters included`() {
-        val prefs = Prefs(home = listOf(HomeRowPref("continue", style = "arc", posters = "season"), HomeRowPref("recent:2", posters = "series")))
+    fun `Continue Watching's saved look is shown, other rows keep theirs`() {
+        val prefs = Prefs(home = listOf(HomeRowPref("continue", style = "arc", posters = "season"), HomeRowPref("recent:2", style = "thumb", posters = "series")))
         val rows = resolveHomeRows(prefs, libs)
         assertEquals(CardStyle.Backdrop, rows.first { it.id == "continue" }.style)
         assertEquals(true, rows.first { it.id == "continue" }.seasonPosters)
-        assertEquals(false, rows.first { it.id == "recent:2" }.seasonPosters)
-        assertEquals(true, rows.first { it.id == "recent:1" }.seasonPosters)
+        // Recently Added always shows posters, with each new season's own.
+        assertEquals(CardStyle.Poster, rows.first { it.id == "recent:2" }.style)
+        assertEquals(true, rows.first { it.id == "recent:2" }.seasonPosters)
     }
 }

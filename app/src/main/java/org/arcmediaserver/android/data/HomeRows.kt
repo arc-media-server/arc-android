@@ -1,7 +1,6 @@
 package org.arcmediaserver.android.data
 
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.JsonPrimitive
 
 /** What a Home row shows. Built-in rows are named by the app; custom rows keep their own title. */
@@ -16,23 +15,8 @@ sealed interface RowSource {
 /** Posters, wide thumbnails, or Backdrops (the web's "arc": squarer cards with background art and the logo). */
 enum class CardStyle { Poster, Thumb, Backdrop }
 
-/**
- * A Home row and its look. [defaultStyle] is the look the web gives the row when the profile hasn't
- * chosen one; [seasonPosters] shows an episode's or season's own poster rather than its show's.
- */
-data class HomeRowSpec(
-    val id: String,
-    val source: RowSource,
-    val style: CardStyle,
-    val defaultStyle: CardStyle = style,
-    val seasonPosters: Boolean = false,
-) {
-    /** Recently Added starts with season posters, rows carrying on watching with the show's (web defaultPosters). */
-    val defaultSeasonPosters get() = source is RowSource.Recent
-
-    /** Whether the row can show episodes or seasons, so season posters mean something (web hasEpisodes). */
-    val hasEpisodes get() = source is RowSource.Continue || source is RowSource.NextUp || (source is RowSource.Recent && source.library.kind == "shows")
-}
+/** A Home row and its look; [seasonPosters] shows an episode's or season's own poster rather than its show's. */
+data class HomeRowSpec(val id: String, val source: RowSource, val style: CardStyle, val seasonPosters: Boolean = false)
 
 private fun styleOf(saved: String?): CardStyle? = when (saved) {
     "poster" -> CardStyle.Poster
@@ -42,98 +26,38 @@ private fun styleOf(saved: String?): CardStyle? = when (saved) {
 }
 
 /**
- * The profile's Home rows in its order, as the web app arranges them (web/src/lib/home.ts):
- * the saved layout first, then built-in rows it hasn't placed where they'd be by default. Rows the
- * TV app can't show yet (seasonal, collections, playlists) are left out; hidden rows too.
+ * The profile's Home rows, as the web arranges them (web/src/lib/home.ts resolveRows). Their order
+ * follows the profile's library order, as Plex's Home follows its pinned libraries: carrying on
+ * watching and the watchlist first, then each library's newest followed by its own filter rows.
+ * [libraries] must be in the profile's order. Only the rows carrying on watching take a saved look;
+ * the rest keep their usual one. The layout is arranged on the web (Edit Home, Reorder libraries);
+ * the TV follows it. Rows the TV can't show yet (seasonal, collections, playlists) and hidden rows
+ * are left out.
  */
 fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
-    val out = mutableListOf<Pair<HomeRowSpec?, String>>() // spec (null: placed but not shown here), id
-    val placed = mutableSetOf<String>()
-    fun builtIn(id: String, saved: HomeRowPref?): HomeRowSpec? {
-        fun spec(source: RowSource, default: CardStyle) = HomeRowSpec(id, source, styleOf(saved?.style) ?: default, default).let {
-            it.copy(seasonPosters = saved?.posters?.let { p -> p == "season" } ?: it.defaultSeasonPosters)
-        }
-        return when {
-            id == "continue" -> spec(RowSource.Continue(withUpNext = !prefs.splitUpNext), CardStyle.Thumb)
-            id == "next-up" -> if (prefs.splitUpNext) spec(RowSource.NextUp, CardStyle.Thumb) else null
-            id == "watchlist" -> spec(RowSource.Watchlist, CardStyle.Poster)
-            id.startsWith("recent:") -> libraries.find { "recent:${it.id}" == id }?.let { lib ->
-                spec(RowSource.Recent(lib, saved?.showsOnly == true), if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster)
-            }
-            else -> null
-        }
+    val saved = prefs.home.associateBy { it.id }
+    fun shown(id: String) = saved[id]?.hidden != true
+    val out = mutableListOf<HomeRowSpec>()
+    fun carryOn(id: String, source: RowSource) {
+        val row = saved[id]
+        out += HomeRowSpec(id, source, styleOf(row?.style) ?: CardStyle.Thumb, seasonPosters = row?.posters == "season")
     }
-    for (row in prefs.home) {
-        placed += row.id
-        val spec = when {
-            row.hidden -> null
-            row.id.startsWith("custom:") -> {
-                val filter = row.filter
-                val libId = (filter?.get("library_id") as? JsonPrimitive)?.content?.toLongOrNull()
-                val lib = libraries.find { it.id == libId }
-                if (filter == null || lib == null || row.title.isNullOrBlank()) null
-                // The web shows a custom row as posters unless it was given another look.
-                else HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), styleOf(row.style) ?: if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster, CardStyle.Poster)
-            }
-            else -> builtIn(row.id, row)
+    if (shown("continue")) carryOn("continue", RowSource.Continue(withUpNext = !prefs.splitUpNext))
+    if (prefs.splitUpNext && shown("next-up")) carryOn("next-up", RowSource.NextUp)
+    if (shown("watchlist")) out += HomeRowSpec("watchlist", RowSource.Watchlist, CardStyle.Poster)
+    for (lib in libraries) {
+        // Home videos rarely have posters worth showing: their rows use thumbnails.
+        val look = if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster
+        val recent = "recent:${lib.id}"
+        if (shown(recent)) out += HomeRowSpec(recent, RowSource.Recent(lib, saved[recent]?.showsOnly == true), look, seasonPosters = true)
+        for (row in prefs.home) {
+            val filter = row.filter
+            if (!row.id.startsWith("custom:") || row.hidden || filter == null || row.title.isNullOrBlank()) continue
+            if ((filter["library_id"] as? JsonPrimitive)?.content?.toLongOrNull() != lib.id) continue
+            out += HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), look)
         }
-        out += spec to row.id
-    }
-    return withDefaults(out, { it.second }, libraries) { id -> builtIn(id, null) to id }.mapNotNull { it.first }
-}
-
-/**
- * [saved] with the built-in rows it hasn't placed (e.g. a new library's) where they'd be by
- * default: after the row that comes before it by default, or first (web/src/lib/home.ts).
- */
-private fun <T> withDefaults(saved: List<T>, idOf: (T) -> String, libraries: List<Library>, make: (String) -> T): List<T> {
-    val out = saved.toMutableList()
-    val placed = saved.map(idOf).toSet()
-    val defaults = listOf("continue", "next-up", "watchlist", "seasonal") + libraries.map { "recent:${it.id}" }
-    defaults.forEachIndexed { i, id ->
-        if (id in placed) return@forEachIndexed
-        val prev = defaults.subList(0, i).asReversed().firstOrNull { p -> out.any { idOf(it) == p } }
-        val at = if (prev == null) 0 else out.indexOfFirst { idOf(it) == prev } + 1
-        out.add(at, make(id))
     }
     return out
-}
-
-private val JsonObject.rowId get() = this["id"]?.jsonPrimitive?.content.orEmpty()
-
-/**
- * Edits to the profile's saved Home layout ([saved], the rows exactly as Arc stores them, so fields
- * this app doesn't know survive). Rows the TV doesn't show (hidden, seasonal, collections) keep
- * their places; the result lists every row, as the web's Edit Home saves it.
- */
-object HomeLayout {
-    /** Moves row [id] past its neighbour [step] places away among [shown], the rows Home shows; null when there's none. */
-    fun move(saved: List<JsonObject>, libraries: List<Library>, shown: List<String>, id: String, step: Int): List<JsonObject>? {
-        val other = shown.getOrNull(shown.indexOf(id).takeIf { it >= 0 }?.plus(step) ?: return null) ?: return null
-        val out = withDefaults(saved, { it.rowId }, libraries) { JsonObject(mapOf("id" to JsonPrimitive(it))) }.toMutableList()
-        val from = out.indexOfFirst { it.rowId == id }
-        if (from < 0 || out.none { it.rowId == other }) return null
-        val row = out.removeAt(from)
-        val to = out.indexOfFirst { it.rowId == other }
-        out.add(if (step > 0) to + 1 else to, row)
-        return out
-    }
-
-    /**
-     * Gives row [look]'s look (its style, season posters and, for a TV library's Recently Added,
-     * one card per show). What matches the row's default is saved as nothing, as the web does.
-     */
-    fun look(saved: List<JsonObject>, libraries: List<Library>, look: HomeRowSpec): List<JsonObject> =
-        withDefaults(saved, { it.rowId }, libraries) { JsonObject(mapOf("id" to JsonPrimitive(it))) }.map { row ->
-            if (row.rowId != look.id) return@map row
-            val out = (row - "style" - "posters" - "shows_only").toMutableMap()
-            if (look.style != look.defaultStyle) {
-                out["style"] = JsonPrimitive(when (look.style) { CardStyle.Poster -> "poster"; CardStyle.Thumb -> "thumb"; CardStyle.Backdrop -> "arc" })
-            }
-            if (look.seasonPosters != look.defaultSeasonPosters) out["posters"] = JsonPrimitive(if (look.seasonPosters) "season" else "series")
-            if ((look.source as? RowSource.Recent)?.showsOnly == true) out["shows_only"] = JsonPrimitive(true)
-            JsonObject(out)
-        }
 }
 
 /** A card on a row: a title, or a season of a show with new episodes. */
