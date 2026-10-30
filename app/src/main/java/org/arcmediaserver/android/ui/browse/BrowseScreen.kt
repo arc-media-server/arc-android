@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.grid.items
 import org.arcmediaserver.android.ui.components.Shelf
 import org.arcmediaserver.android.ui.components.PillTabs
@@ -385,13 +386,18 @@ fun logoOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seri
 fun ImmersiveBackdrop(url: String?) {
     val resolve = LocalImageUrl.current
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        Crossfade(url, animationSpec = tween(600), label = "backdrop") { u ->
-            if (u != null) {
-                AsyncImage(model = resolve(u), contentDescription = null, contentScale = ContentScale.Crop, alignment = Alignment.TopEnd, modifier = Modifier.fillMaxSize())
+        // As Plex's TV app: the art sits in the top right, whole (16:9, 70% of the width), and only
+        // its left and bottom edges fade into the page, so the picture stays clear and the text
+        // beside and under it sits on plain dark.
+        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.7f).aspectRatio(16f / 9f)) {
+            Crossfade(url, animationSpec = tween(600), label = "backdrop") { u ->
+                if (u != null) {
+                    AsyncImage(model = resolve(u), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
             }
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to ArcColors.Background, 0.4f to ArcColors.Background.copy(alpha = 0.35f), 0.7f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 0.85f to ArcColors.Background.copy(alpha = 0.8f), 1f to ArcColors.Background)))
         }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to ArcColors.Background.copy(alpha = 0.95f), 0.45f to ArcColors.Background.copy(alpha = 0.6f), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 0.62f to ArcColors.Background.copy(alpha = 0.75f), 1f to ArcColors.Background)))
     }
 }
 
