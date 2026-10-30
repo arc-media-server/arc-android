@@ -220,4 +220,23 @@ class ArcApiTest {
         assertEquals("5", server.takeRequest().url.queryParameter("file"))
         assertNull(api.trickplay("m1", 5))
     }
+
+    @Test
+    fun `answers are read off the calling thread (Android forbids network I-O on the main thread)`() = kotlinx.coroutines.runBlocking {
+        val caller = Thread.currentThread()
+        var readOn: Thread? = null
+        val client = OkHttpClient.Builder().addNetworkInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val original = response.body
+            response.newBuilder().body(object : okhttp3.ResponseBody() {
+                override fun contentType() = original.contentType()
+                override fun contentLength() = original.contentLength()
+                override fun source(): okio.BufferedSource { readOn = Thread.currentThread(); return original.source() }
+            }).build()
+        }.build()
+        val api = ArcApi(server.url("/"), client, token = { token }, log = ArcLog.Print)
+        answer(200, """{"api_version":1}""")
+        api.health()
+        assertTrue("body was read on the calling thread", readOn != null && readOn != caller)
+    }
 }

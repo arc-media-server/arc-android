@@ -11,6 +11,7 @@
     <string name="error_unreachable">Can\'t reach your Arc server. Check that it\'s running and that this TV is on the same network.</string>
     <string name="error_timeout">Your Arc server is taking too long to answer.</string>
     <string name="error_secure">A secure connection to your Arc server couldn\'t be made. Check its HTTPS certificate, or use its http:// address at home.</string>
+    <string name="error_app">Something went wrong in the app. Try again; if it keeps happening, the app\'s log has the details.</string>
     <string name="error_unexpected">Your Arc server sent something this app doesn\'t understand. Updating Arc or this app may help.</string>
 
     <!-- Server address -->
