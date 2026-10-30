@@ -150,3 +150,10 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 - The grid keeps a 12dp margin when scrolling (not the rows' 48dp), so focusing the second row
   doesn't push the grid up.
 - Logged: nothing new.
+
+## Sign Out moves to the profile picker (owner, 30 October)
+
+- The sidebar no longer has Sign Out: Switch Profile opens "Who's watching?", which has Sign Out
+  under the profiles, as Plex does. A friend's TV (signed in to someone else's server, no
+  picker) keeps Sign Out in the sidebar. Signing out is shared in `AppContainer.signOut`.
+- Logged: "signed out" at info, as before.

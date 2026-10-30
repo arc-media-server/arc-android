@@ -58,7 +58,7 @@ fun ArcNavHost() {
             composable<ServerDest> { ServerRoute(onConnected = { nav.startAt(SignInDest) }) }
             composable<SignInDest> { SignInRoute(onSignedIn = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
             composable<ProfilesDest> {
-                ProfilesRoute(onChosen = { nav.startAt(BrowseDest) })
+                ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
             }
             composable<BrowseDest> {
                 BrowseRoute(

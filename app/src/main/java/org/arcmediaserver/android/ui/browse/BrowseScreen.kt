@@ -192,7 +192,8 @@ private fun NavigationDrawerScope.Sidebar(
                 onClick = onSwitchProfile,
             )
         }
-        SidebarItem(ArcIcons.SignOut, stringResource(R.string.nav_sign_out), false, onSignOut)
+        // Sign Out is on the profile picker (as Plex); a friend's TV has no picker, so keeps it here.
+        if (!frame.canSwitchProfile) SidebarItem(ArcIcons.SignOut, stringResource(R.string.nav_sign_out), false, onSignOut)
     }
 }
 
