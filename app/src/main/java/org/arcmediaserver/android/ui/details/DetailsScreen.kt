@@ -1,6 +1,9 @@
 package org.arcmediaserver.android.ui.details
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -101,6 +107,7 @@ data class TitleActions(
     val onProblemShown: () -> Unit = {},
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DetailsScreen(
     details: Details,
@@ -115,10 +122,21 @@ fun DetailsScreen(
     var panel by remember { mutableStateOf(initialPanel) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(org.arcmediaserver.android.ui.browse.backdropOf(item))
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 40.dp, bottom = 40.dp)) {
-            item { Header(details, onPlay, onOpen, primary, actions, more, onMore = { panel = DetailsPanel.More }) }
-            if (item.isSeries) {
-                item { Seasons(details, onPlay) }
+        val page = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
+        // pushed the title off the top as soon as Play was focused. Here the page only scrolls
+        // what's needed to show the focused thing, and the header always shows whole (as Plex).
+        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 40.dp, bottom = 40.dp)) {
+                item {
+                    Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } }) {
+                        Header(details, onPlay, onOpen, primary, actions, more, onMore = { panel = DetailsPanel.More })
+                    }
+                }
+                if (item.isSeries) {
+                    item { Seasons(details, onPlay) }
+                }
             }
         }
         val closePanel = {
@@ -346,6 +364,19 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit) {
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted)
         if (focused && !ep.overview.isNullOrBlank()) {
             Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(max = 40.dp))
+        }
+    }
+}
+
+/** Scrolls only as far as needed to show the focused element, instead of the TV pivot. */
+@OptIn(ExperimentalFoundationApi::class)
+private val MinimalBringIntoView = object : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val trailing = offset + size
+        return when {
+            offset >= 0f && trailing <= containerSize -> 0f
+            offset < 0f || size > containerSize -> offset
+            else -> trailing - containerSize
         }
     }
 }
