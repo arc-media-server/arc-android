@@ -66,9 +66,7 @@
     <string name="home_empty_title">Nothing here yet</string>
     <string name="home_empty_body">Add a library in Arc in a browser, and what you add will appear here.</string>
     <string name="library_tab_recommended">Recommended</string>
-    <string name="library_tab_movies">Movies</string>
-    <string name="library_tab_shows">Shows</string>
-    <string name="library_tab_videos">Videos</string>
+    <string name="library_tab_library">Library</string>
     <string name="library_tab_collections">Collections</string>
     <string name="library_recommended_empty">Recommendations appear here once this library has titles you can watch.</string>
     <string name="rec_continue">Continue Watching</string>

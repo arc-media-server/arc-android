@@ -53,3 +53,12 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
 - Collections and playlists don't have Play All / Shuffle on the TV yet.
 - Checked with unit tests against a stand-in server (`PlayQueuesTest`), screenshots, and the real
   server's answers from a scratch Arc via curl. Not yet on a TV or emulator.
+
+## Library header (owner, 30 October)
+
+- The library's name and tabs no longer move when switching tabs. The Library tab's Sort and
+  Filters buttons are taller than the tabs, and the header row was centring on whichever was
+  tallest. The row now has a fixed 48dp height.
+- The titles tab is called **Library** (Recommended, Library, Collections), as in Plex, instead of
+  Movies / Shows / Videos, which repeated the library's own name. The web still says Movies /
+  Shows; that's logged on arc-media-server#80.

@@ -565,12 +565,14 @@ fun LibraryContent(
         val filterButton = remember { FocusRequester() }
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A fixed height, so the name and tabs stay put whether or not the tab has Sort
+                // and Filters buttons (they're taller than the tabs).
+                Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp, end = 48.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.width(24.dp))
                     if (tabs.size > 1) {
-                        val titles = when (page.library.kind) { "shows" -> R.string.library_tab_shows; "videos" -> R.string.library_tab_videos; else -> R.string.library_tab_movies }
-                        val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> titles; LibraryTab.Collections -> R.string.library_tab_collections }) }
+                        // Recommended, Library, Collections: Plex's names for a library's tabs.
+                        val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> R.string.library_tab_library; LibraryTab.Collections -> R.string.library_tab_collections }) }
                         PillTabs(labels, tabs.indexOf(shown), onSelect = { onTab(tabs[it]) })
                     }
                     if (shown == LibraryTab.Titles) {
