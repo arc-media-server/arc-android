@@ -1,5 +1,14 @@
 package org.arcmediaserver.android.ui.components
 
+import org.arcmediaserver.android.ui.theme.ArcColors
+import org.arcmediaserver.android.data.MediaStream
+import org.arcmediaserver.android.R
+import androidx.tv.material3.Text
+import androidx.tv.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -78,4 +87,62 @@ fun resolutionName(width: Int, height: Int): String? = when {
     width >= 1800 || height >= 1000 -> "1080p"
     width >= 1200 || height >= 700 -> "720p"
     else -> "SD"
+}
+
+/** Mono, Stereo, 5.1, 7.1 or "N channels". */
+@Composable
+fun channelsName(n: Int): String? = when (n) {
+    0 -> null
+    1 -> stringResource(R.string.player_mono)
+    2 -> stringResource(R.string.player_stereo)
+    6 -> "5.1"
+    8 -> "7.1"
+    else -> stringResource(R.string.player_channels, n)
+}
+
+/** Dolby Vision, HDR10+, HDR10 or HLG (web/src/lib/format.ts sourceFormats). */
+fun hdrLabels(v: MediaStream): List<String> = buildList {
+    if (v.dolbyVision) add("Dolby Vision")
+    if (v.hdr10Plus) add("HDR10+")
+    if (isEmpty() && v.colorTransfer == "smpte2084") add("HDR10")
+    if (v.colorTransfer == "arib-std-b67") add("HLG")
+}
+
+
+/**
+ * A title's labels, as the web's title page shows them: its age rating, then for one version the
+ * picture (4K, Dolby Vision…) and the main sound (TrueHD Atmos 7.1), or how many versions there are.
+ */
+@Composable
+fun formatLabels(item: org.arcmediaserver.android.data.Item): List<String> = buildList {
+    item.contentRating?.takeIf { it.isNotBlank() }?.let(::add)
+    val files = item.files.filter { !it.missing }
+    if (files.size > 1) {
+        add(androidx.compose.ui.res.pluralStringResource(org.arcmediaserver.android.R.plurals.media_versions, files.size, files.size))
+        return@buildList
+    }
+    val file = files.firstOrNull() ?: return@buildList
+    val video = file.streams.firstOrNull { it.kind == "video" }
+    val audio = file.streams.firstOrNull { it.kind == "audio" }
+    video?.let { v -> resolutionName(v.width, v.height)?.let(::add); addAll(hdrLabels(v)) }
+    audio?.let { a -> listOfNotNull(codecName(a.codec, a.profile), channelsName(a.channels)).joinToString(" ").takeIf { it.isNotBlank() }?.let(::add) }
+}
+
+/** Labels as small outlined badges, as the web's. */
+@Composable
+fun FormatBadges(labels: List<String>, modifier: Modifier = Modifier) {
+    if (labels.isEmpty()) return
+    androidx.compose.foundation.layout.Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+        for (label in labels) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = ArcColors.Foreground.copy(alpha = 0.85f),
+                maxLines = 1,
+                modifier = Modifier
+                    .border(1.dp, ArcColors.Foreground.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 1.dp),
+            )
+        }
+    }
 }

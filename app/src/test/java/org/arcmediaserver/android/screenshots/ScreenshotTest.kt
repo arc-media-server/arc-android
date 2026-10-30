@@ -225,7 +225,7 @@ class ScreenshotTest {
         // With its cast, which should show on arrival under the buttons.
         val cast = listOf("Ada Reyes" to "Captain Reyes", "Tomas Hale" to "Hale", "Mira Okafor" to "Dr. Okafor", "Jun Park" to "Pilot", "Sol Varga" to "Engineer", "Lena Ruiz" to "Navigator")
             .mapIndexed { i, (name, role) -> org.arcmediaserver.android.data.Credit(personId = i.toLong(), name = name, role = "actor", character = role) }
-        DetailsScreen(Details(Fixtures.movies[0].copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
+        DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
     }
 
     @Test

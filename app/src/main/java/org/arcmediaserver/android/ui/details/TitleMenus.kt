@@ -46,7 +46,9 @@ import org.arcmediaserver.android.data.MediaFile
 import org.arcmediaserver.android.data.MediaStream
 import org.arcmediaserver.android.playback.sameLanguage
 import org.arcmediaserver.android.ui.components.ArcIcons
+import org.arcmediaserver.android.ui.components.channelsName
 import org.arcmediaserver.android.ui.components.codecName
+import org.arcmediaserver.android.ui.components.hdrLabels
 import org.arcmediaserver.android.ui.components.requestWhenReady
 import org.arcmediaserver.android.ui.components.resolutionName
 import org.arcmediaserver.android.ui.theme.ArcColors
@@ -149,23 +151,6 @@ private fun rate(bitsPerSecond: Long): String? = when {
     bitsPerSecond <= 0 -> null
     bitsPerSecond >= 1_000_000 -> stringResource(R.string.media_megabits, fixed(bitsPerSecond / 1e6, 1))
     else -> stringResource(R.string.media_kilobits, fixed(bitsPerSecond / 1e3, 0))
-}
-
-@Composable
-private fun channelsName(n: Int): String? = when (n) {
-    0 -> null
-    1 -> stringResource(R.string.player_mono)
-    2 -> stringResource(R.string.player_stereo)
-    6 -> "5.1"
-    8 -> "7.1"
-    else -> stringResource(R.string.player_channels, n)
-}
-
-private fun hdrLabels(v: MediaStream): List<String> = buildList {
-    if (v.dolbyVision) add("Dolby Vision")
-    if (v.hdr10Plus) add("HDR10+")
-    if (isEmpty() && v.colorTransfer == "smpte2084") add("HDR10")
-    if (v.colorTransfer == "arib-std-b67") add("HLG")
 }
 
 private fun aspect(r: Double): String? = when {
