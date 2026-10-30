@@ -1,5 +1,13 @@
 package org.arcmediaserver.android.ui.browse
 
+import org.arcmediaserver.android.ui.components.MinimalBringIntoView
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.widthIn
@@ -215,6 +223,7 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
  * fills the screen (fading as the focus moves), its logo (or title), details and a short summary
  * sit at the top left, and the profile's rows run along the lower part. Empty rows are left out.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (HomeRowSpec) -> Unit, onFocusedCard: (MediaCard?) -> Unit) {
     var focused by remember { mutableStateOf<MediaCard?>(null) }
@@ -233,20 +242,30 @@ fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (H
     var focusedOnce by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         shown?.let { Overview(it) }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(top = 268.dp),
-            contentPadding = PaddingValues(bottom = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
-        ) {
-            items(visible, key = { it.spec.id }) { row ->
-                val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                HomeRow(
-                    row,
-                    onOpen = onOpen,
-                    onFocused = { focused = it },
-                    onRetry = { onRetryRow(row.spec) },
-                    firstCard = if (isFirst) firstCard else null,
-                )
+        val list = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        // The focused row snaps to the top of the rows area, so its posters and captions show
+        // whole under the overview (as Google TV and Plex do); the bottom padding lets the last
+        // row reach that spot too.
+        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            LazyColumn(
+                state = list,
+                modifier = Modifier.fillMaxSize().padding(top = 212.dp),
+                contentPadding = PaddingValues(bottom = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
+                    val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
+                    Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(index) } }) {
+                        HomeRow(
+                            row,
+                            onOpen = onOpen,
+                            onFocused = { focused = it },
+                            onRetry = { onRetryRow(row.spec) },
+                            firstCard = if (isFirst) firstCard else null,
+                        )
+                    }
+                }
             }
         }
     }
@@ -316,8 +335,8 @@ fun TitleLogo(item: Item, maxHeight: Dp = 96.dp, maxWidth: Dp = 420.dp, textStyl
 private fun Overview(card: MediaCard) {
     val item = card.item
     Crossfade(card.key, animationSpec = tween(300), label = "overview") { _ ->
-        Column(Modifier.padding(start = 48.dp, top = 44.dp).width(520.dp)) {
-            TitleLogo(item)
+        Column(Modifier.padding(start = 48.dp, top = 36.dp).width(480.dp)) {
+            TitleLogo(item, maxHeight = 72.dp, maxWidth = 360.dp)
             Spacer(Modifier.height(14.dp))
             val meta = listOfNotNull(
                 if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
@@ -329,7 +348,7 @@ private fun Overview(card: MediaCard) {
             if (meta.isNotEmpty()) Text(meta.joinToString("  ·  "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1)
             Spacer(Modifier.height(8.dp))
             item.overview?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -342,7 +361,7 @@ fun runtimeText(minutes: Int): String =
 @Composable
 private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?) {
     Column {
-        Text(rowTitle(row.spec), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 48.dp, bottom = 12.dp))
+        Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
             LoadState.Loading -> Box(Modifier.padding(start = 48.dp).height(120.dp), contentAlignment = Alignment.CenterStart) { Spinner(size = 28.dp) }
             is LoadState.Failed -> Row(Modifier.padding(start = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -351,7 +370,7 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                 androidx.tv.material3.OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
             }
             is LoadState.Ready -> LazyRow(
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 items(cards.value, key = { it.key }) { card ->
@@ -369,13 +388,14 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
 }
 
 /** A library's titles in a grid, A to Z, loading more as the focus nears the end. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetry: () -> Unit, onNearEnd: () -> Unit) {
     Loaded(state, onRetry) { page ->
         val first = remember { FocusRequester() }
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
-                Text(page.library.name, style = MaterialTheme.typography.displaySmall)
+                Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.width(14.dp))
                 Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
             }
@@ -384,16 +404,20 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
                 return@Column
             }
             val landscape = page.library.kind == "videos"
+            // About seven posters across, as Plex; rows scroll only as far as needed, so captions
+            // stay in view (no TV pivot).
+            CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(if (landscape) 220.dp else 112.dp),
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 16.dp, bottom = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(22.dp),
-                verticalArrangement = Arrangement.spacedBy(26.dp),
+                columns = GridCells.Adaptive(if (landscape) 200.dp else 96.dp),
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 itemsIndexed(page.items, key = { _, it -> it.id }) { i, item ->
                     val mod = Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus && i >= page.items.size - 18) onNearEnd() }
                     MediaCardView(cardFor(item), landscape = landscape, onClick = { onOpen(item) }, modifier = if (i == 0) mod.focusRequester(first) else mod)
                 }
+            }
             }
         }
         LaunchedEffect(page.library.id) { first.requestWhenReady() }

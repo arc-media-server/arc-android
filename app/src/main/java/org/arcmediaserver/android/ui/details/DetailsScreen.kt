@@ -2,8 +2,8 @@ package org.arcmediaserver.android.ui.details
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import org.arcmediaserver.android.ui.components.MinimalBringIntoView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -364,19 +364,6 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit) {
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted)
         if (focused && !ep.overview.isNullOrBlank()) {
             Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(max = 40.dp))
-        }
-    }
-}
-
-/** Scrolls only as far as needed to show the focused element, instead of the TV pivot. */
-@OptIn(ExperimentalFoundationApi::class)
-private val MinimalBringIntoView = object : BringIntoViewSpec {
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val trailing = offset + size
-        return when {
-            offset >= 0f && trailing <= containerSize -> 0f
-            offset < 0f || size > containerSize -> offset
-            else -> trailing - containerSize
         }
     }
 }
