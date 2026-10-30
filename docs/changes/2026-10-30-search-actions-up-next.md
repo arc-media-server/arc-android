@@ -185,3 +185,12 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   Try Again in that tab only. Season and library tabs share `PillTabs`; the library grid and a
   collection's page share `TitleGrid`. Collection pages need arc-media-server#303.
 - Logged: a library's recommended or collections failing, at warning with the error class.
+
+## Home: seasonal, collection and playlist rows (30 October)
+
+- The rows the TV skipped now show, as on the web: the seasonal row after Watchlist in its season
+  (Romance for Valentine's Day 1–14 Feb, Horror for Halloween in October, Christmas Films in
+  December; films across the libraries, shuffled daily, the web's own table), and collection and
+  playlist rows last, in the order they were added. A collection or playlist row is titled with
+  the name saved with it. Collection and playlist rows need arc-media-server#303.
+- Logged: a row that fails, at warning with its id and the error class, as other rows.

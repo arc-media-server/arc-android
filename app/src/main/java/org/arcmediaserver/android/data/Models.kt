@@ -280,6 +280,16 @@ data class RecommendedPage(val rows: List<RecommendedRow> = emptyList())
 @Serializable
 data class CollectionPage(val collection: CollectionRef, val items: List<Item> = emptyList())
 
+/** GET /playlists/{id}: a playlist and its titles in order. */
+@Serializable
+data class PlaylistPage(val playlist: PlaylistInfo, val entries: List<PlaylistEntry> = emptyList())
+
+@Serializable
+data class PlaylistInfo(val id: String, val title: String)
+
+@Serializable
+data class PlaylistEntry(@SerialName("entry_id") val entryId: Long, val item: Item)
+
 @Serializable
 data class PersonCredit(val item: Item, val roles: List<String> = emptyList(), val character: String? = null)
 
