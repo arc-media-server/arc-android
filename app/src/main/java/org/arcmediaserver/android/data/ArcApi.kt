@@ -138,6 +138,20 @@ class ArcApi(
 
     suspend fun item(id: String): Item = get("items/${enc(id)}", Item.serializer(), route = "items/{id}")
 
+    /**
+     * A title's artwork palette, or null when this server has none to give (an older Arc answers
+     * 404; a title without usable artwork answers available = false).
+     */
+    suspend fun artworkPalette(id: String): ArtworkPalette? {
+        val route = "items/{id}/artwork/palette"
+        val (status, body) = raw("GET", "items/${enc(id)}/artwork/palette", null, route = route)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, ArtworkPalette.serializer(), route).takeIf { it.available && it.colors != null }
+            else -> throw failure(status, body, route)
+        }
+    }
+
     /** Titles like this one in the same library (More Like This). */
     suspend fun similar(id: String): List<Item> = get("items/${enc(id)}/similar", ItemList, route = "items/{id}/similar")
 

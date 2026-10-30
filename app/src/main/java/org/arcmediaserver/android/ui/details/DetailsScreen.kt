@@ -134,7 +134,7 @@ fun DetailsScreen(
     val page = rememberLazyListState()
     var panel by remember { mutableStateOf(initialPanel) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(org.arcmediaserver.android.ui.browse.backdropOf(item))
+        org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(item)
         val scope = rememberCoroutineScope()
         // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
         // pushed the title off the top as soon as Play was focused. Here the page only scrolls

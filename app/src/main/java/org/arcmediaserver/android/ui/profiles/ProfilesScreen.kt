@@ -149,6 +149,7 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             try {
                 api.chooseProfile(profile.id, pin)
+                container.profileChanged()
                 _state.update { it.copy(chosen = true) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e

@@ -160,7 +160,7 @@ fun BrowseScreen(
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         // Home's whole-screen backdrop sits behind the sidebar too.
-        if (state.section == Section.Home && state.frame is LoadState.Ready) ImmersiveBackdrop(focusedCard?.item?.let(::backdropOf))
+        if (state.section == Section.Home && state.frame is LoadState.Ready) ImmersiveBackdrop(focusedCard?.item)
         Loaded(state.frame, onRetry) { frame ->
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
@@ -384,6 +384,9 @@ private fun EmptyHome() {
     }
 }
 
+/** Whose palette matches [backdropOf]: the show's for an episode shown with its show's backdrop. */
+fun paletteIdOf(item: Item): String = if (item.isEpisode && item.images?.seriesBackdrop != null && item.parentId != null) item.parentId else item.id
+
 /** The backdrop for a title: its own, or its show's for an episode. */
 fun backdropOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seriesBackdrop ?: it.backdropFull ?: it.backdrop else it.backdropFull ?: it.backdrop }
 
@@ -392,15 +395,16 @@ fun logoOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seri
 
 /**
  * The whole-screen backdrop behind Home and a title's page, as Plex's TV app: the art sits in the
- * top right, whole (16:9, 70% of the width), over an Ultra Blur wash of its own colours, and its
- * left and bottom edges fade into that wash (not to black), so the picture stays clear and the
- * text beside and under it sits on its colours.
+ * top right, whole (16:9, 70% of the width), over an Ultra Blur wash of its own colours (from
+ * Arc; the plain page without them), and its left and bottom edges fade into it, so the picture
+ * stays clear and the text beside and under it sits on its colours.
  */
 @Composable
-fun ImmersiveBackdrop(url: String?) {
+fun ImmersiveBackdrop(item: Item?) {
     val resolve = LocalImageUrl.current
+    val url = item?.let(::backdropOf)
     Box(Modifier.fillMaxSize()) {
-        UltraBlur(url)
+        UltraBlur(item?.let(::paletteIdOf))
         Box(
             Modifier
                 .align(Alignment.TopEnd)
