@@ -107,7 +107,7 @@ class ScreenshotTest {
     @Composable
     private fun browse(state: BrowseUiState, drawerOpen: Boolean = false, search: @Composable () -> Unit = {}) {
         BrowseScreen(
-            state, onSection = {}, onOpen = {}, onRetry = {}, onRetryRow = {}, onRetryLibrary = {}, onNearEnd = {},
+            state, onSection = {}, onOpen = {}, onRetry = {}, onRetryRow = {}, onRetryLibrary = {}, onNeedTitles = {},
             onSwitchProfile = {}, onSignOut = {},
             drawerValue = if (drawerOpen) androidx.tv.material3.DrawerValue.Open else androidx.tv.material3.DrawerValue.Closed,
             searchContent = search,
@@ -130,7 +130,7 @@ class ScreenshotTest {
             BrowseUiState(
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
-                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies + Fixtures.movies.map { it.copy(id = it.id + "b", title = it.title + " II") }, 16)),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies + Fixtures.movies.map { it.copy(id = it.id + "b", title = it.title + " II") }).copy(letters = listOf(org.arcmediaserver.android.data.LetterCount("g", 2), org.arcmediaserver.android.data.LetterCount("l", 2), org.arcmediaserver.android.data.LetterCount("n", 2), org.arcmediaserver.android.data.LetterCount("p", 2), org.arcmediaserver.android.data.LetterCount("q", 1), org.arcmediaserver.android.data.LetterCount("s", 4), org.arcmediaserver.android.data.LetterCount("t", 3)))),
                 libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
                 libraryExtras = libraryExtras,
             ),
@@ -153,12 +153,27 @@ class ScreenshotTest {
     )
 
     @Test
+    fun librarySort() = shot("library-sort") {
+        org.arcmediaserver.android.ui.browse.SortPanel(org.arcmediaserver.android.ui.browse.LibraryQuery(sort = "added"), onChoose = {}, onClose = {})
+    }
+
+    @Test
+    fun libraryFilters() = shot("library-filters") {
+        org.arcmediaserver.android.ui.browse.FilterPanel(
+            org.arcmediaserver.android.ui.browse.LibraryQuery(unwatched = true, genre = "Drama"),
+            org.arcmediaserver.android.data.Facets(genres = listOf(org.arcmediaserver.android.data.Facet("Drama", 4)), decades = listOf(org.arcmediaserver.android.data.Facet("2010", 3)), resolutions = listOf(org.arcmediaserver.android.data.Facet("4k", 2))),
+            onChoose = {},
+            onClose = {},
+        )
+    }
+
+    @Test
     fun libraryRecommended() = shot("library-recommended") {
         browse(
             BrowseUiState(
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
-                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies, 8)),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies)),
                 libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
                 libraryExtras = libraryExtras,
             ),
@@ -171,7 +186,7 @@ class ScreenshotTest {
             BrowseUiState(
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
-                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies, 8)),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies)),
                 libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Collections,
                 libraryExtras = libraryExtras,
             ),

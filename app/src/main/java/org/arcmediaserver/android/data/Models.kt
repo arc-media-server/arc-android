@@ -169,7 +169,28 @@ data class Item(
 }
 
 @Serializable
-data class ItemPage(val total: Int = 0, val items: List<Item> = emptyList())
+data class ItemPage(
+    val total: Int = 0,
+    val items: List<Item> = emptyList(),
+    /** Where this page starts in the whole list (a jump to a letter starts part-way). */
+    val offset: Int = 0,
+    /** With letters=1: how many titles start with each character, A–Z then the rest. */
+    val letters: List<LetterCount> = emptyList(),
+)
+
+@Serializable
+data class LetterCount(val letter: String, val count: Int)
+
+/** GET /libraries/{id}/facets: the values a library's filters can take, with how many titles have each. */
+@Serializable
+data class Facets(
+    val genres: List<Facet> = emptyList(),
+    val decades: List<Facet> = emptyList(),
+    val resolutions: List<Facet> = emptyList(),
+)
+
+@Serializable
+data class Facet(val value: String, val count: Int = 0)
 
 @Serializable
 data class RecentCard(

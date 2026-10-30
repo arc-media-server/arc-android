@@ -217,7 +217,7 @@ fun MediaCardView(
             onClick = onClick,
             modifier = Modifier.focusRequester(self),
             onFocused = { focused = it },
-            onLongClick = menu?.takeIf { card.item.kind != "collection" }?.let { m -> { m.open(card.item) { runCatching { self.requestFocus() } } } },
+            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item) { runCatching { self.requestFocus() } } } },
         ) {
             if (backdrop) {
                 BackdropArt(card)
