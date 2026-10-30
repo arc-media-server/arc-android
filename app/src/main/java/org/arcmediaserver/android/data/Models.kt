@@ -301,6 +301,25 @@ data class RecommendedPage(val rows: List<RecommendedRow> = emptyList())
 @Serializable
 data class CollectionPage(val collection: CollectionRef, val items: List<Item> = emptyList())
 
+/**
+ * GET /items/{id}/artwork/palette: four colours Arc takes from a title's backdrop (or poster), one
+ * per region, for the app's Ultra Blur wash. [available] is false when there's nothing to use.
+ */
+@Serializable
+data class ArtworkPalette(
+    val available: Boolean = false,
+    val colors: PaletteColors? = null,
+)
+
+/** Opaque "#rrggbb" colours for each region of the artwork. */
+@Serializable
+data class PaletteColors(
+    @SerialName("top_left") val topLeft: String,
+    @SerialName("top_right") val topRight: String,
+    @SerialName("bottom_left") val bottomLeft: String,
+    @SerialName("bottom_right") val bottomRight: String,
+)
+
 /** GET /playlists/{id}: a playlist and its titles in order. */
 @Serializable
 data class PlaylistPage(val playlist: PlaylistInfo, val entries: List<PlaylistEntry> = emptyList())

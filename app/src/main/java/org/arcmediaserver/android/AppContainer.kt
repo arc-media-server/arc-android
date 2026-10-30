@@ -59,6 +59,18 @@ class AppContainer(private val context: Context) {
      */
     val itemChanges = androidx.compose.runtime.mutableStateMapOf<String, org.arcmediaserver.android.data.Item>()
 
+    /**
+     * Ultra Blur colours Arc gave for titles this session, by title id (null: Arc had none). Kept
+     * for the signed-in profile only: cleared when the profile changes or the TV signs out.
+     */
+    val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
+
+    /** A different profile (or none): what was kept for the last one doesn't carry over. */
+    fun profileChanged() {
+        palettes.clear()
+        itemChanges.clear()
+    }
+
     /** [item] with any change made in the app since it was loaded. */
     fun withChanges(item: org.arcmediaserver.android.data.Item): org.arcmediaserver.android.data.Item =
         itemChanges[item.id]?.let { item.copy(userData = it.userData, unwatchedCount = it.unwatchedCount) } ?: item
@@ -69,6 +81,7 @@ class AppContainer(private val context: Context) {
         appScope.launch {
             runCatching { api?.signOut() }
             session.token = null
+            profileChanged()
             org.arcmediaserver.android.data.ArcLog.Android.info("signed out")
             kotlinx.coroutines.withContext(Dispatchers.Main) { done() }
         }

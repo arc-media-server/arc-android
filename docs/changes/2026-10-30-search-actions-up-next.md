@@ -305,14 +305,20 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   go along the cast and the episodes and back (`tv-movie-row-back.png`, `tv-show-row-back.png`).
 - Logged: nothing new.
 
-## Ultra Blur behind the art (owner, 30 October)
+## Ultra Blur behind the art, from Arc's palettes (owner, 30 October)
 
-- As Plex's "Ultra Blur": behind Home's and a title page's art, the screen is now a soft wash of
-  the art's own colours instead of black. A tiny copy of the backdrop (48×27) gives the average
-  colour of each quarter; each is darkened (its brightest channel capped at 42%, then mixed a
-  quarter towards the page colour) so white text stays readable, and drawn as a glow from its
-  corner. The colours fade over 0.7 s as the focus moves. The art in the top right now fades to
-  see-through at its left and bottom edges, so the wash shows through instead of black.
-- Plex's server works these colours out; Arc's app does it from the artwork it already loads,
-  so there's no server change (logged on #80). Until the colours are known the page is plain.
-- Logged: nothing new (a failed colour read leaves the plain page).
+- As Plex's "Ultra Blur": behind Home's and a title page's art, the screen is a soft wash of the
+  art's own colours instead of black. Arc works the colours out (Codex's palette API,
+  `GET /items/{id}/artwork/palette`, server docs/ARTWORK-PALETTES.md): four "#rrggbb" colours, one
+  per region. The app darkens each (its brightest channel capped at 42%, then mixed a quarter
+  towards the page colour) so white text stays readable, draws them as glows from their corners,
+  and fades them over 0.7 s as the focus moves. The art in the top right fades to see-through
+  at its left and bottom edges, so the wash shows through.
+- Without a palette (an older Arc answers 404; art Arc can't use answers `available: false`), the
+  page stays plain and the art fades to dark as before. An earlier version worked colours out on
+  the TV; the owner chose no on-device colours, so that was removed.
+- Only the focused title is asked for; an episode shown with its show's backdrop asks for the
+  show's palette. Answers are kept for the session (failures to ask aren't), and cleared, with
+  in-app watched changes, when the profile changes or the TV signs out. ETag revalidation isn't
+  used yet: within a session a palette won't change unless the artwork does.
+- Logged: nothing new; the API client already logs server errors.
