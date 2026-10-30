@@ -131,3 +131,15 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   the row. Season posters use the episode's `season_primary` or the new season's own poster.
 - Logged: each save at info ("home layout saved (move|look)"); a failed save at warning with the
   error class, after which Home reloads as saved.
+
+## Emulator fixes: episode captions, episodes open in their show, rows keep their margin (30 October)
+
+- A show's page scrolls to show the seasons whole while they have focus, so episode names and
+  details under the pictures aren't cut off at the bottom.
+- An episode's card (Continue Watching, Recently Added, search, a person's page) opens its show's
+  page on that episode's season with the focus on it, as Plex does, rather than a page for the
+  episode alone. `DetailsDest` carries the episode; the show's Play button is unchanged.
+- Scrolling keeps a 48dp margin beside the focused card (`minimalBringIntoView`), so coming back
+  to a row's first card puts it at the row's usual start instead of against the edge. Home's band
+  moves in whole rows with no margin; the rows inside it keep theirs.
+- Logged: nothing new (navigation and scrolling).

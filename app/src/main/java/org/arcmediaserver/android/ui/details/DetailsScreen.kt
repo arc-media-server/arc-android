@@ -3,7 +3,7 @@ package org.arcmediaserver.android.ui.details
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
-import org.arcmediaserver.android.ui.components.MinimalBringIntoView
+import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,8 +78,8 @@ import org.arcmediaserver.android.ui.components.episodeCode
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) -> Unit) {
-    val vm = arcViewModel { DetailsViewModel(it, itemId) }
+fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) -> Unit, episodeId: String? = null) {
+    val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
     val state by vm.state.collectAsStateWithLifecycle()
     var resumed by remember { mutableStateOf(false) }
     // Coming back from the player: show the new resume point and watched state.
@@ -119,15 +119,16 @@ fun DetailsScreen(
     val item = details.item
     val primary = remember { FocusRequester() }
     val more = remember { FocusRequester() }
+    val episodeFocus = remember { FocusRequester() }
+    val page = rememberLazyListState()
     var panel by remember { mutableStateOf(initialPanel) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(org.arcmediaserver.android.ui.browse.backdropOf(item))
-        val page = rememberLazyListState()
         val scope = rememberCoroutineScope()
         // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
         // pushed the title off the top as soon as Play was focused. Here the page only scrolls
         // what's needed to show the focused thing, and the header always shows whole (as Plex).
-        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
             LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 40.dp, bottom = 40.dp)) {
                 item {
                     Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } }) {
@@ -135,7 +136,13 @@ fun DetailsScreen(
                     }
                 }
                 if (item.isSeries) {
-                    item { Seasons(details, onPlay) }
+                    // The seasons show whole while they have focus, so episode names and
+                    // details under the pictures aren't cut off at the bottom.
+                    item {
+                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(1) } }) {
+                            Seasons(details, onPlay, episodeFocus)
+                        }
+                    }
                 }
             }
         }
@@ -150,7 +157,15 @@ fun DetailsScreen(
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
         }
     }
-    LaunchedEffect(item.id) { if (initialPanel == DetailsPanel.None) primary.requestWhenReady() }
+    LaunchedEffect(item.id) {
+        if (initialPanel != DetailsPanel.None) return@LaunchedEffect
+        // Opened from an episode's card: land on that episode in its show, as Plex does.
+        if (details.focus != null) {
+            page.scrollToItem(1)
+            if (episodeFocus.requestWhenReady()) return@LaunchedEffect
+        }
+        primary.requestWhenReady()
+    }
 }
 
 @Composable
@@ -284,7 +299,7 @@ fun clock(ms: Long): String {
 }
 
 @Composable
-private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit) {
+private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
     if (details.seasons.isEmpty()) {
         Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 56.dp, top = 32.dp))
         return
@@ -321,7 +336,7 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit) {
         val season = details.seasons[selected]
         val listState = rememberLazyListState()
         LaunchedEffect(selected) {
-            val idx = season.episodes.indexOfFirst { it.id == details.next?.id }
+            val idx = season.episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
         LazyRow(
@@ -329,7 +344,10 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit) {
             contentPadding = PaddingValues(horizontal = 56.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            items(season.episodes, key = { it.id }) { ep -> EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }) }
+            items(season.episodes, key = { it.id }) { ep ->
+                val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
+                EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod)
+            }
         }
     }
 }
@@ -340,11 +358,11 @@ fun seasonName(season: Season): String = season.name.takeIf { it.isNotBlank() }
 
 /** An episode: its picture with progress and a tick, its number and name, and how long it is. */
 @Composable
-private fun EpisodeCard(ep: Item, onClick: () -> Unit) {
+private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
     Column(Modifier.width(ThumbWidth)) {
-        FocusCard(onClick = onClick, onFocused = { focused = it }) {
+        FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
             Artwork(card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
             WatchBadge(ep)
             ProgressLine(card.progress)
