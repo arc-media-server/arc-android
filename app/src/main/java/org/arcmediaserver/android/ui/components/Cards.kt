@@ -221,3 +221,43 @@ fun MediaCardView(
         }
     }
 }
+
+/**
+ * A titled row of cards (search results, a title's cast and related rows): the heading, then a
+ * row that leaves room for the focused card to grow. [start] lines it up with the screen's text.
+ */
+@Composable
+fun Shelf(title: String, start: Dp = 48.dp, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Column {
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = start, bottom = 8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = start, vertical = 10.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
+            content = content,
+        )
+    }
+}
+
+/** A person: a round picture (or initials), their name and a line under it (a character, how many titles). */
+@Composable
+fun PersonCard(name: String, image: String?, sub: String?, onClick: () -> Unit) {
+    Column(Modifier.width(112.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.tv.material3.Surface(
+            onClick = onClick,
+            modifier = Modifier.size(104.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, ArcColors.Foreground), shape = CircleShape)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = ArcColors.Surface, focusedContainerColor = ArcColors.Surface),
+        ) {
+            Artwork(image, label = initials(name), modifier = Modifier.fillMaxSize())
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        if (!sub.isNullOrBlank()) {
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }

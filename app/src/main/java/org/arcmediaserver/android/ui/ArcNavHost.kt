@@ -36,6 +36,9 @@ private fun detailsFor(item: Item) =
 @Serializable data class PlayerDest(val itemId: String, val startMs: Long)
 @Serializable data class PersonDest(val personId: Long)
 
+/** A trailer or other extra, played from its file. */
+@Serializable data class ExtraDest(val url: String)
+
 /** Goes somewhere as a fresh start: nothing to go back to (after signing in, or out). */
 private fun NavHostController.startAt(route: Any) = navigate(route) { popUpTo(0) { inclusive = true } }
 
@@ -75,7 +78,12 @@ fun ArcNavHost() {
                     episodeId = dest.episodeId,
                     onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
                     onOpen = { id -> nav.navigate(DetailsDest(id)) },
+                    onPerson = { id -> nav.navigate(PersonDest(id)) },
+                    onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
                 )
+            }
+            composable<ExtraDest> { entry ->
+                org.arcmediaserver.android.ui.player.ExtraPlayerRoute(entry.toRoute<ExtraDest>().url, onClose = { nav.popBackStack() })
             }
             composable<PersonDest> { entry ->
                 PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })

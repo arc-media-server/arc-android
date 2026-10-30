@@ -157,3 +157,17 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   under the profiles, as Plex does. A friend's TV (signed in to someone else's server, no
   picker) keeps Sign Out in the sidebar. Signing out is shared in `AppContainer.signOut`.
 - Logged: "signed out" at info, as before.
+
+## Title pages: cast, collections, More Like This and extras (owner, 30 October)
+
+- Under a movie's or show's page, as the web's: Cast (round pictures with the character; opens
+  the person's page), a row for each collection it's in (without the title itself; a folder
+  collection as thumbnails), More Like This (`/items/{id}/similar`), then Extras.
+- The rows load after the page, so it shows without waiting; a row that fails or is empty is
+  left out. Collection pages need arc-media-server#303 (their fields in the v1 contract).
+- Extras play from their file, as the web plays them, in a simple player with Media3's own
+  controls; no progress is kept. Back or the end closes it (only once).
+- Search's rows and the cast share one `Shelf` row and one `PersonCard`; the player and the
+  extras player share `arcPlayer`.
+- Logged: an extra that fails to play, at warning with the error code. Related rows that fail
+  are left out quietly; the API client already logs server errors.
