@@ -99,6 +99,7 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         val played = !item.watched
         viewModelScope.launch {
             val ok = optimistic(item, item.withWatched(played), ::showItem) { api.setPlayed(item.id, played) }
+            if (ok) container.itemChanges[item.id] = item.withWatched(played)
             if (!ok) {
                 ArcLog.Android.warn("marking ${item.kind} ${if (played) "watched" else "unwatched"} failed")
                 _problem.value = ActionProblem.Watched
@@ -114,6 +115,7 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         val on = !item.onWatchlist
         viewModelScope.launch {
             val ok = optimistic(item, item.withWatchlist(on), ::showItem) { api.setWatchlist(item.id, on) }
+            if (ok) container.itemChanges[item.id] = item.withWatchlist(on)
             if (!ok) {
                 ArcLog.Android.warn("${if (on) "adding to" else "removing from"} the watchlist failed")
                 _problem.value = ActionProblem.Watchlist

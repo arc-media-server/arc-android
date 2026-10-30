@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -47,10 +48,21 @@ import coil3.compose.AsyncImage
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.MediaCard
+import org.arcmediaserver.android.data.cardFor
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 /** Turns an address Arc gave for artwork into one to load (the server's, under /api/v1). */
 val LocalImageUrl = compositionLocalOf<(String) -> String> { { it } }
+
+/** Holding OK on a card opens its title's menu (Watched, Watchlist), as Plex's long press. */
+interface CardMenu {
+    /** The title as it is now, with changes made in the app. */
+    fun current(item: Item): Item
+    /** Opens [item]'s menu; [onClose] puts the focus back on the card. */
+    fun open(item: Item, onClose: () -> Unit)
+}
+
+val LocalCardMenu = compositionLocalOf<CardMenu?> { null }
 
 val CardShape = RoundedCornerShape(10.dp)
 val PosterWidth = 116.dp
@@ -88,10 +100,12 @@ fun FocusCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onFocused: (Boolean) -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Card(
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier.onFocusChanged { onFocused(it.isFocused) },
         shape = CardDefaults.shape(CardShape),
         scale = CardDefaults.scale(focusedScale = 1.08f),
@@ -191,9 +205,20 @@ fun MediaCardView(
     seasonPoster: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // Changes made in the app (the card menu, a title's page) show straight away.
+    val menu = LocalCardMenu.current
+    val changed = menu?.current(card.item)
+    @Suppress("NAME_SHADOWING")
+    val card = if (changed == null || changed === card.item) card else card.copy(item = changed, progress = cardFor(changed).progress)
     val cardWidth: Dp = width ?: if (landscape) ThumbWidth else PosterWidth
     Column(modifier.width(cardWidth)) {
-        FocusCard(onClick = onClick, onFocused = { focused = it }) {
+        val self = remember { androidx.compose.ui.focus.FocusRequester() }
+        FocusCard(
+            onClick = onClick,
+            modifier = Modifier.focusRequester(self),
+            onFocused = { focused = it },
+            onLongClick = menu?.takeIf { card.item.kind != "collection" }?.let { m -> { m.open(card.item) { runCatching { self.requestFocus() } } } },
+        ) {
             if (backdrop) {
                 BackdropArt(card)
             } else {

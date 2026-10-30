@@ -108,6 +108,11 @@ class PlayerViewModel(
     val player: ExoPlayer = arcPlayer(context, container)
 
     init {
+        // Playing changes its watched state on the server: what's loaded next is right again.
+        container.itemChanges.remove(itemId)
+    }
+
+    init {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.update { it.copy(playing = isPlaying) }
