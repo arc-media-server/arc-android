@@ -1,5 +1,20 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.runtime.mutableIntStateOf
+import org.arcmediaserver.android.ui.components.MinimalBringIntoView
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.widthIn
@@ -81,7 +96,7 @@ import org.arcmediaserver.android.ui.profiles.Avatar
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun BrowseRoute(onOpen: (Item) -> Unit, onSwitchProfile: () -> Unit, onSignedOut: () -> Unit) {
+fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.data.Person) -> Unit, onSwitchProfile: () -> Unit, onSignedOut: () -> Unit) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     BrowseScreen(
@@ -94,6 +109,7 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onSwitchProfile: () -> Unit, onSignedOut
         onNearEnd = vm::nearEnd,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
+        searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
     )
 }
 
@@ -109,6 +125,7 @@ fun BrowseScreen(
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
     drawerValue: DrawerValue = DrawerValue.Closed,
+    searchContent: @Composable () -> Unit = {},
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
@@ -127,6 +144,7 @@ fun BrowseScreen(
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
+                            Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
                         }
                     }
@@ -153,6 +171,7 @@ private fun NavigationDrawerScope.Sidebar(
         Box(Modifier.padding(start = 8.dp, top = 12.dp, bottom = 20.dp)) {
             Icon(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), tint = Color.Unspecified, modifier = Modifier.size(28.dp))
         }
+        SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
         SidebarItem(ArcIcons.Home, stringResource(R.string.nav_home), section == Section.Home) { onSection(Section.Home) }
         frame.libraries.forEach { lib ->
             SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
@@ -211,6 +230,7 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
  * fills the screen (fading as the focus moves), its logo (or title), details and a short summary
  * sit at the top left, and the profile's rows run along the lower part. Empty rows are left out.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (HomeRowSpec) -> Unit, onFocusedCard: (MediaCard?) -> Unit) {
     var focused by remember { mutableStateOf<MediaCard?>(null) }
@@ -229,20 +249,53 @@ fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (H
     var focusedOnce by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         shown?.let { Overview(it) }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(top = 268.dp),
-            contentPadding = PaddingValues(bottom = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
-        ) {
-            items(visible, key = { it.spec.id }) { row ->
-                val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                HomeRow(
-                    row,
-                    onOpen = onOpen,
-                    onFocused = { focused = it },
-                    onRetry = { onRetryRow(row.spec) },
-                    firstCard = if (isFirst) firstCard else null,
-                )
+        val list = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        // One row at a time, pinned to the bottom (as Plex): the band is exactly one row tall, the
+        // focused row slides into it, and posters carry no captions because the overview above
+        // names whatever has focus.
+        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            // The band shows one row, so focus can't find the next row on its own: Up and Down
+            // slide the neighbouring row in and return to the card last focused there.
+            var current by remember { mutableIntStateOf(0) }
+            val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
+            fun moveTo(step: Int): Boolean {
+                var target = current + step
+                while (target in visible.indices && visible[target].cards is LoadState.Loading) target += step
+                if (target !in visible.indices) return false
+                val requester = rowFocus.getOrPut(visible[target].spec.id) { FocusRequester() }
+                scope.launch {
+                    list.animateScrollToItem(target)
+                    requester.requestWhenReady()
+                }
+                return true
+            }
+            LazyColumn(
+                state = list,
+                userScrollEnabled = false,
+                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 24.dp).fillMaxWidth().height(HomeBandHeight)
+                    .onPreviewKeyEvent { e ->
+                        if (e.type != KeyEventType.KeyDown) false
+                        else when (e.key) {
+                            Key.DirectionDown -> moveTo(1)
+                            Key.DirectionUp -> moveTo(-1)
+                            else -> false
+                        }
+                    },
+            ) {
+                itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
+                    val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
+                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) current = index }, contentAlignment = Alignment.BottomStart) {
+                        HomeRow(
+                            row,
+                            onOpen = onOpen,
+                            onFocused = { focused = it },
+                            onRetry = { onRetryRow(row.spec) },
+                            firstCard = if (isFirst) firstCard else null,
+                            rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
+                        )
+                    }
+                }
             }
         }
     }
@@ -312,8 +365,8 @@ fun TitleLogo(item: Item, maxHeight: Dp = 96.dp, maxWidth: Dp = 420.dp, textStyl
 private fun Overview(card: MediaCard) {
     val item = card.item
     Crossfade(card.key, animationSpec = tween(300), label = "overview") { _ ->
-        Column(Modifier.padding(start = 48.dp, top = 44.dp).width(520.dp)) {
-            TitleLogo(item)
+        Column(Modifier.padding(start = 48.dp, top = 36.dp).width(480.dp)) {
+            TitleLogo(item, maxHeight = 72.dp, maxWidth = 360.dp)
             Spacer(Modifier.height(14.dp))
             val meta = listOfNotNull(
                 if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
@@ -336,25 +389,30 @@ fun runtimeText(minutes: Int): String =
     if (minutes >= 60) stringResource(R.string.hours_minutes, minutes / 60, minutes % 60) else stringResource(R.string.minutes, minutes)
 
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?) {
+private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
     Column {
-        Text(rowTitle(row.spec), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 48.dp, bottom = 12.dp))
+        Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
             LoadState.Loading -> Box(Modifier.padding(start = 48.dp).height(120.dp), contentAlignment = Alignment.CenterStart) { Spinner(size = 28.dp) }
             is LoadState.Failed -> Row(Modifier.padding(start = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.row_failed) + " " + cards.error.text(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted, modifier = Modifier.weight(1f, fill = false))
                 Spacer(Modifier.width(16.dp))
-                androidx.tv.material3.OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                androidx.tv.material3.OutlinedButton(onClick = onRetry, modifier = Modifier.focusRequester(rowFocus)) { Text(stringResource(R.string.action_retry)) }
             }
+            // Vertical padding leaves room for the focused card to grow without being clipped.
             is LoadState.Ready -> LazyRow(
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                // Focusing the row returns to the card last focused in it (or its first).
+                modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 items(cards.value, key = { it.key }) { card ->
                     val mod = Modifier.onFocusChanged { if (it.hasFocus) onFocused(card) }
+                    val landscape = row.spec.style == CardStyle.Thumb
                     MediaCardView(
                         card,
-                        landscape = row.spec.style == CardStyle.Thumb,
+                        landscape = landscape,
+                        width = if (landscape) HomeThumbWidth else HomePosterWidth,
                         onClick = { onOpen(card.item) },
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
@@ -365,13 +423,14 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
 }
 
 /** A library's titles in a grid, A to Z, loading more as the focus nears the end. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetry: () -> Unit, onNearEnd: () -> Unit) {
     Loaded(state, onRetry) { page ->
         val first = remember { FocusRequester() }
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
-                Text(page.library.name, style = MaterialTheme.typography.displaySmall)
+                Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.width(14.dp))
                 Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
             }
@@ -380,18 +439,28 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
                 return@Column
             }
             val landscape = page.library.kind == "videos"
+            // About seven posters across, as Plex; rows scroll only as far as needed, so captions
+            // stay in view (no TV pivot).
+            CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(if (landscape) 220.dp else 112.dp),
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 16.dp, bottom = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(22.dp),
-                verticalArrangement = Arrangement.spacedBy(26.dp),
+                columns = GridCells.Adaptive(if (landscape) 200.dp else 96.dp),
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 itemsIndexed(page.items, key = { _, it -> it.id }) { i, item ->
                     val mod = Modifier.fillMaxWidth().onFocusChanged { if (it.hasFocus && i >= page.items.size - 18) onNearEnd() }
                     MediaCardView(cardFor(item), landscape = landscape, onClick = { onOpen(item) }, modifier = if (i == 0) mod.focusRequester(first) else mod)
                 }
             }
+            }
         }
         LaunchedEffect(page.library.id) { first.requestWhenReady() }
     }
 }
+
+/** Home's single row of cards: about seven posters across, with room for the heading and focus. */
+private val HomePosterWidth = 118.dp
+private val HomeThumbWidth = 236.dp
+// Heading, card padding, the poster and its two-line caption.
+private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f + 50.dp

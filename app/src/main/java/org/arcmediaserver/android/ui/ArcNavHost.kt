@@ -15,6 +15,7 @@ import org.arcmediaserver.android.ui.components.LocalImageUrl
 import org.arcmediaserver.android.ui.details.DetailsRoute
 import org.arcmediaserver.android.ui.launch.Destination
 import org.arcmediaserver.android.ui.launch.LaunchRoute
+import org.arcmediaserver.android.ui.person.PersonRoute
 import org.arcmediaserver.android.ui.player.PlayerRoute
 import org.arcmediaserver.android.ui.profiles.ProfilesRoute
 import org.arcmediaserver.android.ui.server.ServerRoute
@@ -27,6 +28,7 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 @Serializable object BrowseDest
 @Serializable data class DetailsDest(val itemId: String)
 @Serializable data class PlayerDest(val itemId: String, val startMs: Long)
+@Serializable data class PersonDest(val personId: Long)
 
 /** Goes somewhere as a fresh start: nothing to go back to (after signing in, or out). */
 private fun NavHostController.startAt(route: Any) = navigate(route) { popUpTo(0) { inclusive = true } }
@@ -55,6 +57,7 @@ fun ArcNavHost() {
             composable<BrowseDest> {
                 BrowseRoute(
                     onOpen = { item -> nav.navigate(DetailsDest(item.id)) },
+                    onPerson = { person -> nav.navigate(PersonDest(person.id)) },
                     onSwitchProfile = { nav.navigate(ProfilesDest) },
                     onSignedOut = { nav.startAt(SignInDest) },
                 )
@@ -66,6 +69,9 @@ fun ArcNavHost() {
                     onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
                     onOpen = { id -> nav.navigate(DetailsDest(id)) },
                 )
+            }
+            composable<PersonDest> { entry ->
+                PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(DetailsDest(item.id)) })
             }
             composable<PlayerDest> { entry ->
                 val dest = entry.toRoute<PlayerDest>()

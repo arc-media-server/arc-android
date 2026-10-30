@@ -78,7 +78,22 @@ import org.arcmediaserver.android.data.Marker
 import org.arcmediaserver.android.data.PlaybackPlan
 import org.arcmediaserver.android.data.SubtitleTrack
 import org.arcmediaserver.android.data.Version
+import org.arcmediaserver.android.data.TrickplayInfo
+import org.arcmediaserver.android.data.cardFor
+import org.arcmediaserver.android.playback.TrickplayFrame
+import org.arcmediaserver.android.playback.UpNext
 import org.arcmediaserver.android.playback.sameLanguage
+import org.arcmediaserver.android.playback.trickplayFrame
+import org.arcmediaserver.android.ui.components.Artwork
+import org.arcmediaserver.android.ui.components.LocalImageUrl
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
+import androidx.tv.material3.OutlinedButton
+import coil3.compose.AsyncImage
 import org.arcmediaserver.android.ui.components.ArcIcons
 import org.arcmediaserver.android.ui.components.ErrorPane
 import org.arcmediaserver.android.ui.components.Spinner
@@ -118,9 +133,36 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
     val container = (context.applicationContext as ArcApplication).container
     val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs) } })
     val state by vm.state.collectAsStateWithLifecycle()
-    // At the end, carry on with the next episode (as the web's Up Next does), else close.
+    // Up Next (web Player.tsx): a countdown when the credits start and again at the end; Play Now
+    // goes straight on, Cancel lets the credits play (or, at the end, closes the player, as Plex).
+    var upNextIn by remember { mutableStateOf<Int?>(null) }
+    var creditsOffered by remember { mutableStateOf(false) }
+    val inCredits = state.plan?.let { skippable(it.markers, state.positionMs) }?.kind == "credits"
+    LaunchedEffect(inCredits, state.next) {
+        if (inCredits && UpNext.atCredits(state.next, state.autoPlay, creditsOffered)) {
+            creditsOffered = true
+            upNextIn = UpNext.COUNTDOWN_SECONDS
+        }
+    }
     LaunchedEffect(state.ended) {
-        if (state.ended) state.next?.let(onPlayNext) ?: onClose()
+        if (!state.ended) return@LaunchedEffect
+        when (UpNext.atEnd(state.next, state.autoPlay)) {
+            UpNext.AtEnd.Countdown -> if (upNextIn == null) upNextIn = UpNext.COUNTDOWN_SECONDS
+            UpNext.AtEnd.Close -> onClose()
+        }
+    }
+    LaunchedEffect(upNextIn) {
+        val seconds = upNextIn ?: return@LaunchedEffect
+        if (seconds <= 0) {
+            state.next?.let(onPlayNext)
+        } else {
+            delay(1_000)
+            upNextIn = seconds - 1
+        }
+    }
+    val cancelUpNext = {
+        upNextIn = null
+        if (state.ended) onClose()
     }
 
     var controls by remember { mutableStateOf(true) }
@@ -143,9 +185,13 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
     }
     LaunchedEffect(controls) { if (!controls) rootFocus.requestWhenReady() }
 
-    // Back closes a menu, then hides the controls, then leaves the player.
-    BackHandler(enabled = menu != PlayerMenu.None || controls) {
-        if (menu != PlayerMenu.None) menu = PlayerMenu.None else controls = false
+    // Back cancels Up Next, closes a menu, then hides the controls, then leaves the player.
+    BackHandler(enabled = upNextIn != null || menu != PlayerMenu.None || controls) {
+        when {
+            upNextIn != null -> cancelUpNext()
+            menu != PlayerMenu.None -> menu = PlayerMenu.None
+            else -> controls = false
+        }
     }
 
     Box(
@@ -213,6 +259,7 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
                     onNext = { state.next?.let(onPlayNext) },
                     onMenu = { menu = it },
                     onClose = onClose,
+                    upNextShown = upNextIn != null,
                 )
                 val plan = state.plan
                 if (plan != null) {
@@ -227,6 +274,11 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
                         onChapter = { vm.seekTo(it); menu = PlayerMenu.None },
                         onSpeed = { vm.setSpeed(it); menu = PlayerMenu.None },
                     )
+                }
+                val next = state.next
+                val seconds = upNextIn
+                if (next != null && seconds != null) {
+                    UpNextCard(next, seconds, onPlayNow = { onPlayNext(next) }, onCancel = cancelUpNext)
                 }
             }
         }
@@ -267,12 +319,14 @@ fun PlayerControls(
     onNext: () -> Unit,
     onMenu: (PlayerMenu) -> Unit,
     onClose: () -> Unit,
+    upNextShown: Boolean = false,
 ) {
     val plan = state.plan
     val playFocus = remember { FocusRequester() }
     val skipFocus = remember { FocusRequester() }
     var focusedLabel by remember { mutableStateOf<String?>(null) }
-    val skip = plan?.let { skippable(it.markers, state.positionMs) }
+    // While Up Next counts down, its card offers what Play Next would.
+    val skip = plan?.let { skippable(it.markers, state.positionMs) }?.takeUnless { upNextShown && it.kind == "credits" }
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize()) {
@@ -348,24 +402,8 @@ fun PlayerControls(
 
 /** A round icon button; its label shows above the row while it has the focus. */
 @Composable
-private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, onLabel: (String?) -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.size(44.dp).onFocusChanged { if (it.isFocused) onLabel(label) },
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = Color.White,
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color.Black,
-        ),
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp))
-        }
-    }
-}
+private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, onLabel: (String?) -> Unit) =
+    org.arcmediaserver.android.ui.components.RoundIconButton(icon, label, onClick, modifier, onLabel = onLabel)
 
 /** The chapter at a point, by index. */
 private fun chapterAt(chapters: List<Chapter>, ms: Long): Int = chapters.indexOfLast { it.startMs <= ms }
@@ -400,30 +438,95 @@ private fun Timeline(state: PlayerUiState, scrubMs: Long?, onScrub: (Long) -> Un
             chapters.drop(1).forEach { c ->
                 Box(Modifier.offset(x = maxWidth * (c.startMs.toFloat() / duration).coerceIn(0f, 1f)).width(2.dp).height(h).background(Color.Black.copy(alpha = 0.6f)))
             }
-            if (focused) {
+            // Scrubbing happens on the focused timeline, so a scrub point also shows its knob.
+            if (focused || scrubMs != null) {
                 val x = maxWidth * (shown.toFloat() / duration).coerceIn(0f, 1f)
                 Box(Modifier.offset(x = x - 8.dp).size(16.dp).clip(CircleShape).background(Color.White))
+                // While scrubbing: the picture at that point, above the timeline (web Player.tsx Thumb).
+                val thumbs = state.trickplay
+                val frame = if (scrubMs != null && thumbs != null) trickplayFrame(thumbs.info, thumbs.sheets, scrubMs) else null
+                if (frame != null && thumbs != null) {
+                    val w = ThumbPreviewWidth
+                    val h = w * (thumbs.info.height.toFloat() / thumbs.info.width)
+                    val left = (x - w / 2).coerceIn(0.dp, (maxWidth - w).coerceAtLeast(0.dp))
+                    TrickplayThumb(frame, thumbs.info, w, Modifier.offset(x = left, y = -(h + 18.dp)))
+                }
             }
         }
     }
 }
 
-private fun languageName(code: String?): String? =
-    code?.takeIf { it.isNotBlank() && it != "und" }?.let {
-        Locale.forLanguageTag(it).getDisplayLanguage(Locale.getDefault()).takeIf { n -> n.isNotBlank() && !n.equals(it, ignoreCase = true) } ?: it
-    }
+private val ThumbPreviewWidth = 240.dp
 
-private val codecNames = mapOf(
-    "aac" to "AAC", "ac3" to "Dolby Digital", "eac3" to "Dolby Digital Plus", "truehd" to "Dolby TrueHD", "dts" to "DTS",
-    "flac" to "FLAC", "mp3" to "MP3", "opus" to "Opus", "vorbis" to "Vorbis", "h264" to "H.264", "hevc" to "HEVC", "av1" to "AV1", "vp9" to "VP9",
-)
+/** One timeline thumbnail: the sheet drawn at its scale, moved so only this tile shows. */
+@Composable
+fun TrickplayThumb(frame: TrickplayFrame, info: TrickplayInfo, width: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+    val scale = width.value / info.width
+    Box(
+        modifier
+            .wrapContentSize(Alignment.TopStart, unbounded = true)
+            .requiredSize(width, (info.height * scale).dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black)
+            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
+    ) {
+        AsyncImage(
+            model = LocalImageUrl.current(frame.sheet),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .wrapContentSize(Alignment.TopStart, unbounded = true)
+                .offset(x = (-frame.x * scale).dp, y = (-frame.y * scale).dp)
+                .requiredSize((info.columns * info.width * scale).dp, (info.rows * info.height * scale).dp),
+        )
+    }
+}
+
+/**
+ * The web's Up Next card (Player.tsx UpNext), at the bottom right: the countdown, the next
+ * episode's picture, title and number, and Play Now (focused) and Cancel.
+ */
+@Composable
+fun UpNextCard(next: Item, seconds: Int, onPlayNow: () -> Unit, onCancel: () -> Unit) {
+    val play = remember { FocusRequester() }
+    Box(Modifier.fillMaxSize().padding(end = 48.dp, bottom = 150.dp), contentAlignment = Alignment.BottomEnd) {
+        Row(
+            Modifier.width(520.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.82f))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val card = cardFor(next)
+            Artwork(card.thumb, label = next.title, modifier = Modifier.width(176.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)))
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(pluralStringResource(R.plurals.player_up_next_in, seconds, seconds), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f))
+                Spacer(Modifier.height(4.dp))
+                Text(next.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val sub = listOfNotNull(next.seriesTitle, episodeCode(next)).joinToString(" · ")
+                if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = onPlayNow, modifier = Modifier.focusRequester(play), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                        Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(stringResource(R.string.player_play_now))
+                    }
+                    OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { play.requestWhenReady() }
+}
+
+private fun languageName(code: String?): String? = org.arcmediaserver.android.playback.languageName(code)
 
 @Composable
 private fun audioName(t: AudioTrack, i: Int): String = languageName(t.language) ?: stringResource(R.string.player_track, i + 1)
 
 @Composable
 private fun audioDetail(t: AudioTrack): String = listOfNotNull(
-    codecNames[t.codec] ?: t.codec.uppercase().takeIf { it.isNotBlank() },
+    org.arcmediaserver.android.ui.components.codecName(t.codec),
     when (t.channels) {
         0 -> null
         1 -> stringResource(R.string.player_mono)
@@ -452,7 +555,7 @@ private fun versionName(v: Version): Pair<String, String> {
         v.height > 0 -> "${v.height}p"
         else -> ""
     }
-    val rest = listOfNotNull(v.hdr, v.videoCodec?.let { codecNames[it] ?: it.uppercase() }, if (v.size > 0) "%.1f GB".format(v.size / 1e9) else null)
+    val rest = listOfNotNull(v.hdr, org.arcmediaserver.android.ui.components.codecName(v.videoCodec), if (v.size > 0) "%.1f GB".format(v.size / 1e9) else null)
     return if (!v.edition.isNullOrBlank()) v.edition to (listOf(res) + rest).filter { it.isNotBlank() }.joinToString(" · ")
     else res.ifBlank { stringResource(R.string.player_version) } to rest.joinToString(" · ")
 }
