@@ -1,5 +1,12 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.MinimalBringIntoView
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -248,20 +255,44 @@ fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (H
         // focused row slides into it, and posters carry no captions because the overview above
         // names whatever has focus.
         CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            // The band shows one row, so focus can't find the next row on its own: Up and Down
+            // slide the neighbouring row in and return to the card last focused there.
+            var current by remember { mutableIntStateOf(0) }
+            val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
+            fun moveTo(step: Int): Boolean {
+                var target = current + step
+                while (target in visible.indices && visible[target].cards is LoadState.Loading) target += step
+                if (target !in visible.indices) return false
+                val requester = rowFocus.getOrPut(visible[target].spec.id) { FocusRequester() }
+                scope.launch {
+                    list.animateScrollToItem(target)
+                    requester.requestWhenReady()
+                }
+                return true
+            }
             LazyColumn(
                 state = list,
                 userScrollEnabled = false,
-                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 24.dp).fillMaxWidth().height(HomeBandHeight),
+                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 24.dp).fillMaxWidth().height(HomeBandHeight)
+                    .onPreviewKeyEvent { e ->
+                        if (e.type != KeyEventType.KeyDown) false
+                        else when (e.key) {
+                            Key.DirectionDown -> moveTo(1)
+                            Key.DirectionUp -> moveTo(-1)
+                            else -> false
+                        }
+                    },
             ) {
                 itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
                     val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(index) } }, contentAlignment = Alignment.BottomStart) {
+                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) current = index }, contentAlignment = Alignment.BottomStart) {
                         HomeRow(
                             row,
                             onOpen = onOpen,
                             onFocused = { focused = it },
                             onRetry = { onRetryRow(row.spec) },
                             firstCard = if (isFirst) firstCard else null,
+                            rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
                         )
                     }
                 }
@@ -358,7 +389,7 @@ fun runtimeText(minutes: Int): String =
     if (minutes >= 60) stringResource(R.string.hours_minutes, minutes / 60, minutes % 60) else stringResource(R.string.minutes, minutes)
 
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?) {
+private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -366,10 +397,12 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
             is LoadState.Failed -> Row(Modifier.padding(start = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.row_failed) + " " + cards.error.text(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted, modifier = Modifier.weight(1f, fill = false))
                 Spacer(Modifier.width(16.dp))
-                androidx.tv.material3.OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                androidx.tv.material3.OutlinedButton(onClick = onRetry, modifier = Modifier.focusRequester(rowFocus)) { Text(stringResource(R.string.action_retry)) }
             }
             // Vertical padding leaves room for the focused card to grow without being clipped.
             is LoadState.Ready -> LazyRow(
+                // Focusing the row returns to the card last focused in it (or its first).
+                modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
@@ -379,7 +412,8 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                     MediaCardView(
                         card,
                         landscape = landscape,
-                        caption = false,
+                        // Wide cards keep their caption (show, episode); posters don't need one.
+                        caption = landscape,
                         width = if (landscape) HomeThumbWidth else HomePosterWidth,
                         onClick = { onOpen(card.item) },
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
@@ -429,5 +463,5 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
 
 /** Home's single row of cards: about seven posters across, with room for the heading and focus. */
 private val HomePosterWidth = 118.dp
-private val HomeThumbWidth = 178.dp
+private val HomeThumbWidth = 236.dp
 private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f
