@@ -101,6 +101,8 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
         load()
     }
 
+    fun signOut(done: () -> Unit) = container.signOut(done)
+
     fun load() {
         val api = container.api() ?: return
         _state.update { it.copy(profiles = LoadState.Loading) }
@@ -165,7 +167,7 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
 }
 
 @Composable
-fun ProfilesRoute(onChosen: () -> Unit) {
+fun ProfilesRoute(onChosen: () -> Unit, onSignedOut: () -> Unit) {
     val vm = arcViewModel { ProfilesViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.chosen) {
@@ -175,7 +177,7 @@ fun ProfilesRoute(onChosen: () -> Unit) {
         }
     }
     androidx.activity.compose.BackHandler(enabled = state.pin != null) { vm.cancelPin() }
-    ProfilesScreen(state, onChoose = vm::choose, onRetry = vm::load, onDigit = vm::typeDigit, onDelete = vm::deleteDigit, onBack = vm::cancelPin)
+    ProfilesScreen(state, onChoose = vm::choose, onRetry = vm::load, onDigit = vm::typeDigit, onDelete = vm::deleteDigit, onBack = vm::cancelPin, onSignOut = { vm.signOut(onSignedOut) })
 }
 
 /**
@@ -191,6 +193,7 @@ fun ProfilesScreen(
     onDigit: (Char) -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         AuthGlow()
@@ -225,6 +228,10 @@ fun ProfilesScreen(
                 }
                 Spacer(Modifier.height(24.dp))
                 Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Warning, textAlign = TextAlign.Center, modifier = Modifier.width(560.dp))
+                // Signing this TV out lives here, under the profiles, as on Plex: the sidebar
+                // only switches profile.
+                Spacer(Modifier.height(12.dp))
+                androidx.tv.material3.OutlinedButton(onClick = onSignOut) { Text(stringResource(R.string.nav_sign_out)) }
             }
         }
     }

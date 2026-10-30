@@ -168,15 +168,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun signOut(done: () -> Unit) {
-        val api = container.api()
-        container.appScope.launch {
-            runCatching { api?.signOut() }
-            container.session.token = null
-            ArcLog.Android.info("signed out")
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { done() }
-        }
-    }
+    fun signOut(done: () -> Unit) = container.signOut(done)
 
     private companion object {
         const val PAGE = 60
