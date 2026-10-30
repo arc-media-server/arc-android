@@ -51,8 +51,8 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 val LocalImageUrl = compositionLocalOf<(String) -> String> { { it } }
 
 val CardShape = RoundedCornerShape(10.dp)
-val PosterWidth = 132.dp
-val ThumbWidth = 208.dp
+val PosterWidth = 116.dp
+val ThumbWidth = 172.dp
 
 /**
  * Artwork with a quiet placeholder underneath: the title on a dark gradient, which is what shows
@@ -148,10 +148,18 @@ fun episodeCode(item: Item): String? {
 fun cardTitle(card: MediaCard): String = if (card.item.isEpisode) card.item.seriesTitle ?: card.item.title else card.item.title
 
 @Composable
-fun MediaCardView(card: MediaCard, landscape: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun MediaCardView(
+    card: MediaCard,
+    landscape: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** Home shows no captions: the overview above names whatever has focus, as Plex does. */
+    caption: Boolean = true,
+    width: Dp? = null,
+) {
     var focused by remember { mutableStateOf(false) }
-    val width: Dp = if (landscape) ThumbWidth else PosterWidth
-    Column(modifier.width(width)) {
+    val cardWidth: Dp = width ?: if (landscape) ThumbWidth else PosterWidth
+    Column(modifier.width(cardWidth)) {
         FocusCard(onClick = onClick, onFocused = { focused = it }) {
             Artwork(
                 url = if (landscape) card.thumb else card.poster,
@@ -161,7 +169,8 @@ fun MediaCardView(card: MediaCard, landscape: Boolean, onClick: () -> Unit, modi
             WatchBadge(card.item)
             ProgressLine(card.progress)
         }
-        Spacer(Modifier.height(10.dp))
+        if (!caption) return@Column
+        Spacer(Modifier.height(8.dp))
         Text(
             cardTitle(card),
             style = MaterialTheme.typography.titleSmall,

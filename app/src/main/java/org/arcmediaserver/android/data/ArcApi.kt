@@ -1,6 +1,8 @@
 package org.arcmediaserver.android.data
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -81,6 +83,33 @@ class ArcApi(
 
     suspend fun prefs(): Prefs = get("me/prefs", Prefs.serializer())
 
+    /** Changes only the preferences in [changes] (e.g. audio_language), answering with them all. */
+    suspend fun updatePrefs(changes: Map<String, String>): Prefs =
+        send("PATCH", "me/prefs", JsonObject(changes.mapValues { JsonPrimitive(it.value) }).toString(), Prefs.serializer())
+
+    suspend fun search(query: String): SearchResults = get("search?q=${enc(query)}", SearchResults.serializer(), route = "search")
+
+    suspend fun person(id: Long): PersonPage = get("people/$id", PersonPage.serializer(), route = "people/{id}")
+
+    /** Marks a movie or episode (or all of a show's episodes) watched or not, for the profile. */
+    suspend fun setPlayed(itemId: String, played: Boolean) =
+        put("items/${enc(itemId)}/played", JsonObject(mapOf("played" to JsonPrimitive(played))).toString(), "items/{id}/played")
+
+    /** Puts a movie or show on the profile's watchlist, or takes it off. */
+    suspend fun setWatchlist(itemId: String, on: Boolean) =
+        put("items/${enc(itemId)}/watchlist", JsonObject(mapOf("on" to JsonPrimitive(on))).toString(), "items/{id}/watchlist")
+
+    /** A file's timeline thumbnails, or null when it has none (yet): Arc answers 404 then. */
+    suspend fun trickplay(itemId: String, fileId: Long): Trickplay? {
+        val route = "items/{id}/trickplay"
+        val (status, body) = raw("GET", "items/${enc(itemId)}/trickplay?file=$fileId", null, route = route)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, Trickplay.serializer(), route)
+            else -> throw failure(status, body, route)
+        }
+    }
+
     suspend fun continueWatching(withUpNext: Boolean): List<Item> =
         get(if (withUpNext) "home/continue?with_up_next=1" else "home/continue", ItemList, route = "home/continue")
 
@@ -144,12 +173,18 @@ class ArcApi(
 
     // --- plumbing ---
 
+    private suspend fun put(path: String, json: String, route: String) {
+        val (status, body) = raw("PUT", path, json, route)
+        if (status !in 200..299) throw failure(status, body, route)
+    }
+
     private suspend fun <T> get(path: String, de: DeserializationStrategy<T>, route: String = path): T = send("GET", path, null, de, route)
 
     private suspend fun <T> send(method: String, path: String, json: String?, de: DeserializationStrategy<T>, route: String = path): T {
         val (status, body) = raw(method, path, json, route)
         if (status !in 200..299) throw failure(status, body, route)
-        return decode(body, de, route)
+        // Large pages (a whole library) are decoded off the main thread too.
+        return withContext(Dispatchers.Default) { decode(body, de, route) }
     }
 
     private fun <T> decode(body: String, de: DeserializationStrategy<T>, route: String): T = try {
@@ -179,13 +214,12 @@ class ArcApi(
         val body = json?.toRequestBody(JSON)
         builder.method(method, body ?: if (method == "POST" || method == "PUT") ByteArray(0).toRequestBody(JSON) else null)
         val call = client.newCall(builder.build())
-        val response = try {
-            call.await()
+        return try {
+            call.awaitText()
         } catch (e: IOException) {
             log.warn("$route: can't reach the server (${e.javaClass.simpleName})")
             throw e
         }
-        return response.use { it.code to (it.body.string()) }
     }
 
     private companion object {
@@ -195,9 +229,21 @@ class ArcApi(
     }
 }
 
-private suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
+/**
+ * Sends the call and reads the whole answer on OkHttp's own thread: reading a body is network
+ * I/O too, and Android refuses it on the main thread (NetworkOnMainThreadException).
+ */
+private suspend fun Call.awaitText(): Pair<Int, String> = suspendCancellableCoroutine { cont ->
     enqueue(object : Callback {
-        override fun onResponse(call: Call, response: Response) = cont.resume(response) { _, r, _ -> r.close() }
+        override fun onResponse(call: Call, response: Response) {
+            val result = try {
+                response.use { it.code to it.body.string() }
+            } catch (e: IOException) {
+                if (!cont.isCancelled) cont.resumeWithException(e)
+                return
+            }
+            cont.resume(result)
+        }
         override fun onFailure(call: Call, e: IOException) {
             if (!cont.isCancelled) cont.resumeWithException(e)
         }

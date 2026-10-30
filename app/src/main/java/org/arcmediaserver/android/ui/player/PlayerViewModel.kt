@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +35,12 @@ import org.arcmediaserver.android.data.PlayerCaps
 import org.arcmediaserver.android.data.ProgressReport
 import org.arcmediaserver.android.data.SubtitleTrack
 import org.arcmediaserver.android.playback.PlaybackClock
+import org.arcmediaserver.android.data.Prefs
+import org.arcmediaserver.android.data.Trickplay
+import org.arcmediaserver.android.playback.UpNext
+import org.arcmediaserver.android.playback.audioLanguageToRemember
 import org.arcmediaserver.android.playback.chooseSubtitle
+import org.arcmediaserver.android.playback.rememberedSubtitleLanguage
 import org.arcmediaserver.android.playback.fallbackCaps
 import org.arcmediaserver.android.ui.components.UiError
 import org.arcmediaserver.android.ui.components.toUiError
@@ -58,6 +64,10 @@ data class PlayerUiState(
     /** -1 Automatic, 0 Original, or a limit in kbit/s (the web player's quality menu). */
     val quality: Int = -1,
     val speed: Float = 1f,
+    /** The profile's Auto-Play: whether the next episode is offered (and counted down to). */
+    val autoPlay: Boolean = true,
+    /** The playing file's timeline thumbnails, or null when it has none. */
+    val trickplay: Trickplay? = null,
 )
 
 /**
@@ -76,7 +86,9 @@ class PlayerViewModel(
     private val log = ArcLog.Android
     private var caps: PlayerCaps = container.playerCaps
     private var plan: PlaybackPlan? = null
-    private var preferredSubtitleLanguage = ""
+    /** The profile's preferences: the languages to start with and remember, Auto-Play. */
+    private var prefs = Prefs()
+    private var trickplayFile: Long? = null
     private var retried = false
     private var loadJob: Job? = null
     private var maxKbps: Int? = null
@@ -110,15 +122,20 @@ class PlayerViewModel(
 
             override fun onPlayerError(error: PlaybackException) = onStreamError(error)
         })
-        viewModelScope.launch {
-            // The title and the profile's subtitle language, alongside the first decision.
-            val item = runCatching { api.item(itemId) }.getOrNull()
-            _state.update { it.copy(item = item) }
-            val next = if (item?.isEpisode == true) runCatching { api.next(itemId) }.getOrNull() else null
-            _state.update { it.copy(next = next) }
+        val loadedPrefs = viewModelScope.async {
+            runCatching { api.prefs() }.onFailure { log.warn("preferences failed to load: ${it.javaClass.simpleName}") }.getOrNull() ?: Prefs()
         }
         viewModelScope.launch {
-            preferredSubtitleLanguage = runCatching { api.prefs().subtitleLanguage }.getOrDefault("")
+            // The title, and the episode after it unless the profile turned Auto-Play off (as the
+            // web player, which then neither offers nor counts down to one).
+            val item = runCatching { api.item(itemId) }.getOrNull()
+            _state.update { it.copy(item = item) }
+            val autoPlay = loadedPrefs.await().autoPlay
+            val next = if (item?.isEpisode == true && autoPlay) runCatching { api.next(itemId) }.getOrNull() else null
+            _state.update { it.copy(next = UpNext.offered(next, autoPlay), autoPlay = autoPlay) }
+        }
+        viewModelScope.launch {
+            prefs = loadedPrefs.await()
             load(startMs)
         }
         viewModelScope.launch { tick() }
@@ -159,12 +176,46 @@ class PlayerViewModel(
             else log.info("Arc is ${if (p.method == "remux") "repackaging" else "converting"}: ${p.reasons.joinToString()}${p.encoder?.let { " ($it)" } ?: ""}")
             val first = _state.value.plan == null
             val subtitle = if (first) {
-                chooseSubtitle(p.subtitleTracks, preferredSubtitleLanguage, p.audioTracks.find { it.index == p.audioStream }?.language)
+                chooseSubtitle(p.subtitleTracks, prefs.subtitleLanguage, p.audioTracks.find { it.index == p.audioStream }?.language, prefs.subtitleMode)
             } else {
                 _state.value.subtitle?.takeIf { s -> p.subtitleTracks.any { it.id == s.id } }
             }
             _state.update { it.copy(plan = p, durationMs = p.durationMs, subtitle = subtitle) }
             install(p, fromMs, subtitle)
+            if (p.fileId != trickplayFile) loadTrickplay(p.fileId)
+        }
+    }
+
+    /** The file's timeline thumbnails for scrubbing; none (yet) is normal and just shows none. */
+    private fun loadTrickplay(fileId: Long) {
+        trickplayFile = fileId
+        _state.update { it.copy(trickplay = null) }
+        viewModelScope.launch {
+            val thumbs = try {
+                api.trickplay(itemId, fileId)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                log.debug("timeline thumbnails failed: ${e.javaClass.simpleName}")
+                null
+            }
+            if (thumbs == null) log.debug("no timeline thumbnails for this file")
+            if (trickplayFile == fileId) _state.update { it.copy(trickplay = thumbs) }
+        }
+    }
+
+    /** Remembers a track choice on the profile, as the web player does, so the next title starts with it. */
+    private fun remember(field: String, value: String) {
+        prefs = when (field) {
+            "audio_language" -> prefs.copy(audioLanguage = value)
+            else -> prefs.copy(subtitleLanguage = value)
+        }
+        viewModelScope.launch {
+            try {
+                api.updatePrefs(mapOf(field to value))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                log.warn("saving the $field preference failed: ${e.javaClass.simpleName} ${(e as? ApiException)?.status ?: ""}")
+            }
         }
     }
 
@@ -233,12 +284,15 @@ class PlayerViewModel(
     fun seekBy(deltaMs: Long) = seekTo(position() + deltaMs)
 
     fun chooseAudio(index: Int) {
-        if (index == plan?.audioStream) return
+        val p = plan ?: return
+        if (index == p.audioStream) return
+        audioLanguageToRemember(p.audioTracks.find { it.index == index }, prefs.audioLanguage)?.let { remember("audio_language", it) }
         load(position(), audioStream = index)
     }
 
     fun chooseSubtitle(track: SubtitleTrack?) {
         val p = plan ?: return
+        rememberedSubtitleLanguage(track, prefs.subtitleMode)?.takeIf { it != prefs.subtitleLanguage }?.let { remember("subtitle_language", it) }
         _state.update { it.copy(subtitle = track) }
         install(p, position(), track)
     }

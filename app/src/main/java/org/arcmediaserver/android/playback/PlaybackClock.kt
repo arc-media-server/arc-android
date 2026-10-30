@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.playback
 
+import org.arcmediaserver.android.data.AudioTrack
 import org.arcmediaserver.android.data.PlaybackPlan
 import org.arcmediaserver.android.data.SubtitleTrack
 import java.util.Locale
@@ -46,16 +47,51 @@ fun sameLanguage(a: String?, b: String?): Boolean {
     return key(a) == key(b)
 }
 
+/** A language code ("fr", "fra", "fre", "en-GB") as the language's name here, or the code if unknown; null for none. */
+fun languageName(code: String?): String? {
+    if (code.isNullOrBlank() || code == "und") return null
+    val base = code.substringBefore('-').substringBefore('_').lowercase()
+    val two = if (base.length == 3) {
+        val t = bibliographic[base] ?: base
+        Locale.getISOLanguages().firstOrNull { runCatching { Locale.forLanguageTag(it).isO3Language }.getOrNull() == t } ?: base
+    } else base
+    val name = Locale.forLanguageTag(two).getDisplayLanguage(Locale.getDefault())
+    return name.takeIf { it.isNotBlank() && !it.equals(two, ignoreCase = true) } ?: code
+}
+
 /**
- * The subtitles to start with (web/src/lib/playback.ts chooseSubtitle, default mode): the profile's
- * last language as full subtitles, or else forced ones for the audio's language. Picture formats
- * are left out: Arc can only burn them in, which this app doesn't ask for yet.
+ * The subtitles to start with (web/src/lib/playback.ts chooseSubtitle): with Plex's subtitle modes,
+ * "manual" only forced ones, "foreign" the profile's language when the audio is in another one,
+ * "always" (or "", the language last chosen) the profile's language; else forced ones for the
+ * audio's language. Picture formats are left out: Arc can only burn them in, which this app
+ * doesn't ask for yet.
  */
-fun chooseSubtitle(tracks: List<SubtitleTrack>, preferred: String, audioLanguage: String?): SubtitleTrack? {
+fun chooseSubtitle(tracks: List<SubtitleTrack>, preferred: String, audioLanguage: String?, mode: String = ""): SubtitleTrack? {
     val text = tracks.filter { !it.image }
-    if (preferred.isNotBlank()) {
+    val wanted = when (mode) {
+        "manual" -> false
+        "foreign" -> preferred.isNotBlank() && !audioLanguage.isNullOrBlank() && !sameLanguage(audioLanguage, preferred)
+        else -> true
+    }
+    if (preferred.isNotBlank() && wanted) {
         val matching = text.filter { sameLanguage(it.language, preferred) }
         (matching.firstOrNull { !it.forced && !it.hearingImpaired } ?: matching.firstOrNull { !it.forced } ?: matching.firstOrNull())?.let { return it }
     }
     return text.firstOrNull { it.forced && (it.language.isNullOrBlank() || audioLanguage.isNullOrBlank() || sameLanguage(it.language, audioLanguage)) }
 }
+
+/**
+ * The subtitle language to remember when the viewer picks [track] (null for Off), as the web
+ * player does (rememberedSubtitleLanguage): a full track's language; "" for Off when the language
+ * is what turns subtitles on (mode ""); otherwise nothing changes (null). Forced tracks aren't a choice
+ * of language.
+ */
+fun rememberedSubtitleLanguage(track: SubtitleTrack?, mode: String): String? = when {
+    track != null && !track.forced -> track.language.orEmpty()
+    track == null && mode.isEmpty() -> ""
+    else -> null
+}
+
+/** The audio language to remember when the viewer picks [track]: its language, if it has one and it's new. */
+fun audioLanguageToRemember(track: AudioTrack?, current: String): String? =
+    track?.language?.takeIf { it.isNotBlank() && it != current }

@@ -23,7 +23,12 @@ import org.arcmediaserver.android.ui.browse.Section
 import org.arcmediaserver.android.ui.components.LoadState
 import org.arcmediaserver.android.ui.components.UiError
 import org.arcmediaserver.android.ui.details.Details
+import org.arcmediaserver.android.ui.details.DetailsPanel
 import org.arcmediaserver.android.ui.details.DetailsScreen
+import org.arcmediaserver.android.ui.player.UpNextCard
+import org.arcmediaserver.android.ui.search.SearchScreen
+import org.arcmediaserver.android.ui.search.SearchUiState
+import org.arcmediaserver.android.ui.search.searchSections
 import org.arcmediaserver.android.ui.player.PlayerControls
 import org.arcmediaserver.android.ui.player.PlayerUiState
 import org.arcmediaserver.android.ui.profiles.PinPrompt
@@ -98,11 +103,12 @@ class ScreenshotTest {
     }
 
     @Composable
-    private fun browse(state: BrowseUiState, drawerOpen: Boolean = false) {
+    private fun browse(state: BrowseUiState, drawerOpen: Boolean = false, search: @Composable () -> Unit = {}) {
         BrowseScreen(
             state, onSection = {}, onOpen = {}, onRetry = {}, onRetryRow = {}, onRetryLibrary = {}, onNearEnd = {},
             onSwitchProfile = {}, onSignOut = {},
             drawerValue = if (drawerOpen) androidx.tv.material3.DrawerValue.Open else androidx.tv.material3.DrawerValue.Closed,
+            searchContent = search,
         )
     }
 
@@ -186,6 +192,74 @@ class ScreenshotTest {
                 state = PlayerUiState(item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true, positionMs = 75_000, durationMs = Fixtures.plan.durationMs),
                 visible = false,
                 scrubMs = null,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+        }
+    }
+
+    @Test
+    fun search() = shot("search") {
+        browse(
+            BrowseUiState(frame = LoadState.Ready(Fixtures.frame), section = Section.Search),
+            search = {
+                SearchScreen(
+                    SearchUiState(text = "the", query = "the", sections = searchSections(Fixtures.searchResults)),
+                    onType = {}, onOpen = {}, onPerson = {}, focusField = false,
+                )
+            },
+        )
+    }
+
+    @Test
+    fun movieActions() = shot("movie-actions") {
+        DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
+    fun moreMenu() = shot("movie-more-menu") {
+        DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
+    }
+
+    @Test
+    fun mediaInfo() = shot("movie-media-info") {
+        DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.MediaInfo)
+    }
+
+    @Composable
+    private fun playerOver(backdrop: String, content: @Composable () -> Unit) {
+        Box(Modifier.fillMaxSize()) {
+            androidx.compose.foundation.Image(
+                bitmap = Fixtures.art(backdrop).asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
+            content()
+        }
+    }
+
+    @Test
+    fun upNext() = shot("player-up-next") {
+        playerOver("art:backdrop:Mill Road") {
+            PlayerControls(
+                state = PlayerUiState(item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true, positionMs = 3_010_000, durationMs = Fixtures.plan.durationMs, next = Fixtures.seasons[0].episodes[3]),
+                visible = false, scrubMs = null, upNextShown = true,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            UpNextCard(Fixtures.seasons[0].episodes[3], seconds = 7, onPlayNow = {}, onCancel = {})
+        }
+    }
+
+    @Test
+    fun scrubbing() = shot("player-scrubbing") {
+        playerOver("art:backdrop:Hollow Creek") {
+            PlayerControls(
+                state = PlayerUiState(
+                    item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true,
+                    positionMs = 21 * 60_000L, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L, trickplay = Fixtures.trickplay,
+                ),
+                visible = true,
+                scrubMs = 33 * 60_000L + 20_000,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
             )
         }

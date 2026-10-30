@@ -157,4 +157,86 @@ class ArcApiTest {
         assertEquals("1", req.url.queryParameter("library_id"))
         assertEquals("added", req.url.queryParameter("sort"))
     }
+
+    @Test
+    fun `a track choice is saved with PATCH me prefs, only that field`() = runTest {
+        answer(200, """{"audio_language":"jpn","subtitle_language":"","subtitle_mode":"","auto_play":false,"home":[]}""")
+        val prefs = api.updatePrefs(mapOf("audio_language" to "jpn"))
+        assertEquals("jpn", prefs.audioLanguage)
+        assertEquals(false, prefs.autoPlay)
+        val req = server.takeRequest()
+        assertEquals("PATCH", req.method)
+        assertEquals("/api/v1/me/prefs", req.url.encodedPath)
+        assertEquals("""{"audio_language":"jpn"}""", req.body?.utf8())
+    }
+
+    @Test
+    fun `auto-play is on when Arc doesn't say`() = runTest {
+        answer(200, """{"home":[]}""")
+        assertEquals(true, api.prefs().autoPlay)
+    }
+
+    @Test
+    fun `watched and watchlist are PUTs that answer 204`() = runTest {
+        answer(204, "")
+        answer(204, "")
+        api.setPlayed("ep:1", true)
+        api.setWatchlist("m1", false)
+        val played = server.takeRequest()
+        assertEquals("PUT", played.method)
+        assertEquals("/api/v1/items/ep:1/played", played.url.encodedPath.replace("%3A", ":"))
+        assertEquals("""{"played":true}""", played.body?.utf8())
+        val watchlist = server.takeRequest()
+        assertEquals("/api/v1/items/m1/watchlist", watchlist.url.encodedPath)
+        assertEquals("""{"on":false}""", watchlist.body?.utf8())
+    }
+
+    @Test
+    fun `a failed watchlist change throws with Arc's words`() = runTest {
+        answer(500, """{"error":"database is locked"}""")
+        try {
+            api.setWatchlist("m1", true)
+            fail("expected a failure")
+        } catch (e: ApiException) {
+            assertEquals(500, e.status)
+        }
+    }
+
+    @Test
+    fun `search sends the words and reads the groups`() = runTest {
+        answer(200, """{"movies":[{"id":"m1","kind":"movie","title":"Alien"}],"shows":[],"episodes":[],"people":[{"id":3,"name":"Sigourney Weaver","count":2,"known_for":"actor"}],"collections":[],"genres":[]}""")
+        val r = api.search("alien & co")
+        assertEquals("Alien", r.movies.single().title)
+        assertEquals("Sigourney Weaver", r.people.single().name)
+        assertEquals("alien & co", server.takeRequest().url.queryParameter("q"))
+    }
+
+    @Test
+    fun `timeline thumbnails, or none`() = runTest {
+        answer(200, """{"info":{"interval_ms":10000,"width":320,"height":180,"columns":10,"rows":10,"count":312,"sheets":4},"sheets":["/api/items/m1/trickplay/5/0"]}""")
+        answer(404, """{"error":"not made yet"}""")
+        val t = api.trickplay("m1", 5)
+        assertEquals(312, t?.info?.count)
+        assertEquals("5", server.takeRequest().url.queryParameter("file"))
+        assertNull(api.trickplay("m1", 5))
+    }
+
+    @Test
+    fun `answers are read off the calling thread (Android forbids network I-O on the main thread)`() = kotlinx.coroutines.runBlocking {
+        val caller = Thread.currentThread()
+        var readOn: Thread? = null
+        val client = OkHttpClient.Builder().addNetworkInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val original = response.body
+            response.newBuilder().body(object : okhttp3.ResponseBody() {
+                override fun contentType() = original.contentType()
+                override fun contentLength() = original.contentLength()
+                override fun source(): okio.BufferedSource { readOn = Thread.currentThread(); return original.source() }
+            }).build()
+        }.build()
+        val api = ArcApi(server.url("/"), client, token = { token }, log = ArcLog.Print)
+        answer(200, """{"api_version":1}""")
+        api.health()
+        assertTrue("body was read on the calling thread", readOn != null && readOn != caller)
+    }
 }
