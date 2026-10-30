@@ -140,3 +140,13 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   to a row's first card puts it at the row's usual start instead of against the edge. Home's band
   moves in whole rows with no margin; the rows inside it keep theirs.
 - Logged: nothing new (navigation and scrolling).
+
+## Library view: six across, two rows (owner, 30 October)
+
+- A library shows six posters across (home videos four) with two whole rows on screen, as Plex's
+  TV app appears to (Plex publishes no figure; Plex-style TV clients use 6 wide and 2 rows). The
+  posters are about 112dp wide, up from about 96dp, and the heading is a little tighter. The top
+  of a third row shows below, so it's clear there's more.
+- The grid keeps a 12dp margin when scrolling (not the rows' 48dp), so focusing the second row
+  doesn't push the grid up.
+- Logged: nothing new.
