@@ -62,7 +62,11 @@
     <string name="home_row_move_down">Move Row Down</string>
     <string name="home_row_show_as">Show as</string>
     <string name="home_row_posters">Posters</string>
-    <string name="home_row_thumbs">Wide Thumbnails</string>
+    <string name="home_row_thumbs">Thumbnails</string>
+    <string name="home_row_show_posters">Show Posters</string>
+    <string name="home_row_season_posters">Season Posters</string>
+    <string name="home_row_backdrops">Backdrops</string>
+    <string name="home_row_group_seasons">Group New Episodes by Season</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
     <!-- Search -->

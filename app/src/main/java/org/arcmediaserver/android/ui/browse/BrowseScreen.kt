@@ -108,7 +108,7 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.da
         onRetry = vm::load,
         onRetryRow = vm::retryRow,
         onMoveRow = vm::moveRow,
-        onRowStyle = vm::setRowStyle,
+        onRowLook = vm::setRowLook,
         onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
         onNearEnd = vm::nearEnd,
         onSwitchProfile = onSwitchProfile,
@@ -126,7 +126,7 @@ fun BrowseScreen(
     onRetryRow: (HomeRowSpec) -> Unit,
     onRetryLibrary: () -> Unit,
     onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
-    onRowStyle: (HomeRowSpec, CardStyle) -> Unit = { _, _ -> },
+    onRowLook: (HomeRowSpec) -> Unit = {},
     onNearEnd: () -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
@@ -149,7 +149,7 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 72.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onMoveRow = onMoveRow, onRowStyle = onRowStyle)
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onMoveRow = onMoveRow, onRowLook = onRowLook)
                             Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
                         }
@@ -244,7 +244,7 @@ fun HomeContent(
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
     onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
-    onRowStyle: (HomeRowSpec, CardStyle) -> Unit = { _, _ -> },
+    onRowLook: (HomeRowSpec) -> Unit = {},
 ) {
     // The row whose options are open (holding OK on one of its cards).
     var options by remember { mutableStateOf<String?>(null) }
@@ -326,7 +326,7 @@ fun HomeContent(
                         // Keep the moved row in the band, behind the menu.
                         scope.launch { list.scrollToItem((at + step).coerceIn(0, shownIds.lastIndex)) }
                     },
-                    onStyle = { onRowStyle(open.spec, it) },
+                    onLook = onRowLook,
                     onClose = {
                         options = null
                         // Back to the row, where the focus was before the menu opened.
@@ -451,11 +451,13 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
             ) {
                 items(cards.value, key = { it.key }) { card ->
                     val mod = Modifier.onFocusChanged { if (it.hasFocus) onFocused(card) }
-                    val landscape = row.spec.style == CardStyle.Thumb
+                    val style = row.spec.style
                     MediaCardView(
                         card,
-                        landscape = landscape,
-                        width = if (landscape) HomeThumbWidth else HomePosterWidth,
+                        landscape = style == CardStyle.Thumb,
+                        backdrop = style == CardStyle.Backdrop,
+                        seasonPoster = row.spec.seasonPosters,
+                        width = when (style) { CardStyle.Thumb -> HomeThumbWidth; CardStyle.Backdrop -> HomeBackdropWidth; CardStyle.Poster -> HomePosterWidth },
                         onClick = { onOpen(card.item) },
                         onLongClick = onOptions,
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
@@ -472,7 +474,7 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
  * a row can go several places; the change is saved to the profile, so the web's Home follows.
  */
 @Composable
-internal fun RowOptions(spec: HomeRowSpec, canMoveUp: Boolean, canMoveDown: Boolean, onMove: (Int) -> Unit, onStyle: (CardStyle) -> Unit, onClose: () -> Unit) {
+internal fun RowOptions(spec: HomeRowSpec, canMoveUp: Boolean, canMoveDown: Boolean, onMove: (Int) -> Unit, onLook: (HomeRowSpec) -> Unit, onClose: () -> Unit) {
     val first = remember { FocusRequester() }
     Overlay(420.dp, onBack = onClose) {
         Text(rowTitle(spec), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -482,8 +484,25 @@ internal fun RowOptions(spec: HomeRowSpec, canMoveUp: Boolean, canMoveDown: Bool
         MenuItem(ArcIcons.ArrowDown, stringResource(R.string.home_row_move_down)) { if (canMoveDown) onMove(1) }
         Spacer(Modifier.height(10.dp))
         Text(stringResource(R.string.home_row_show_as), style = MaterialTheme.typography.labelLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp))
-        MenuItem(if (spec.style == CardStyle.Poster) ArcIcons.Check else null, stringResource(R.string.home_row_posters)) { onStyle(CardStyle.Poster) }
-        MenuItem(if (spec.style == CardStyle.Thumb) ArcIcons.Check else null, stringResource(R.string.home_row_thumbs)) { onStyle(CardStyle.Thumb) }
+        // The same choices as the web's Edit Home (web/src/components/EditHome.tsx LookMenu).
+        @Composable
+        fun choice(label: Int, on: Boolean, look: HomeRowSpec) = MenuItem(if (on) ArcIcons.Check else null, stringResource(label)) { onLook(look) }
+        val poster = spec.style == CardStyle.Poster
+        if (spec.hasEpisodes) {
+            choice(R.string.home_row_show_posters, poster && !spec.seasonPosters, spec.copy(style = CardStyle.Poster, seasonPosters = false))
+            choice(R.string.home_row_season_posters, poster && spec.seasonPosters, spec.copy(style = CardStyle.Poster, seasonPosters = true))
+        } else {
+            choice(R.string.home_row_posters, poster, spec.copy(style = CardStyle.Poster))
+        }
+        choice(R.string.home_row_thumbs, spec.style == CardStyle.Thumb, spec.copy(style = CardStyle.Thumb))
+        choice(R.string.home_row_backdrops, spec.style == CardStyle.Backdrop, spec.copy(style = CardStyle.Backdrop))
+        val recent = spec.source as? RowSource.Recent
+        if (recent != null && recent.library.kind == "shows") {
+            Spacer(Modifier.height(10.dp))
+            MenuItem(if (!recent.showsOnly) ArcIcons.Check else null, stringResource(R.string.home_row_group_seasons)) {
+                onLook(spec.copy(source = recent.copy(showsOnly = !recent.showsOnly)))
+            }
+        }
     }
     LaunchedEffect(Unit) { first.requestWhenReady() }
 }
@@ -528,5 +547,6 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
 /** Home's single row of cards: about seven posters across, with room for the heading and focus. */
 private val HomePosterWidth = 118.dp
 private val HomeThumbWidth = 236.dp
+private val HomeBackdropWidth = 200.dp
 // Heading, card padding, the poster and its two-line caption.
 private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f + 50.dp

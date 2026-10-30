@@ -98,7 +98,8 @@ class HomeRowsTest {
     fun `a season of new episodes shows the season's poster`() {
         val show = Item(id = "s1", kind = "series", title = "Firefly", images = Images(primary = "/show"))
         val card = cardFor(RecentCard("season", show, seasonNumber = 1, episodes = 3, seasonPoster = "/season1"))
-        assertEquals("/season1", card.poster)
+        assertEquals("/season1", card.seasonPoster)
+        assertEquals("/show", card.poster)
         assertEquals(1, card.seasonNumber)
         assertEquals(3, card.newEpisodes)
     }
@@ -145,11 +146,25 @@ class HomeRowsTest {
     @Test
     fun `a row's look is saved only when it isn't the usual one`() {
         val rows = resolveHomeRows(Prefs(), libs)
-        val recent = rows.first { it.id == "recent:1" }
-        val thumbs = HomeLayout.style(emptyList(), libs, recent, CardStyle.Thumb).first { it["id"]!!.jsonPrimitive.content == "recent:1" }
-        assertEquals("thumb", thumbs["style"]!!.jsonPrimitive.content)
-        val back = HomeLayout.style(listOf(row("recent:1", "style" to "thumb", "shows_only" to true)), libs, recent, CardStyle.Poster).first { it["id"]!!.jsonPrimitive.content == "recent:1" }
-        assertNull(back["style"])
-        assertEquals(true, back["shows_only"]!!.jsonPrimitive.content.toBoolean())
+        val recent = rows.first { it.id == "recent:2" }
+        fun saved(look: HomeRowSpec, from: List<JsonObject> = emptyList()) = HomeLayout.look(from, libs, look).first { it["id"]!!.jsonPrimitive.content == "recent:2" }
+        // Backdrops, show posters (Recently Added's usual is season posters) and one card per show.
+        val changed = saved(recent.copy(style = CardStyle.Backdrop, seasonPosters = false, source = (recent.source as RowSource.Recent).copy(showsOnly = true)))
+        assertEquals("arc", changed["style"]!!.jsonPrimitive.content)
+        assertEquals("series", changed["posters"]!!.jsonPrimitive.content)
+        assertEquals("true", changed["shows_only"]!!.jsonPrimitive.content)
+        // Back to the usual look: nothing saved, other fields kept.
+        val back = saved(recent, listOf(row("recent:2", "style" to "arc", "posters" to "series", "shows_only" to true, "hidden" to false)))
+        assertEquals(setOf("id", "hidden"), back.keys)
+    }
+
+    @Test
+    fun `saved looks are read back, Backdrops and season posters included`() {
+        val prefs = Prefs(home = listOf(HomeRowPref("continue", style = "arc", posters = "season"), HomeRowPref("recent:2", posters = "series")))
+        val rows = resolveHomeRows(prefs, libs)
+        assertEquals(CardStyle.Backdrop, rows.first { it.id == "continue" }.style)
+        assertEquals(true, rows.first { it.id == "continue" }.seasonPosters)
+        assertEquals(false, rows.first { it.id == "recent:2" }.seasonPosters)
+        assertEquals(true, rows.first { it.id == "recent:1" }.seasonPosters)
     }
 }

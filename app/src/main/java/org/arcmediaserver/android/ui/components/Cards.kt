@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -103,6 +104,33 @@ fun FocusCard(
     }
 }
 
+/**
+ * A Backdrops card's art, as the web's (web/src/components/ArcArtwork.tsx): the background art,
+ * darkened towards the bottom, with the title's logo (or its name) centred low on it.
+ */
+@Composable
+private fun BackdropArt(card: MediaCard) {
+    val title = cardTitle(card)
+    Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
+        Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
+        var failed by remember(card.logo) { mutableStateOf(false) }
+        val logo = card.logo
+        val place = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
+        if (logo != null && !failed) {
+            AsyncImage(
+                model = LocalImageUrl.current(logo),
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                onError = { failed = true },
+                modifier = place.fillMaxWidth(0.72f).fillMaxHeight(0.26f),
+            )
+        } else {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = place.padding(horizontal = 12.dp))
+        }
+    }
+}
+
 /** How far through a title is, along the bottom of its card. */
 @Composable
 fun BoxScope.ProgressLine(progress: Float?) {
@@ -160,16 +188,24 @@ fun MediaCardView(
     width: Dp? = null,
     /** Holding OK: Home's row options. */
     onLongClick: (() -> Unit)? = null,
+    /** Home's Backdrops look: a squarer card with the title's background art and its logo. */
+    backdrop: Boolean = false,
+    /** Home's season posters: an episode's or new season's own poster rather than the show's. */
+    seasonPoster: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val cardWidth: Dp = width ?: if (landscape) ThumbWidth else PosterWidth
     Column(modifier.width(cardWidth)) {
         FocusCard(onClick = onClick, onFocused = { focused = it }, onLongClick = onLongClick) {
-            Artwork(
-                url = if (landscape) card.thumb else card.poster,
-                label = cardTitle(card),
-                modifier = Modifier.fillMaxWidth().aspectRatio(if (landscape) 16f / 9f else 2f / 3f),
-            )
+            if (backdrop) {
+                BackdropArt(card)
+            } else {
+                Artwork(
+                    url = if (landscape) card.thumb else if (seasonPoster) card.seasonPoster ?: card.poster else card.poster,
+                    label = cardTitle(card),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(if (landscape) 16f / 9f else 2f / 3f),
+                )
+            }
             WatchBadge(card.item)
             ProgressLine(card.progress)
         }

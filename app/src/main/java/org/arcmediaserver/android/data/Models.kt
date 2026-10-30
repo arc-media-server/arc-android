@@ -184,6 +184,8 @@ data class HomeRowPref(
     val filter: JsonObject? = null,
     val style: String? = null,
     @SerialName("shows_only") val showsOnly: Boolean = false,
+    /** "series" or "season": whose posters an episode row shows; absent for the row's usual choice. */
+    val posters: String? = null,
 )
 
 @Serializable
