@@ -244,19 +244,18 @@ fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (H
         shown?.let { Overview(it) }
         val list = rememberLazyListState()
         val scope = rememberCoroutineScope()
-        // The focused row snaps to the top of the rows area, so its posters and captions show
-        // whole under the overview (as Google TV and Plex do); the bottom padding lets the last
-        // row reach that spot too.
+        // One row at a time, pinned to the bottom (as Plex): the band is exactly one row tall, the
+        // focused row slides into it, and posters carry no captions because the overview above
+        // names whatever has focus.
         CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
             LazyColumn(
                 state = list,
-                modifier = Modifier.fillMaxSize().padding(top = 212.dp),
-                contentPadding = PaddingValues(bottom = 320.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                userScrollEnabled = false,
+                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 24.dp).fillMaxWidth().height(HomeBandHeight),
             ) {
                 itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
                     val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                    Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(index) } }) {
+                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(index) } }, contentAlignment = Alignment.BottomStart) {
                         HomeRow(
                             row,
                             onOpen = onOpen,
@@ -348,7 +347,7 @@ private fun Overview(card: MediaCard) {
             if (meta.isNotEmpty()) Text(meta.joinToString("  ·  "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1)
             Spacer(Modifier.height(8.dp))
             item.overview?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -369,15 +368,19 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                 Spacer(Modifier.width(16.dp))
                 androidx.tv.material3.OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
             }
+            // Vertical padding leaves room for the focused card to grow without being clipped.
             is LoadState.Ready -> LazyRow(
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 items(cards.value, key = { it.key }) { card ->
                     val mod = Modifier.onFocusChanged { if (it.hasFocus) onFocused(card) }
+                    val landscape = row.spec.style == CardStyle.Thumb
                     MediaCardView(
                         card,
-                        landscape = row.spec.style == CardStyle.Thumb,
+                        landscape = landscape,
+                        caption = false,
+                        width = if (landscape) HomeThumbWidth else HomePosterWidth,
                         onClick = { onOpen(card.item) },
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
@@ -423,3 +426,8 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
         LaunchedEffect(page.library.id) { first.requestWhenReady() }
     }
 }
+
+/** Home's single row of cards: about seven posters across, with room for the heading and focus. */
+private val HomePosterWidth = 118.dp
+private val HomeThumbWidth = 178.dp
+private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f
