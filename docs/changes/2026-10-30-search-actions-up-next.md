@@ -278,8 +278,8 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 
 - A title page's header is now the same summary as Home's overview (`TitleSummary`): the logo at
   72dp (was 84), one details line with the genres in it (they had their own line), and three
-  lines of description in the same type, at the same place (96dp from the edge, 36dp from the
-  top). The tagline is left out, as on Home. The page's rows and season tabs line up with it.
+  lines of description in the same type, 36dp from the top and 48dp from the edge (Google TV's
+  edge; Home's 96dp is past its sidebar, which a title page doesn't have, and left an empty strip). The tagline is left out, as on Home. The page's rows and season tabs line up with it.
 - The shorter header leaves room for the cast row whole under the buttons when the page opens
   (it was cut off).
 - Logged: nothing new.

@@ -412,5 +412,8 @@ private fun extraKindName(kind: String): String = stringResource(
     },
 )
 
-/** Where a title page's text and rows start: where Home's do (past the sidebar), so they line up. */
-private val PageStart = 96.dp
+/**
+ * Where a title page's text and rows start: Google TV's 48dp edge. The page has no sidebar, so
+ * Home's 96dp (past the sidebar) left an empty strip (owner, 30 October).
+ */
+private val PageStart = 48.dp
