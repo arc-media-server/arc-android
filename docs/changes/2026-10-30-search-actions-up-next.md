@@ -202,3 +202,11 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   gains the width, so its six posters are bigger (about 116dp wide); its rows are 14dp apart so
   two whole rows still fit inside the TV's safe area.
 - Logged: nothing new.
+
+## Background art in the top right (owner, 30 October)
+
+- Home's and a title page's background art no longer fills the screen under a dark wash. As
+  Plex's TV app, it sits in the top right, whole (16:9, 70% of the width), and only its left and
+  bottom edges fade into the page, so the picture stays clear and the logo, details and rows sit
+  on plain dark beside and under it.
+- Logged: nothing new.
