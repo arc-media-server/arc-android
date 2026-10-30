@@ -51,8 +51,8 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 val LocalImageUrl = compositionLocalOf<(String) -> String> { { it } }
 
 val CardShape = RoundedCornerShape(10.dp)
-val PosterWidth = 132.dp
-val ThumbWidth = 208.dp
+val PosterWidth = 116.dp
+val ThumbWidth = 172.dp
 
 /**
  * Artwork with a quiet placeholder underneath: the title on a dark gradient, which is what shows
@@ -161,7 +161,7 @@ fun MediaCardView(card: MediaCard, landscape: Boolean, onClick: () -> Unit, modi
             WatchBadge(card.item)
             ProgressLine(card.progress)
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             cardTitle(card),
             style = MaterialTheme.typography.titleSmall,
