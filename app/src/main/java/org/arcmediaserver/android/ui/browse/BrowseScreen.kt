@@ -260,6 +260,15 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
     RowSource.Watchlist -> stringResource(R.string.row_watchlist)
     is RowSource.Recent -> stringResource(R.string.row_recent, s.library.name)
     is RowSource.Custom -> s.title
+    is RowSource.Seasonal -> stringResource(
+        when (s.pick) {
+            org.arcmediaserver.android.data.SeasonalPick.Romance -> R.string.row_seasonal_romance
+            org.arcmediaserver.android.data.SeasonalPick.Horror -> R.string.row_seasonal_horror
+            org.arcmediaserver.android.data.SeasonalPick.Christmas -> R.string.row_seasonal_christmas
+        },
+    )
+    is RowSource.Collection -> s.title.ifBlank { stringResource(R.string.row_collection) }
+    is RowSource.Playlist -> s.title.ifBlank { stringResource(R.string.row_playlist) }
 }
 
 /**

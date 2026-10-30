@@ -10,6 +10,28 @@ sealed interface RowSource {
     data object Watchlist : RowSource
     data class Recent(val library: Library, val showsOnly: Boolean) : RowSource
     data class Custom(val title: String, val library: Library, val filter: JsonObject) : RowSource
+    data class Seasonal(val pick: SeasonalPick) : RowSource
+    /** A collection or playlist: [title] is the name saved with the row, until its own loads. */
+    data class Collection(val id: String, val title: String) : RowSource
+    data class Playlist(val id: String, val title: String) : RowSource
+}
+
+/**
+ * The seasonal row's picks and their dates (web/src/lib/home.ts seasons): films for the time of
+ * year, across the libraries, shuffled daily.
+ */
+enum class SeasonalPick(val from: Pair<Int, Int>, val to: Pair<Int, Int>, val query: Map<String, String>) {
+    Romance(2 to 1, 2 to 14, mapOf("kind" to "movie", "genre" to "Romance", "sort" to "shuffle")),
+    Horror(10 to 1, 10 to 31, mapOf("kind" to "movie", "genre" to "Horror", "sort" to "shuffle")),
+    Christmas(12 to 1, 12 to 31, mapOf("kind" to "movie", "about" to "christmas,santa,xmas,north pole,reindeer,elves", "sort" to "shuffle"));
+
+    companion object {
+        /** The pick for [date], or null outside every season. */
+        fun on(date: java.time.LocalDate): SeasonalPick? {
+            val md = date.monthValue * 100 + date.dayOfMonth
+            return entries.firstOrNull { md >= it.from.first * 100 + it.from.second && md <= it.to.first * 100 + it.to.second }
+        }
+    }
 }
 
 /** Posters, wide thumbnails, or Backdrops (the web's "arc": squarer cards with background art and the logo). */
@@ -31,10 +53,9 @@ private fun styleOf(saved: String?): CardStyle? = when (saved) {
  * watching and the watchlist first, then each library's newest followed by its own filter rows.
  * [libraries] must be in the profile's order. Only the rows carrying on watching take a saved look;
  * the rest keep their usual one. The layout is arranged on the web (Edit Home, Reorder libraries);
- * the TV follows it. Rows the TV can't show yet (seasonal, collections, playlists) and hidden rows
- * are left out.
+ * the TV follows it. Hidden rows are left out.
  */
-fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
+fun resolveHomeRows(prefs: Prefs, libraries: List<Library>, today: java.time.LocalDate = java.time.LocalDate.now()): List<HomeRowSpec> {
     val saved = prefs.home.associateBy { it.id }
     fun shown(id: String) = saved[id]?.hidden != true
     val out = mutableListOf<HomeRowSpec>()
@@ -45,6 +66,7 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
     if (shown("continue")) carryOn("continue", RowSource.Continue(withUpNext = !prefs.splitUpNext))
     if (prefs.splitUpNext && shown("next-up")) carryOn("next-up", RowSource.NextUp)
     if (shown("watchlist")) out += HomeRowSpec("watchlist", RowSource.Watchlist, CardStyle.Poster)
+    SeasonalPick.on(today)?.let { if (shown("seasonal")) out += HomeRowSpec("seasonal", RowSource.Seasonal(it), CardStyle.Poster) }
     for (lib in libraries) {
         // Home videos rarely have posters worth showing: their rows use thumbnails.
         val look = if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster
@@ -55,6 +77,14 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>): List<HomeRowSpec> {
             if (!row.id.startsWith("custom:") || row.hidden || filter == null || row.title.isNullOrBlank()) continue
             if ((filter["library_id"] as? JsonPrimitive)?.content?.toLongOrNull() != lib.id) continue
             out += HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), look)
+        }
+    }
+    // Collections and playlists come last, in the order they were added (no library to follow).
+    for (row in prefs.home) {
+        if (row.hidden) continue
+        when {
+            row.id.startsWith("collection:") -> out += HomeRowSpec(row.id, RowSource.Collection(row.id.removePrefix("collection:"), row.title.orEmpty()), CardStyle.Poster)
+            row.id.startsWith("playlist:") -> out += HomeRowSpec(row.id, RowSource.Playlist(row.id.removePrefix("playlist:"), row.title.orEmpty()), CardStyle.Poster)
         }
     }
     return out

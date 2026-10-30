@@ -82,6 +82,11 @@
     <string name="rec_top_shows_with">Top Shows with %1$s</string>
     <string name="rec_top_shows_by">Top Shows by %1$s</string>
     <string name="rec_top_unwatched">Top Unwatched</string>
+    <string name="row_seasonal_romance">Romance for Valentine\'s Day</string>
+    <string name="row_seasonal_horror">Horror for Halloween</string>
+    <string name="row_seasonal_christmas">Christmas Films</string>
+    <string name="row_collection">Collection</string>
+    <string name="row_playlist">Playlist</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
     <!-- Search -->

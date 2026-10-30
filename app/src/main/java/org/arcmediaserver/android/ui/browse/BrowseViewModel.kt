@@ -71,6 +71,9 @@ suspend fun loadRow(api: ArcApi, spec: HomeRowSpec): List<MediaCard> = when (val
         if (s.library.kind == "shows" && !s.showsOnly) api.recentShows(s.library.id).map { cardFor(it) }
         else api.items(libraryQuery(s.library, sort = "added", limit = 24)).items.map { cardFor(it) }
     is RowSource.Custom -> api.items(customRowQuery(s.filter, s.library)).items.map { cardFor(it) }
+    is RowSource.Seasonal -> api.items(s.pick.query + ("limit" to "24")).items.map { cardFor(it) }
+    is RowSource.Collection -> api.collection(s.id).items.map { cardFor(it) }
+    is RowSource.Playlist -> api.playlist(s.id).entries.map { cardFor(it.item, key = "entry:${it.entryId}") }
 }
 
 fun libraryQuery(library: Library, sort: String, limit: Int, offset: Int = 0): Map<String, String> = buildMap {

@@ -138,6 +138,8 @@ class ArcApi(
     /** Titles like this one in the same library (More Like This). */
     suspend fun similar(id: String): List<Item> = get("items/${enc(id)}/similar", ItemList, route = "items/{id}/similar")
 
+    suspend fun playlist(id: String): PlaylistPage = get("playlists/${enc(id)}", PlaylistPage.serializer(), route = "playlists/{id}")
+
     suspend fun collection(id: String): CollectionPage = get("collections/${enc(id)}", CollectionPage.serializer(), route = "collections/{id}")
 
     suspend fun seasons(seriesId: String): SeasonsResponse =
