@@ -104,6 +104,17 @@
     <string name="time_left">%1$s left</string>
     <string name="details_unplaced">Not in this order</string>
     <string name="details_missing">Not on disk</string>
+    <string name="details_cast">Cast</string>
+    <string name="details_more_like_this">More Like This</string>
+    <string name="details_extras">Extras</string>
+    <string name="extras_trailer">Trailer</string>
+    <string name="extras_featurette">Featurette</string>
+    <string name="extras_behind_the_scenes">Behind the Scenes</string>
+    <string name="extras_deleted_scene">Deleted Scene</string>
+    <string name="extras_interview">Interview</string>
+    <string name="extras_scene">Scene</string>
+    <string name="extras_short">Short</string>
+    <string name="extras_other">Extra</string>
     <string name="details_no_episodes">No episodes on disk yet.</string>
     <string name="action_mark_watched">Mark as Watched</string>
     <string name="action_mark_unwatched">Mark as Unwatched</string>

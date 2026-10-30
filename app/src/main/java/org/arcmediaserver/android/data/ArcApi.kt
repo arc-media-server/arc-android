@@ -128,6 +128,11 @@ class ArcApi(
 
     suspend fun item(id: String): Item = get("items/${enc(id)}", Item.serializer(), route = "items/{id}")
 
+    /** Titles like this one in the same library (More Like This). */
+    suspend fun similar(id: String): List<Item> = get("items/${enc(id)}/similar", ItemList, route = "items/{id}/similar")
+
+    suspend fun collection(id: String): CollectionPage = get("collections/${enc(id)}", CollectionPage.serializer(), route = "collections/{id}")
+
     suspend fun seasons(seriesId: String): SeasonsResponse =
         get("series/${enc(seriesId)}/seasons", SeasonsResponse.serializer(), route = "series/{id}/seasons")
 

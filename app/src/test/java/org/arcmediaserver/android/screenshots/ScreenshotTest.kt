@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.screenshots
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -218,6 +220,19 @@ class ScreenshotTest {
                 )
             },
         )
+    }
+
+    @Test
+    fun movieRelated() = shot("movie-related") {
+        // The rows under a title's page, as they appear once the page is scrolled down.
+        androidx.compose.foundation.layout.Column(Modifier.padding(top = 24.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp)) {
+            org.arcmediaserver.android.ui.components.Shelf("Cast", start = 56.dp) {
+                items(Fixtures.profiles.size) { i -> org.arcmediaserver.android.ui.components.PersonCard(Fixtures.profiles[i].name, null, "Captain Reyes") {} }
+            }
+            org.arcmediaserver.android.ui.components.Shelf("More Like This", start = 56.dp) {
+                items(Fixtures.movies.size) { i -> org.arcmediaserver.android.ui.components.MediaCardView(org.arcmediaserver.android.data.cardFor(Fixtures.movies[i]), landscape = false, onClick = {}) }
+            }
+        }
     }
 
     @Test

@@ -70,6 +70,15 @@ data class PlayerUiState(
     val trickplay: Trickplay? = null,
 )
 
+/** An ExoPlayer signed in to Arc (streams and files go through the app's authorised client). */
+@androidx.annotation.OptIn(UnstableApi::class)
+fun arcPlayer(context: Context, container: AppContainer): ExoPlayer = ExoPlayer.Builder(context)
+    .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
+    .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient)))
+    .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+    .setHandleAudioBecomingNoisy(true)
+    .build()
+
 /**
  * Plays a movie or episode the way Arc's web player does: ask Arc how to play it with what this
  * device can play, play the file or the converted stream, save progress every 10 seconds and on
@@ -96,12 +105,7 @@ class PlayerViewModel(
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
 
-    val player: ExoPlayer = ExoPlayer.Builder(context)
-        .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
-        .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient)))
-        .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
-        .setHandleAudioBecomingNoisy(true)
-        .build()
+    val player: ExoPlayer = arcPlayer(context, container)
 
     init {
         player.addListener(object : Player.Listener {

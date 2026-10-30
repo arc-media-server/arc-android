@@ -138,15 +138,12 @@ private fun Message(text: String) {
 
 @Composable
 private fun SectionRow(section: SearchSection, onOpen: (Item) -> Unit, onPerson: (Person) -> Unit) {
-    Column {
-        Text(groupTitle(section.group), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 48.dp, bottom = 8.dp))
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (section.group == SearchGroup.People) {
-                items(section.people, key = { it.id }) { PersonCard(it) { onPerson(it) } }
-            } else {
-                items(section.cards, key = { it.key }) { card ->
-                    MediaCardView(card, landscape = section.group == SearchGroup.Episodes, onClick = { onOpen(card.item) })
-                }
+    org.arcmediaserver.android.ui.components.Shelf(groupTitle(section.group)) {
+        if (section.group == SearchGroup.People) {
+            items(section.people, key = { it.id }) { PersonCard(it) { onPerson(it) } }
+        } else {
+            items(section.cards, key = { it.key }) { card ->
+                MediaCardView(card, landscape = section.group == SearchGroup.Episodes, onClick = { onOpen(card.item) })
             }
         }
     }
@@ -164,24 +161,9 @@ private fun groupTitle(group: SearchGroup): String = stringResource(
 
 /** Someone in the libraries: a round photo, their name and how many titles they're in. */
 @Composable
-fun PersonCard(person: Person, onClick: () -> Unit) {
-    Column(Modifier.width(112.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier.size(104.dp),
-            shape = ClickableSurfaceDefaults.shape(CircleShape),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
-            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, ArcColors.Foreground), shape = CircleShape)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = ArcColors.Surface, focusedContainerColor = ArcColors.Surface),
-        ) {
-            Artwork(person.image, label = initials(person.name), modifier = Modifier.fillMaxSize())
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(person.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        if (person.count > 0) {
-            Text(pluralStringResource(R.plurals.person_titles, person.count, person.count), style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 1)
-        }
-    }
-}
-
-private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
+fun PersonCard(person: Person, onClick: () -> Unit) = org.arcmediaserver.android.ui.components.PersonCard(
+    person.name,
+    person.image,
+    if (person.count > 0) pluralStringResource(R.plurals.person_titles, person.count, person.count) else null,
+    onClick,
+)

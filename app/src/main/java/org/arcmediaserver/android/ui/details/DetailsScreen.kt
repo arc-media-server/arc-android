@@ -1,5 +1,8 @@
 package org.arcmediaserver.android.ui.details
 
+import org.arcmediaserver.android.ui.components.MediaCardView
+import org.arcmediaserver.android.ui.components.PersonCard
+import org.arcmediaserver.android.ui.components.Shelf
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -78,7 +81,14 @@ import org.arcmediaserver.android.ui.components.episodeCode
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) -> Unit, episodeId: String? = null) {
+fun DetailsRoute(
+    itemId: String,
+    onPlay: (Item, Long) -> Unit,
+    onOpen: (String) -> Unit,
+    episodeId: String? = null,
+    onPerson: (Long) -> Unit = {},
+    onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
+) {
     val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
     val state by vm.state.collectAsStateWithLifecycle()
     var resumed by remember { mutableStateOf(false) }
@@ -94,6 +104,8 @@ fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) 
             DetailsScreen(
                 details, onPlay, onOpen,
                 actions = TitleActions(onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown),
+                onPerson = onPerson,
+                onExtra = onExtra,
             )
         }
     }
@@ -115,6 +127,8 @@ fun DetailsScreen(
     onOpen: (String) -> Unit,
     actions: TitleActions = TitleActions(),
     initialPanel: DetailsPanel = DetailsPanel.None,
+    onPerson: (Long) -> Unit = {},
+    onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
 ) {
     val item = details.item
     val primary = remember { FocusRequester() }
@@ -141,6 +155,36 @@ fun DetailsScreen(
                     item {
                         Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(1) } }) {
                             Seasons(details, onPlay, episodeFocus)
+                        }
+                    }
+                }
+                // Under the title, as the web's page: the cast, the collections it's in, More
+                // Like This, then extras.
+                val cast = item.credits.filter { it.role == "actor" }
+                if (cast.isNotEmpty()) {
+                    item(key = "cast") {
+                        Box(Modifier.padding(top = 28.dp)) {
+                            Shelf(stringResource(R.string.details_cast), start = 56.dp) {
+                                items(cast, key = { it.personId }) { c -> PersonCard(c.name, c.image, c.character) { onPerson(c.personId) } }
+                            }
+                        }
+                    }
+                }
+                details.related.forEach { row ->
+                    item(key = row.key) {
+                        Box(Modifier.padding(top = 20.dp)) {
+                            Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = 56.dp) {
+                                items(row.items, key = { it.id }) { t -> MediaCardView(cardFor(t), landscape = row.landscape, onClick = { onOpen(t.id) }) }
+                            }
+                        }
+                    }
+                }
+                if (item.extras.isNotEmpty()) {
+                    item(key = "extras") {
+                        Box(Modifier.padding(top = 20.dp)) {
+                            Shelf(stringResource(R.string.details_extras), start = 56.dp) {
+                                items(item.extras, key = { it.id }) { e -> ExtraCard(e) { onExtra(e) } }
+                            }
                         }
                     }
                 }
@@ -385,3 +429,32 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
         }
     }
 }
+
+/** An extra: a wide card with its name, and what kind of extra it is and how long under it. */
+@Composable
+private fun ExtraCard(extra: org.arcmediaserver.android.data.Extra, onClick: () -> Unit) {
+    Column(Modifier.width(ThumbWidth)) {
+        FocusCard(onClick = onClick) {
+            Artwork(null, label = extra.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+            Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.align(Alignment.Center).size(32.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(extra.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val sub = listOfNotNull(extraKindName(extra.kind), (extra.durationMs / 60_000).toInt().takeIf { it > 0 }?.let { runtimeText(it) }).joinToString(" · ")
+        Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun extraKindName(kind: String): String = stringResource(
+    when (kind) {
+        "trailer" -> R.string.extras_trailer
+        "featurette" -> R.string.extras_featurette
+        "behind_the_scenes" -> R.string.extras_behind_the_scenes
+        "deleted_scene" -> R.string.extras_deleted_scene
+        "interview" -> R.string.extras_interview
+        "scene" -> R.string.extras_scene
+        "short" -> R.string.extras_short
+        else -> R.string.extras_other
+    },
+)

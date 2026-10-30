@@ -133,6 +133,12 @@ data class Item(
     val files: List<MediaFile> = emptyList(),
     /** Only on episodes in a season list: whether a file is on disk. */
     val available: Boolean = true,
+    /** Cast and crew, on a movie's or show's own page. */
+    val credits: List<Credit> = emptyList(),
+    /** Trailers, featurettes and the like, played straight from their file. */
+    val extras: List<Extra> = emptyList(),
+    /** The collections it's in, each shown as a row on its page. */
+    val collections: List<CollectionRef> = emptyList(),
 ) {
     val isEpisode get() = kind == "episode"
     val isSeries get() = kind == "series"
@@ -221,6 +227,35 @@ data class Person(
     /** actor, director, writer or creator. */
     @SerialName("known_for") val knownFor: String? = null,
 )
+
+/** Someone in a title's cast or crew. */
+@Serializable
+data class Credit(
+    @SerialName("person_id") val personId: Long,
+    val name: String,
+    /** actor, director, writer or creator. */
+    val role: String = "",
+    val character: String? = null,
+    val image: String? = null,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+)
+
+/** A trailer or other extra. [kind]: trailer, featurette, behind_the_scenes, deleted_scene, interview, scene, short or other. */
+@Serializable
+data class Extra(
+    val id: String,
+    val title: String,
+    val kind: String = "other",
+    @SerialName("stream_url") val streamUrl: String,
+    @SerialName("duration_ms") val durationMs: Long = 0,
+)
+
+@Serializable
+data class CollectionRef(val id: String, val title: String, val kind: String = "")
+
+/** GET /collections/{id}: a collection and its titles. A folder collection (home videos) is shown as thumbnails. */
+@Serializable
+data class CollectionPage(val collection: CollectionRef, val items: List<Item> = emptyList())
 
 @Serializable
 data class PersonCredit(val item: Item, val roles: List<String> = emptyList(), val character: String? = null)
