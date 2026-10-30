@@ -273,3 +273,13 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 - Native libraries add about 3 MB per ABI to the APK; a release build can split by ABI.
 - Logged: subtitle failures surface as before through playback errors; the server logs scripts
   and fonts it can't read.
+
+## Title pages match Home, and the cast shows on arrival (owner, 30 October)
+
+- A title page's header is now the same summary as Home's overview (`TitleSummary`): the logo at
+  72dp (was 84), one details line with the genres in it (they had their own line), and three
+  lines of description in the same type, at the same place (96dp from the edge, 36dp from the
+  top). The tagline is left out, as on Home. The page's rows and season tabs line up with it.
+- The shorter header leaves room for the cast row whole under the buttons when the page opens
+  (it was cut off).
+- Logged: nothing new.

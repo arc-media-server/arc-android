@@ -140,7 +140,7 @@ fun DetailsScreen(
         // pushed the title off the top as soon as Play was focused. Here the page only scrolls
         // what's needed to show the focused thing, and the header always shows whole (as Plex).
         CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
-            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 40.dp, bottom = 40.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp)) {
                 item {
                     Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } }) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { panel = DetailsPanel.More })
@@ -161,7 +161,7 @@ fun DetailsScreen(
                 if (cast.isNotEmpty()) {
                     item(key = "cast") {
                         Box(Modifier.padding(top = 28.dp)) {
-                            Shelf(stringResource(R.string.details_cast), start = 56.dp) {
+                            Shelf(stringResource(R.string.details_cast), start = PageStart) {
                                 items(cast, key = { it.personId }) { c -> PersonCard(c.name, c.image, c.character) { onPerson(c.personId) } }
                             }
                         }
@@ -170,7 +170,7 @@ fun DetailsScreen(
                 details.related.forEach { row ->
                     item(key = row.key) {
                         Box(Modifier.padding(top = 20.dp)) {
-                            Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = 56.dp) {
+                            Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = PageStart) {
                                 items(row.items, key = { it.id }) { t -> MediaCardView(cardFor(t), landscape = row.landscape, onClick = { onOpen(t.id) }) }
                             }
                         }
@@ -179,7 +179,7 @@ fun DetailsScreen(
                 if (item.extras.isNotEmpty()) {
                     item(key = "extras") {
                         Box(Modifier.padding(top = 20.dp)) {
-                            Shelf(stringResource(R.string.details_extras), start = 56.dp) {
+                            Shelf(stringResource(R.string.details_extras), start = PageStart) {
                                 items(item.extras, key = { it.id }) { e -> ExtraCard(e) { onExtra(e) } }
                             }
                         }
@@ -220,39 +220,21 @@ private fun Header(
     onMore: () -> Unit,
 ) {
     val item = details.item
-    Column(Modifier.padding(start = 56.dp)) {
-        Column(Modifier.width(520.dp)) {
-            if (item.isEpisode) {
-                org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 72.dp, textStyle = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(10.dp))
-                Text(item.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            } else {
-                org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 84.dp, textStyle = MaterialTheme.typography.displayMedium)
-            }
-            Spacer(Modifier.height(10.dp))
-            val unwatched = item.unwatchedCount ?: 0
-            val meta = listOfNotNull(
-                if (item.isEpisode) episodeCode(item) else null,
+    Column(Modifier.padding(start = PageStart)) {
+        val unwatched = item.unwatchedCount ?: 0
+        // The same summary as Home's, at the same place (an episode adds its own name).
+        org.arcmediaserver.android.ui.browse.TitleSummary(
+            item,
+            listOfNotNull(
+                if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
                 item.year?.toString(),
                 item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
-            )
-            Text(meta.joinToString("  ·  "), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
-            if (item.genres.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text(item.genres.take(3).joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Subtle)
-            }
-            item.tagline?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(14.dp))
-                Text(it, style = MaterialTheme.typography.titleMedium, color = ArcColors.Foreground)
-            }
-            item.overview?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(10.dp))
-                Text(it, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
-        }
+                item.genres.take(2).joinToString(", "),
+            ),
+        )
         Spacer(Modifier.height(24.dp))
         var focusedLabel by remember { mutableStateOf<String?>(null) }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -342,12 +324,12 @@ fun clock(ms: Long): String {
 @Composable
 private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
     if (details.seasons.isEmpty()) {
-        Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 56.dp, top = 32.dp))
+        Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = PageStart, top = 32.dp))
         return
     }
     var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, details.seasons.lastIndex)) }
     Column(Modifier.padding(top = 24.dp)) {
-        PillTabs(details.seasons.map { seasonName(it) }, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = 48.dp))
+        PillTabs(details.seasons.map { seasonName(it) }, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = PageStart - 8.dp))
         val season = details.seasons[selected]
         val listState = rememberLazyListState()
         LaunchedEffect(selected) {
@@ -356,7 +338,7 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
         }
         LazyRow(
             state = listState,
-            contentPadding = PaddingValues(horizontal = 56.dp, vertical = 18.dp),
+            contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             items(season.episodes, key = { it.id }) { ep ->
@@ -429,3 +411,6 @@ private fun extraKindName(kind: String): String = stringResource(
         else -> R.string.extras_other
     },
 )
+
+/** Where a title page's text and rows start: where Home's do (past the sidebar), so they line up. */
+private val PageStart = 96.dp
