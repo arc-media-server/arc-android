@@ -113,24 +113,21 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   or show and episode): the owner wants the details under posters too.
 - Logged: nothing new (focus moves are ordinary UI).
 
-## Home: reorder rows and choose posters or wide thumbnails (owner, 30 October)
+## Home follows the library order; arranged on the web only (owner, 30 October)
 
-- Holding OK on any Home card opens that row's options (Plex's long press): Move Row Up, Move
-  Row Down, and Show as Posters or Wide Thumbnails. The menu stays open while moving, so a row can
-  go several places, and the band follows the moved row.
-- Changes show at once and are saved to the profile's Home layout (`PATCH /api/v1/me/prefs`
-  `home`), the same layout the web's Edit Home writes, so the web follows. No server change.
-- The app reads the layout fresh before each save and keeps every field it doesn't know (titles,
-  filters, `posters`, `shows_only`, hidden rows, collections and playlists). Rows the TV doesn't
-  show keep their places; a move swaps with the next row Home shows. A look that matches the
-  row's default is saved as no style, as the web does.
-- The TV offers the same looks as the web's Edit Home (owner: "why don't we have all the same
-  options as the web UI?"): Posters (Show Posters and Season Posters on rows with episodes),
-  Thumbnails and Backdrops (squarer cards with the background art and logo, as the web's
-  ArcArtwork), plus Group New Episodes by Season on a TV library's Recently Added, which reloads
-  the row. Season posters use the episode's `season_primary` or the new season's own poster.
-- Logged: each save at info ("home layout saved (move|look)"); a failed save at warning with the
-  error class, after which Home reloads as saved.
+- A row menu (hold OK: move rows, choose each row's look) was tried and removed the same day. The
+  owner chose one model for the web and the TV (arc-media-server, "Home follows the library
+  order"): Continue Watching, Up Next and Watchlist first, then each library's Recently Added and
+  its filter rows in the profile's library order. Only the rows carrying on watching take a saved
+  look (posters, season posters, thumbnails or Backdrops); every other row keeps its usual one.
+- The TV has no Home options: the layout and library order are arranged on the web (Edit Home,
+  Reorder libraries) and the TV follows them, so every app shows the same Home.
+- Backdrops cards (the web's ArcArtwork: background art, darkened low, the logo or name) and
+  season posters are drawn as the web draws them.
+- The sidebar's entries are 40dp (48dp for the profile's two lines) with 18dp icons, as Google
+  TV's own menu, drawn by Arc because Compose for TV's drawer item is 56dp; about ten libraries
+  fit without scrolling.
+- Logged: nothing new.
 
 ## Emulator fixes: episode captions, episodes open in their show, rows keep their margin (30 October)
 
