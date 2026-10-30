@@ -49,6 +49,8 @@ sealed interface UiError {
     data object Timeout : UiError
     data object Secure : UiError
     data object Unexpected : UiError
+    /** Something went wrong inside the app itself (not the server or the network). */
+    data object App : UiError
 }
 
 fun Throwable.toUiError(): UiError = when (this) {
@@ -57,7 +59,8 @@ fun Throwable.toUiError(): UiError = when (this) {
     is SocketTimeoutException -> UiError.Timeout
     is SSLException -> UiError.Secure
     is IOException -> if (cause is kotlinx.serialization.SerializationException) UiError.Unexpected else UiError.Unreachable
-    else -> UiError.Unexpected
+    is kotlinx.serialization.SerializationException -> UiError.Unexpected
+    else -> UiError.App
 }
 
 /** A screen's data: loading, failed, or there. */
@@ -74,6 +77,7 @@ fun UiError.text(): String = when (this) {
     UiError.Timeout -> stringResource(R.string.error_timeout)
     UiError.Secure -> stringResource(R.string.error_secure)
     UiError.Unexpected -> stringResource(R.string.error_unexpected)
+    UiError.App -> stringResource(R.string.error_app)
 }
 
 /**
