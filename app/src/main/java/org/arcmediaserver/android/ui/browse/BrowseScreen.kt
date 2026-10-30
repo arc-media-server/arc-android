@@ -460,7 +460,7 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
     Loaded(state, onRetry) { page ->
         val first = remember { FocusRequester() }
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
                 Text(page.library.name, style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.width(14.dp))
                 Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
@@ -470,13 +470,14 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
                 return@Column
             }
             val landscape = page.library.kind == "videos"
-            // About seven posters across, as Plex; rows scroll only as far as needed, so captions
-            // stay in view (no TV pivot).
-            CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
+            // Six posters across and two whole rows on screen, as Plex (owner, 30 October); home
+            // videos four wide. Rows scroll only as far as needed, so captions stay in view (no TV
+            // pivot), with a small margin so the second row isn't pushed up for no reason.
+            CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(12.dp)) {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(if (landscape) 200.dp else 96.dp),
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 12.dp, bottom = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                columns = GridCells.Fixed(if (landscape) 4 else 6),
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 itemsIndexed(page.items, key = { _, it -> it.id }) { i, item ->
