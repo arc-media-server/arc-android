@@ -436,21 +436,34 @@ fun TitleLogo(item: Item, maxHeight: Dp = 96.dp, maxWidth: Dp = 420.dp, textStyl
 private fun Overview(card: MediaCard) {
     val item = card.item
     Crossfade(card.key, animationSpec = tween(300), label = "overview") { _ ->
-        Column(Modifier.padding(start = 48.dp, top = 36.dp).width(480.dp)) {
-            TitleLogo(item, maxHeight = 72.dp, maxWidth = 360.dp)
-            Spacer(Modifier.height(14.dp))
-            val meta = listOfNotNull(
+        TitleSummary(
+            item,
+            listOfNotNull(
                 if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
                 item.year?.toString()?.takeIf { !item.isEpisode },
                 item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                 item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
-            ).filter { it.isNotBlank() }
-            if (meta.isNotEmpty()) Text(meta.joinToString("  ·  "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1)
-            Spacer(Modifier.height(8.dp))
-            item.overview?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
+            ),
+            Modifier.padding(start = 48.dp, top = 36.dp),
+        )
+    }
+}
+
+/**
+ * A title's logo (or name), one line of details and three lines of its description: the same on
+ * Home and on the title's page, at the same place, so moving between them doesn't jump.
+ */
+@Composable
+fun TitleSummary(item: Item, meta: List<String>, modifier: Modifier = Modifier) {
+    Column(modifier.width(480.dp)) {
+        TitleLogo(item, maxHeight = 72.dp, maxWidth = 360.dp)
+        Spacer(Modifier.height(14.dp))
+        val line = meta.filter { it.isNotBlank() }
+        if (line.isNotEmpty()) Text(line.joinToString("  ·  "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        item.overview?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
     }
 }
