@@ -111,6 +111,13 @@ fun BrowseRoute(
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    // Coming back (from playing, or a title's page): Home's rows show what changed.
+    var resumed by remember { mutableStateOf(false) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        if (resumed) vm.load()
+        resumed = true
+        onPauseOrDispose { }
+    }
     BrowseScreen(
         state = state,
         onSection = vm::show,

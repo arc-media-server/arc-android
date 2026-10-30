@@ -210,3 +210,17 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   bottom edges fade into the page, so the picture stays clear and the logo, details and rows sit
   on plain dark beside and under it.
 - Logged: nothing new.
+
+## Card menu: Watched and Watchlist from any card (owner, 30 October)
+
+- Holding OK on any card (Home, a library, Recommended, search, a title's rows, a collection)
+  opens that title's ⋯ menu, the same one as on its page (`MoreMenu`): Mark as Watched /
+  Unwatched, Add to / Remove from Watchlist, and Media Info when the card's title carries its
+  files. Back or a choice closes it and the focus returns to the card.
+- A change shows straight away on every card of that title, whichever screen loaded it
+  (`AppContainer.itemChanges`, also fed by a title page's buttons), and is saved to Arc; if Arc
+  refuses, the cards go back as they were. Playing a title clears its change, since playing
+  changes it on the server.
+- Fixed in passing: Home now reloads its rows when you come back to it (from playing or a
+  title's page), so Continue Watching is up to date.
+- Logged: a card change Arc refused, at warning with the error class.

@@ -52,6 +52,17 @@ class AppContainer(private val context: Context) {
         return ArcApi(server, baseClient, token = { session.token }).also { cachedApi = it }
     }
 
+    /**
+     * Watched and watchlist changes made in the app (a card's menu, a title's page), so every card
+     * of that title shows them at once, whichever screen loaded it. Playing a title clears its
+     * entry, since playing changes it on the server.
+     */
+    val itemChanges = androidx.compose.runtime.mutableStateMapOf<String, org.arcmediaserver.android.data.Item>()
+
+    /** [item] with any change made in the app since it was loaded. */
+    fun withChanges(item: org.arcmediaserver.android.data.Item): org.arcmediaserver.android.data.Item =
+        itemChanges[item.id]?.let { item.copy(userData = it.userData, unwatchedCount = it.unwatchedCount) } ?: item
+
     /** Signs this TV out of Arc (forgetting its token), then calls [done] on the main thread. */
     fun signOut(done: () -> Unit) {
         val api = api()

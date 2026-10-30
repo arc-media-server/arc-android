@@ -59,51 +59,53 @@ fun ArcNavHost() {
     val nav = rememberNavController()
     val container = (LocalContext.current.applicationContext as ArcApplication).container
     CompositionLocalProvider(LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path }) {
-        NavHost(nav, startDestination = LaunchDest) {
-            composable<LaunchDest> { LaunchRoute(onDestination = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
-            composable<ServerDest> { ServerRoute(onConnected = { nav.startAt(SignInDest) }) }
-            composable<SignInDest> { SignInRoute(onSignedIn = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
-            composable<ProfilesDest> {
-                ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
-            }
-            composable<BrowseDest> {
-                BrowseRoute(
-                    onOpen = { item -> nav.navigate(detailsFor(item)) },
-                    onPerson = { person -> nav.navigate(PersonDest(person.id)) },
-                    onSwitchProfile = { nav.navigate(ProfilesDest) },
-                    onSignedOut = { nav.startAt(SignInDest) },
-                    onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
-                )
-            }
-            composable<CollectionDest> { entry ->
-                org.arcmediaserver.android.ui.browse.CollectionRoute(entry.toRoute<CollectionDest>().id, onOpen = { item -> nav.navigate(detailsFor(item)) })
-            }
-            composable<DetailsDest> { entry ->
-                val dest = entry.toRoute<DetailsDest>()
-                DetailsRoute(
-                    itemId = dest.itemId,
-                    episodeId = dest.episodeId,
-                    onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
-                    onOpen = { id -> nav.navigate(DetailsDest(id)) },
-                    onPerson = { id -> nav.navigate(PersonDest(id)) },
-                    onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
-                )
-            }
-            composable<ExtraDest> { entry ->
-                org.arcmediaserver.android.ui.player.ExtraPlayerRoute(entry.toRoute<ExtraDest>().url, onClose = { nav.popBackStack() })
-            }
-            composable<PersonDest> { entry ->
-                PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })
-            }
-            composable<PlayerDest> { entry ->
-                val dest = entry.toRoute<PlayerDest>()
-                PlayerRoute(
-                    dest.itemId,
-                    dest.startMs,
-                    onClose = { nav.popBackStack() },
-                    // The next episode replaces this one, so Back still returns to where play began.
-                    onPlayNext = { next -> nav.navigate(PlayerDest(next.id, next.resumeMs)) { popUpTo<PlayerDest> { inclusive = true } } },
-                )
+        CardMenuHost(container) {
+            NavHost(nav, startDestination = LaunchDest) {
+                composable<LaunchDest> { LaunchRoute(onDestination = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
+                composable<ServerDest> { ServerRoute(onConnected = { nav.startAt(SignInDest) }) }
+                composable<SignInDest> { SignInRoute(onSignedIn = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
+                composable<ProfilesDest> {
+                    ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
+                }
+                composable<BrowseDest> {
+                    BrowseRoute(
+                        onOpen = { item -> nav.navigate(detailsFor(item)) },
+                        onPerson = { person -> nav.navigate(PersonDest(person.id)) },
+                        onSwitchProfile = { nav.navigate(ProfilesDest) },
+                        onSignedOut = { nav.startAt(SignInDest) },
+                        onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
+                    )
+                }
+                composable<CollectionDest> { entry ->
+                    org.arcmediaserver.android.ui.browse.CollectionRoute(entry.toRoute<CollectionDest>().id, onOpen = { item -> nav.navigate(detailsFor(item)) })
+                }
+                composable<DetailsDest> { entry ->
+                    val dest = entry.toRoute<DetailsDest>()
+                    DetailsRoute(
+                        itemId = dest.itemId,
+                        episodeId = dest.episodeId,
+                        onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
+                        onOpen = { id -> nav.navigate(DetailsDest(id)) },
+                        onPerson = { id -> nav.navigate(PersonDest(id)) },
+                        onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
+                    )
+                }
+                composable<ExtraDest> { entry ->
+                    org.arcmediaserver.android.ui.player.ExtraPlayerRoute(entry.toRoute<ExtraDest>().url, onClose = { nav.popBackStack() })
+                }
+                composable<PersonDest> { entry ->
+                    PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })
+                }
+                composable<PlayerDest> { entry ->
+                    val dest = entry.toRoute<PlayerDest>()
+                    PlayerRoute(
+                        dest.itemId,
+                        dest.startMs,
+                        onClose = { nav.popBackStack() },
+                        // The next episode replaces this one, so Back still returns to where play began.
+                        onPlayNext = { next -> nav.navigate(PlayerDest(next.id, next.resumeMs)) { popUpTo<PlayerDest> { inclusive = true } } },
+                    )
+                }
             }
         }
     }
