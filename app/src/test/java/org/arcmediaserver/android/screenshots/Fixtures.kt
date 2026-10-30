@@ -22,6 +22,12 @@ import org.arcmediaserver.android.data.AudioTrack
 import org.arcmediaserver.android.data.Chapter
 import org.arcmediaserver.android.data.Marker
 import org.arcmediaserver.android.data.UserData
+import org.arcmediaserver.android.data.MediaFile
+import org.arcmediaserver.android.data.MediaStream
+import org.arcmediaserver.android.data.Person
+import org.arcmediaserver.android.data.SearchResults
+import org.arcmediaserver.android.data.Trickplay
+import org.arcmediaserver.android.data.TrickplayInfo
 import org.arcmediaserver.android.data.cardFor
 import org.arcmediaserver.android.ui.browse.BrowseFrame
 import org.arcmediaserver.android.ui.browse.HomeRowState
@@ -121,6 +127,39 @@ object Fixtures {
         sourceKbps = 9000,
     )
 
+    /** A movie as GET /items/{id} has it: on the watchlist, with one file and its tracks (for Media Info). */
+    val movieWithFile = movies[0].copy(
+        userData = UserData(52 * 60_000, watchlisted = true),
+        files = listOf(
+            MediaFile(
+                id = 11, durationMs = 132 * 60_000L, container = "mkv", size = 18_400_000_000, bitrate = 18_600_000,
+                path = "/media/Movies/The Long Orbit (2019)/The Long Orbit (2019) - 2160p.mkv",
+                streams = listOf(
+                    MediaStream(0, "video", "hevc", "Main 10", width = 3840, height = 1600, aspectRatio = 2.4, frameRate = 23.976, bitDepth = 10, colorPrimaries = "bt2020", colorTransfer = "smpte2084", pixFmt = "yuv420p10le", bitrate = 15_200_000),
+                    MediaStream(1, "audio", "truehd", "Dolby TrueHD + Dolby Atmos", language = "eng", channels = 8),
+                    MediaStream(2, "audio", "ac3", language = "eng", channels = 6, bitrate = 640_000, title = "Commentary"),
+                    MediaStream(3, "audio", "eac3", language = "fra", channels = 6, bitrate = 768_000),
+                    MediaStream(4, "subtitle", "subrip", language = "eng"),
+                    MediaStream(5, "subtitle", "hdmv_pgs_subtitle", language = "eng", forced = true),
+                    MediaStream(6, "subtitle", "subrip", language = "spa"),
+                ),
+            ),
+        ),
+    )
+
+    val searchResults = SearchResults(
+        movies = movies.take(3),
+        shows = listOf(show),
+        episodes = listOf(seasons[0].episodes[3], seasons[1].episodes[0]),
+        people = listOf(Person(1, "Mara Ellison", count = 3, knownFor = "actor"), Person(2, "Theo Lund", count = 2, knownFor = "director"), Person(3, "June Okafor", "art:poster:June Okafor", 1)),
+    )
+
+    /** Timeline thumbnails: 5x5 tiles of 320x180 to a sheet, one every 10 seconds. */
+    val trickplay = Trickplay(
+        TrickplayInfo(intervalMs = 10_000, width = 320, height = 180, columns = 5, rows = 5, count = 312, sheets = 13),
+        sheets = (0 until 13).map { "art:sheet:$it" },
+    )
+
     /** Draws artwork for an "art:" address: a gradient in a colour from the title, and the title. */
     fun art(url: String): Bitmap {
         val (kind, title) = url.removePrefix("art:").split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
@@ -137,6 +176,23 @@ object Fixtures {
             val w = paint.measureText(text).toInt() + 40
             val bmp = Bitmap.createBitmap(w, 170, Bitmap.Config.ARGB_8888)
             Canvas(bmp).drawText(text, 20f, 135f, paint)
+            return bmp
+        }
+        if (kind == "sheet") {
+            // A sheet of timeline thumbnails: each tile its own frame of a made-up scene.
+            val bmp = Bitmap.createBitmap(5 * 320, 5 * 180, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 34f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
+            for (i in 0 until 25) {
+                val x = (i % 5) * 320f
+                val y = (i / 5) * 180f
+                val hue = (title.toIntOrNull() ?: 0) * 25f + i * 9f
+                val a = android.graphics.Color.HSVToColor(floatArrayOf(hue % 360, 0.5f, 0.6f))
+                val b = android.graphics.Color.HSVToColor(floatArrayOf((hue + 60) % 360, 0.6f, 0.2f))
+                canvas.drawRect(x, y, x + 320, y + 180, Paint().apply { shader = LinearGradient(x, y, x + 320, y + 180, a, b, Shader.TileMode.CLAMP) })
+                canvas.drawCircle(x + 70 + i * 7, y + 120, 46f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66FFFFFF })
+                canvas.drawText("Mill Road", x + 16, y + 44, label)
+            }
             return bmp
         }
         val (w, h) = when (kind) {

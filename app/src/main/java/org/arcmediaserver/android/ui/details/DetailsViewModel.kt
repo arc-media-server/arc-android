@@ -32,9 +32,70 @@ fun nextEpisode(seasons: List<Season>): Item? {
     return episodes.firstOrNull { it.resumeMs > 0 } ?: episodes.firstOrNull { it.userData?.played != true } ?: episodes.firstOrNull()
 }
 
+/** A title action's outcome to tell the viewer about: it couldn't be saved, so it was put back. */
+enum class ActionProblem { Watched, Watchlist }
+
+/**
+ * Changes a title on screen straight away, then asks Arc; if Arc says no (or can't be reached),
+ * puts the title back as it was and returns false. [show] gets each version of the title.
+ */
+suspend fun optimistic(before: Item, after: Item, show: (Item) -> Unit, save: suspend () -> Unit): Boolean {
+    show(after)
+    return try {
+        save()
+        true
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        show(before)
+        false
+    }
+}
+
 class DetailsViewModel(private val container: AppContainer, private val itemId: String) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<Details>>(LoadState.Loading)
     val state: StateFlow<LoadState<Details>> = _state
+
+    private val _problem = MutableStateFlow<ActionProblem?>(null)
+    /** The last action that failed and was undone, until the screen has said so. */
+    val problem: StateFlow<ActionProblem?> = _problem
+
+    fun problemShown() {
+        _problem.value = null
+    }
+
+    private fun showItem(item: Item) {
+        val cur = (_state.value as? LoadState.Ready)?.value ?: return
+        _state.value = LoadState.Ready(cur.copy(item = item))
+    }
+
+    /** Mark watched or unwatched (a show: all its episodes), as the web's Watched button. */
+    fun toggleWatched() {
+        val api = container.api() ?: return
+        val item = (_state.value as? LoadState.Ready)?.value?.item ?: return
+        val played = !item.watched
+        viewModelScope.launch {
+            val ok = optimistic(item, item.withWatched(played), ::showItem) { api.setPlayed(item.id, played) }
+            if (!ok) {
+                ArcLog.Android.warn("marking ${item.kind} ${if (played) "watched" else "unwatched"} failed")
+                _problem.value = ActionProblem.Watched
+            } else if (item.isSeries) {
+                load(quiet = true) // the episodes' ticks and what Play starts change too
+            }
+        }
+    }
+
+    fun toggleWatchlist() {
+        val api = container.api() ?: return
+        val item = (_state.value as? LoadState.Ready)?.value?.item?.takeIf { it.canWatchlist } ?: return
+        val on = !item.onWatchlist
+        viewModelScope.launch {
+            val ok = optimistic(item, item.withWatchlist(on), ::showItem) { api.setWatchlist(item.id, on) }
+            if (!ok) {
+                ArcLog.Android.warn("${if (on) "adding to" else "removing from"} the watchlist failed")
+                _problem.value = ActionProblem.Watchlist
+            }
+        }
+    }
 
     init {
         load()
