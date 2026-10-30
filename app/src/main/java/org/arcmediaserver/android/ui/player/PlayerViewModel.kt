@@ -1,5 +1,13 @@
 package org.arcmediaserver.android.ui.player
 
+import io.github.peerless2012.ass.media.type.AssRenderType
+import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
+import io.github.peerless2012.ass.media.kt.withAssSupport
+import io.github.peerless2012.ass.media.AssHandlerConfig
+import io.github.peerless2012.ass.media.AssHandler
+import androidx.media3.extractor.text.SubtitleParser
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory
+import androidx.media3.common.Format
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.OptIn
@@ -70,14 +78,39 @@ data class PlayerUiState(
     val trickplay: Trickplay? = null,
 )
 
-/** An ExoPlayer signed in to Arc (streams and files go through the app's authorised client). */
+/**
+ * An ExoPlayer signed in to Arc (streams and files go through the app's authorised client). With
+ * [ass], ASS/SSA scripts the app loads from Arc (subtitle ids starting "arc-") are drawn by libass,
+ * keeping their fonts, colours, positions and effects; every other subtitle is read as usual.
+ */
 @androidx.annotation.OptIn(UnstableApi::class)
-fun arcPlayer(context: Context, container: AppContainer): ExoPlayer = ExoPlayer.Builder(context)
-    .setRenderersFactory(DefaultRenderersFactory(context).setEnableDecoderFallback(true))
-    .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient)))
-    .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
-    .setHandleAudioBecomingNoisy(true)
-    .build()
+fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null): ExoPlayer {
+    val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+    val sources = DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient))
+    if (ass != null) sources.setSubtitleParserFactory(ArcSubtitleParsers(AssSubtitleParserFactory(ass)))
+    val player = ExoPlayer.Builder(context)
+        .setRenderersFactory(if (ass != null) renderers.withAssSupport(ass) else renderers)
+        .setMediaSourceFactory(sources)
+        .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+        .setHandleAudioBecomingNoisy(true)
+        .build()
+    ass?.init(player)
+    return player
+}
+
+/**
+ * Sends the ASS script the app loaded from Arc to libass, and every other subtitle (including ASS
+ * tracks inside a direct-played file, which the app doesn't show) to Media3's own parsers, so
+ * libass only ever has the one track it's drawing.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+private class ArcSubtitleParsers(private val ass: AssSubtitleParserFactory) : SubtitleParser.Factory {
+    private val default = DefaultSubtitleParserFactory()
+    private fun libass(format: Format) = format.sampleMimeType == MimeTypes.TEXT_SSA && format.id?.startsWith("arc-") == true
+    override fun supportsFormat(format: Format) = if (libass(format)) ass.supportsFormat(format) else default.supportsFormat(format)
+    override fun getCueReplacementBehavior(format: Format) = if (libass(format)) ass.getCueReplacementBehavior(format) else default.getCueReplacementBehavior(format)
+    override fun create(format: Format): SubtitleParser = if (libass(format)) ass.create(format) else default.create(format)
+}
 
 /**
  * Plays a movie or episode the way Arc's web player does: ask Arc how to play it with what this
@@ -105,7 +138,11 @@ class PlayerViewModel(
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
 
-    val player: ExoPlayer = arcPlayer(context, container)
+    /** Draws ASS/SSA subtitles with libass, over the player's subtitle view (PlayerScreen). */
+    @androidx.annotation.OptIn(UnstableApi::class)
+    val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig(maxRenderPixels = 1920 * 1080))
+
+    val player: ExoPlayer = arcPlayer(context, container, ass)
 
     init {
         // Playing changes its watched state on the server: what's loaded next is right again.
@@ -114,6 +151,16 @@ class PlayerViewModel(
 
     init {
         player.addListener(object : Player.Listener {
+            // The subtitle the app loaded from Arc is the one shown, not a track of the same
+            // language inside the file.
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                val ours = tracks.groups.firstOrNull { g -> g.type == C.TRACK_TYPE_TEXT && (0 until g.length).any { g.getTrackFormat(it).id?.startsWith("arc-") == true } } ?: return
+                if (ours.isSelected) return
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setOverrideForType(androidx.media3.common.TrackSelectionOverride(ours.mediaTrackGroup, 0))
+                    .build()
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.update { it.copy(playing = isPlaying) }
                 if (!isPlaying && player.playbackState == Player.STATE_READY && !player.playWhenReady) report("paused")
@@ -238,11 +285,14 @@ class PlayerViewModel(
         }
         if (subtitle != null) {
             val shift = if (p.hls) -p.offsetMs else 0
-            val url = api.absolute("/api/items/${enc(itemId)}/subtitles/${enc(subtitle.id)}/vtt?file=${p.fileId}&shift_ms=$shift")
+            // ASS/SSA as its own script (with the video's fonts) for libass; the rest as WebVTT.
+            val ass = subtitle.codec == "ass" || subtitle.codec == "ssa"
+            val format = if (ass) "ass" else "vtt"
+            val url = api.absolute("/api/items/${enc(itemId)}/subtitles/${enc(subtitle.id)}/$format?file=${p.fileId}&shift_ms=$shift")
             builder.setSubtitleConfigurations(
                 listOf(
                     MediaItem.SubtitleConfiguration.Builder(Uri.parse(url))
-                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setMimeType(if (ass) MimeTypes.TEXT_SSA else MimeTypes.TEXT_VTT)
                         .setLanguage(subtitle.language)
                         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
                         .setId("arc-${subtitle.id}")
@@ -379,11 +429,13 @@ class PlayerViewModel(
         }
     }
 
+    @androidx.annotation.OptIn(UnstableApi::class)
     override fun onCleared() {
         val p = plan
         if (p != null && !_state.value.ended) report("stopped")
         p?.sessionId?.let { sid -> container.appScope.launch { runCatching { api.stopTranscode(sid) } } }
         player.release()
+        ass.release()
     }
 
     private companion object {

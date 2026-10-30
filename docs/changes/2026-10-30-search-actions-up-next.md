@@ -252,3 +252,24 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   caption, and the row above stays whole; moving up brings the row above in at the top. A
   screenshot test presses Down twice to check (`tv-library-scrolled.png`).
 - Logged: nothing new.
+
+## ASS/SSA subtitles drawn with libass (owner, 30 October)
+
+- An ASS or SSA subtitle is now loaded as its own script from Arc
+  (`/subtitles/{track}/ass`, arc-media-server#306, shifted for a converted stream as `/vtt` is,
+  with the video's fonts packed in) and drawn by libass through `io.github.peerless2012:ass-media`
+  0.5.1 (MIT; the library Jellyfin's Android TV app uses), so it keeps its fonts, colours,
+  positions, karaoke and other effects. Other text subtitles stay WebVTT as before; picture
+  subtitles are still burned in by Arc.
+- libass draws in its OpenGL overlay mode on the player's subtitle view, rendering at most at
+  1080p so 4K TVs aren't slowed. The app wires the library's handler itself (its one-call
+  builder wants the subtitle view before the player exists): only the script the app loaded
+  ("arc-" ids) goes to libass; any ASS track inside a direct-played file goes to Media3's own
+  parser, and the app's track is selected explicitly over one of the same language in the file,
+  so libass only ever has the one track it's drawing.
+- Not checked on a device yet: rendering, timing after a seek on a converted stream, HDR, and
+  performance on a real TV (#135). The library's OpenGL overlay doesn't draw HDR colours in the
+  subtitles themselves (its known limit); the video is unaffected.
+- Native libraries add about 3 MB per ABI to the APK; a release build can split by ABI.
+- Logged: subtitle failures surface as before through playback errors; the server logs scripts
+  and fonts it can't read.
