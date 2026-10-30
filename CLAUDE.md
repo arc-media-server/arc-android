@@ -6,7 +6,8 @@ sharing the API client, sign-in and playback code (split into `core`/`tv`/`mobil
 phone interface starts). The server is arc-media-server/arc-media-server (Go, with a web
 app). The owner (GitHub: JonzaUK) drives product vision; agents (Claude, Codex)
 do most implementation. Read `README.md` (build, install, tests) and `docs/changes/` (what was
-built and why). The server repo's CLAUDE.md, ROADMAP.md (milestone 18) and docs/API.md are the
+built and why). What's left is on the to-do list, arc-android#2: read it before starting, tick items
+with the commit that did them, and add what you find. The server repo's CLAUDE.md, ROADMAP.md (milestone 18) and docs/API.md are the
 wider context; decisions waiting for the owner are on arc-media-server#80.
 
 ## Workflow (same as the server repo)
