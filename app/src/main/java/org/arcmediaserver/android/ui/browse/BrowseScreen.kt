@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.ui.browse
 
+import org.arcmediaserver.android.ui.details.MenuItem
+import org.arcmediaserver.android.ui.details.Overlay
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
@@ -105,6 +107,8 @@ fun BrowseRoute(onOpen: (Item) -> Unit, onPerson: (org.arcmediaserver.android.da
         onOpen = onOpen,
         onRetry = vm::load,
         onRetryRow = vm::retryRow,
+        onMoveRow = vm::moveRow,
+        onRowStyle = vm::setRowStyle,
         onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
         onNearEnd = vm::nearEnd,
         onSwitchProfile = onSwitchProfile,
@@ -121,6 +125,8 @@ fun BrowseScreen(
     onRetry: () -> Unit,
     onRetryRow: (HomeRowSpec) -> Unit,
     onRetryLibrary: () -> Unit,
+    onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
+    onRowStyle: (HomeRowSpec, CardStyle) -> Unit = { _, _ -> },
     onNearEnd: () -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
@@ -143,7 +149,7 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 72.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it })
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onMoveRow = onMoveRow, onRowStyle = onRowStyle)
                             Section.Search -> searchContent()
                             is Section.Library -> LibraryContent(state.library, onOpen, onRetryLibrary, onNearEnd)
                         }
@@ -232,7 +238,16 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (HomeRowSpec) -> Unit, onFocusedCard: (MediaCard?) -> Unit) {
+fun HomeContent(
+    rows: List<HomeRowState>,
+    onOpen: (Item) -> Unit,
+    onRetryRow: (HomeRowSpec) -> Unit,
+    onFocusedCard: (MediaCard?) -> Unit,
+    onMoveRow: (id: String, step: Int, shown: List<String>) -> Unit = { _, _, _ -> },
+    onRowStyle: (HomeRowSpec, CardStyle) -> Unit = { _, _ -> },
+) {
+    // The row whose options are open (holding OK on one of its cards).
+    var options by remember { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf<MediaCard?>(null) }
     val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
@@ -293,9 +308,37 @@ fun HomeContent(rows: List<HomeRowState>, onOpen: (Item) -> Unit, onRetryRow: (H
                             onRetry = { onRetryRow(row.spec) },
                             firstCard = if (isFirst) firstCard else null,
                             rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
+                            onOptions = { options = row.spec.id },
                         )
                     }
                 }
+            }
+            val open = visible.firstOrNull { it.spec.id == options }
+            if (open != null) {
+                val shownIds = visible.map { it.spec.id }
+                val at = shownIds.indexOf(open.spec.id)
+                RowOptions(
+                    open.spec,
+                    canMoveUp = at > 0,
+                    canMoveDown = at < shownIds.lastIndex,
+                    onMove = { step ->
+                        onMoveRow(open.spec.id, step, shownIds)
+                        // Keep the moved row in the band, behind the menu.
+                        scope.launch { list.scrollToItem((at + step).coerceIn(0, shownIds.lastIndex)) }
+                    },
+                    onStyle = { onRowStyle(open.spec, it) },
+                    onClose = {
+                        options = null
+                        // Back to the row, where the focus was before the menu opened.
+                        val index = visible.indexOfFirst { it.spec.id == open.spec.id }
+                        val requester = rowFocus[open.spec.id]
+                        scope.launch {
+                            if (index >= 0) list.scrollToItem(index)
+                            current = index.coerceAtLeast(0)
+                            requester?.requestWhenReady()
+                        }
+                    },
+                )
             }
         }
     }
@@ -389,7 +432,7 @@ fun runtimeText(minutes: Int): String =
     if (minutes >= 60) stringResource(R.string.hours_minutes, minutes / 60, minutes % 60) else stringResource(R.string.minutes, minutes)
 
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
+private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester, onOptions: () -> Unit) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -414,12 +457,35 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                         landscape = landscape,
                         width = if (landscape) HomeThumbWidth else HomePosterWidth,
                         onClick = { onOpen(card.item) },
+                        onLongClick = onOptions,
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * A Home row's options, opened by holding OK on one of its cards (as Plex's long press): move the
+ * row up or down, and show it as posters or wide thumbnails. The menu stays open while moving, so
+ * a row can go several places; the change is saved to the profile, so the web's Home follows.
+ */
+@Composable
+internal fun RowOptions(spec: HomeRowSpec, canMoveUp: Boolean, canMoveDown: Boolean, onMove: (Int) -> Unit, onStyle: (CardStyle) -> Unit, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    Overlay(420.dp, onBack = onClose) {
+        Text(rowTitle(spec), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(12.dp))
+        // Both moves stay listed at either end (doing nothing there), so the focus never jumps.
+        MenuItem(ArcIcons.ArrowUp, stringResource(R.string.home_row_move_up), Modifier.focusRequester(first)) { if (canMoveUp) onMove(-1) }
+        MenuItem(ArcIcons.ArrowDown, stringResource(R.string.home_row_move_down)) { if (canMoveDown) onMove(1) }
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(R.string.home_row_show_as), style = MaterialTheme.typography.labelLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp))
+        MenuItem(if (spec.style == CardStyle.Poster) ArcIcons.Check else null, stringResource(R.string.home_row_posters)) { onStyle(CardStyle.Poster) }
+        MenuItem(if (spec.style == CardStyle.Thumb) ArcIcons.Check else null, stringResource(R.string.home_row_thumbs)) { onStyle(CardStyle.Thumb) }
+    }
+    LaunchedEffect(Unit) { first.requestWhenReady() }
 }
 
 /** A library's titles in a grid, A to Z, loading more as the focus nears the end. */

@@ -1,6 +1,8 @@
 package org.arcmediaserver.android.data
 
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -99,5 +101,55 @@ class HomeRowsTest {
         assertEquals("/season1", card.poster)
         assertEquals(1, card.seasonNumber)
         assertEquals(3, card.newEpisodes)
+    }
+
+    private fun row(id: String, vararg extra: Pair<String, Any>) = buildJsonObject {
+        put("id", id)
+        for ((k, v) in extra) when (v) {
+            is Boolean -> put(k, v)
+            is String -> put(k, v)
+            is JsonObject -> put(k, v)
+        }
+    }
+    private fun layoutIds(rows: List<JsonObject>?) = rows!!.map { it["id"]!!.jsonPrimitive.content }
+
+    @Test
+    fun `moving a row on a fresh profile saves the whole default layout`() {
+        // Home shows continue, watchlist and each library's newest; seasonal and Up Next keep their places.
+        val shown = listOf("continue", "watchlist", "recent:1", "recent:2", "recent:3")
+        val moved = HomeLayout.move(emptyList(), libs, shown, "recent:2", -1)
+        assertEquals(listOf("continue", "next-up", "watchlist", "seasonal", "recent:2", "recent:1", "recent:3"), layoutIds(moved))
+    }
+
+    @Test
+    fun `moving skips rows Home doesn't show and keeps every saved field`() {
+        val filter = buildJsonObject { put("library_id", 1); put("genre", "Horror") }
+        val saved = listOf(
+            row("continue"),
+            row("watchlist", "hidden" to true),
+            row("collection:9", "title" to "Bond"),
+            row("custom:a", "title" to "Scary", "filter" to filter, "posters" to "season"),
+            row("recent:1"), row("recent:2"), row("recent:3"),
+        )
+        val shown = listOf("continue", "custom:a", "recent:1", "recent:2", "recent:3")
+        val moved = HomeLayout.move(saved, libs, shown, "custom:a", -1)!!
+        assertEquals(listOf("custom:a", "continue", "watchlist", "collection:9", "recent:1", "recent:2", "recent:3", "next-up", "seasonal").sorted(), layoutIds(moved).sorted())
+        // Unplaced built-ins (Up Next, seasonal) go where they are by default.
+        assertEquals(listOf("custom:a", "continue", "next-up", "watchlist"), layoutIds(moved).take(4))
+        assertEquals(saved[3], moved.first())
+        // Past either end there's nowhere to go.
+        assertNull(HomeLayout.move(saved, libs, shown, "continue", -1))
+        assertNull(HomeLayout.move(saved, libs, shown, "recent:3", 1))
+    }
+
+    @Test
+    fun `a row's look is saved only when it isn't the usual one`() {
+        val rows = resolveHomeRows(Prefs(), libs)
+        val recent = rows.first { it.id == "recent:1" }
+        val thumbs = HomeLayout.style(emptyList(), libs, recent, CardStyle.Thumb).first { it["id"]!!.jsonPrimitive.content == "recent:1" }
+        assertEquals("thumb", thumbs["style"]!!.jsonPrimitive.content)
+        val back = HomeLayout.style(listOf(row("recent:1", "style" to "thumb", "shows_only" to true)), libs, recent, CardStyle.Poster).first { it["id"]!!.jsonPrimitive.content == "recent:1" }
+        assertNull(back["style"])
+        assertEquals(true, back["shows_only"]!!.jsonPrimitive.content.toBoolean())
     }
 }

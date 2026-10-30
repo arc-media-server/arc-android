@@ -112,3 +112,19 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
 - Wide cards (Continue Watching) are bigger (236dp). Every card keeps its caption (title and year,
   or show and episode): the owner wants the details under posters too.
 - Logged: nothing new (focus moves are ordinary UI).
+
+## Home: reorder rows and choose posters or wide thumbnails (owner, 30 October)
+
+- Holding OK on any Home card opens that row's options (Plex's long press): Move Row Up, Move
+  Row Down, and Show as Posters or Wide Thumbnails. The menu stays open while moving, so a row can
+  go several places, and the band follows the moved row.
+- Changes show at once and are saved to the profile's Home layout (`PATCH /api/v1/me/prefs`
+  `home`), the same layout the web's Edit Home writes, so the web follows. No server change.
+- The app reads the layout fresh before each save and keeps every field it doesn't know (titles,
+  filters, `posters`, `shows_only`, hidden rows, collections and playlists). Rows the TV doesn't
+  show keep their places; a move swaps with the next row Home shows. A look that matches the
+  row's default is saved as no style, as the web does.
+- The web's third look, Backdrops (`arc`), still shows as wide thumbnails on the TV and isn't
+  offered there yet. Season-vs-show posters (`posters`) are kept but not offered either.
+- Logged: each save at info ("home layout saved (move|style)"); a failed save at warning with the
+  error class, after which Home reloads as saved.
