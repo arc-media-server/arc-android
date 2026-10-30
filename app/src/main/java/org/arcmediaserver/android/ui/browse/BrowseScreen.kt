@@ -412,8 +412,6 @@ private fun HomeRow(row: HomeRowState, onOpen: (Item) -> Unit, onFocused: (Media
                     MediaCardView(
                         card,
                         landscape = landscape,
-                        // Wide cards keep their caption (show, episode); posters don't need one.
-                        caption = landscape,
                         width = if (landscape) HomeThumbWidth else HomePosterWidth,
                         onClick = { onOpen(card.item) },
                         modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
@@ -464,4 +462,5 @@ fun LibraryContent(state: LoadState<LibraryPage>, onOpen: (Item) -> Unit, onRetr
 /** Home's single row of cards: about seven posters across, with room for the heading and focus. */
 private val HomePosterWidth = 118.dp
 private val HomeThumbWidth = 236.dp
-private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f
+// Heading, card padding, the poster and its two-line caption.
+private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f + 50.dp

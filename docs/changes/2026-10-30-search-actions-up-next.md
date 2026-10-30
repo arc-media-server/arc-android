@@ -109,6 +109,6 @@ no timeline thumbnails for a file, or fetching them failed. Nothing per keystrok
   bottom, about 7 posters across. Because the band holds one row, focus can't find the next row
   by itself: Up and Down slide the neighbouring row in (skipping rows still loading) and return to
   the card last focused in it (`focusRestorer`), or a failed row's Retry button.
-- Wide cards (Continue Watching) are bigger (236dp) and keep their caption (show, episode);
-  posters go without one, as on Plex.
+- Wide cards (Continue Watching) are bigger (236dp). Every card keeps its caption (title and year,
+  or show and episode): the owner wants the details under posters too.
 - Logged: nothing new (focus moves are ordinary UI).
