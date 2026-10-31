@@ -145,7 +145,10 @@ class PlayerViewModel(
 ) : ViewModel() {
     private val api: ArcApi = container.api() ?: error("no server")
     private val log = ArcLog.Android
-    private var caps: PlayerCaps = container.playerCaps
+    private var currentCaps: PlayerCaps = container.playerCaps.also {
+        // Once per player: what Arc is told this TV shows and plays (no ids or addresses).
+        log.info("this TV: hdr ${it.hdrFormats ?: "unknown"}, Dolby Vision profiles ${it.dolbyVisionProfiles ?: "none"}, passthrough ${it.audioPassthrough}, max ${it.maxHeight}p")
+    }
     private var plan: PlaybackPlan? = null
     /** The profile's preferences: the languages to start with and remember, Auto-Play. */
     private var prefs = Prefs()
@@ -162,6 +165,13 @@ class PlayerViewModel(
     val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig(maxRenderPixels = 1920 * 1080))
 
     val player: ExoPlayer = arcPlayer(context, container, ass)
+
+    /** Stats for nerds: the decoders and formats really in use. */
+    private val statsCollector = org.arcmediaserver.android.playback.PlaybackStatsCollector().also { player.addAnalyticsListener(it) }
+    val stats: StateFlow<org.arcmediaserver.android.playback.PlaybackStats> = statsCollector.stats
+
+    /** What this TV told Arc it plays, for the stats panel. */
+    val caps: PlayerCaps get() = currentCaps
 
     init {
         // Playing changes its watched state on the server: what's loaded next is right again.
@@ -243,7 +253,7 @@ class PlayerViewModel(
             plan?.sessionId?.let { sid -> runCatching { api.stopTranscode(sid) } }
             val p = try {
                 api.startPlayback(itemId, PlaybackRequest(
-                    caps,
+                    currentCaps,
                     startMs = fromMs,
                     fileId = fileId ?: plan?.fileId,
                     // A new version starts with its own default audio.
@@ -310,6 +320,7 @@ class PlayerViewModel(
     }
 
     private fun install(p: PlaybackPlan, fileMs: Long, subtitle: SubtitleTrack?) {
+        statsCollector.reset()
         val builder = MediaItem.Builder().setUri(api.absolute(p.url))
         if (p.hls) {
             builder.setMimeType(MimeTypes.APPLICATION_M3U8)
@@ -349,7 +360,7 @@ class PlayerViewModel(
         if (p != null && !retried && p.method != "transcode") {
             retried = true
             log.info("${p.method} playback failed on this device (${error.errorCodeName}); asking Arc to convert more")
-            caps = fallbackCaps(caps, p.method)
+            currentCaps = fallbackCaps(currentCaps, p.method)
             load(position())
             return
         }

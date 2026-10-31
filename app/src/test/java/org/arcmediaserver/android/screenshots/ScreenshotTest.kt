@@ -316,6 +316,31 @@ class ScreenshotTest {
     }
 
     @Test
+    fun playerStats() = shot("player-stats") {
+        // Stats for nerds over a remuxed Dolby Vision profile 8 film with TrueHD sent as DD+ 5.1.
+        val plan = Fixtures.plan.copy(
+            sourceKbps = 48_200,
+            audioTracks = listOf(org.arcmediaserver.android.data.AudioTrack(1, "eng", codec = "truehd", channels = 8, default = true)),
+            audioStream = 1,
+            audioOutput = org.arcmediaserver.android.data.AudioOutput("eac3", 6, converted = true),
+        )
+        val state = PlayerUiState(plan = plan, loading = false, playing = true, positionMs = 600_000, bufferedMs = 642_000, durationMs = plan.durationMs)
+        val stats = org.arcmediaserver.android.playback.PlaybackStats(
+            videoDecoder = "c2.amlogic.dvhe.decoder", videoMime = "video/dolby-vision", videoCodecs = "dvhe.08.06",
+            width = 3840, height = 2160, frameRate = 23.976f, colorTransfer = androidx.media3.common.C.COLOR_TRANSFER_ST2084,
+            audioDecoder = null, audioMime = "audio/eac3", audioChannels = 6, droppedFrames = 2,
+        )
+        val caps = org.arcmediaserver.android.data.PlayerCaps(
+            listOf("mp4", "mkv"), listOf("hevc"), listOf("aac", "eac3"), 2160,
+            audioPassthrough = listOf("eac3"), hdrFormats = listOf("hdr10", "hlg", "dolby_vision"), dolbyVisionProfiles = listOf(5, 8),
+        )
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.DarkGray)) {
+            val (title, body) = org.arcmediaserver.android.ui.player.methodLabel(plan)
+            org.arcmediaserver.android.ui.player.StatsPanel(title, body, org.arcmediaserver.android.ui.player.statsRows(state, plan, stats, caps))
+        }
+    }
+
+    @Test
     fun playerControls() = shot("player") {
         Box(Modifier.fillMaxSize()) {
             androidx.compose.foundation.Image(

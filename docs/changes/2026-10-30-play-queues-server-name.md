@@ -98,3 +98,18 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
   Watchlist page in the library grid. Before, it was a fixed row near the top of Home with no page
   on the TV.
 - **Queue row last.** Home's Queue row now comes after everything else, the owner's choice.
+
+## Stats for nerds (owner, 31 October)
+
+- The player's Info panel now shows what's really playing. It's the first step of #17's stats;
+  the Dashboard side is still to come.
+  - **Video:** the format the decoder is fed (Dolby Vision with its profile, e.g. `dvhe.08.06`, or
+    HEVC/H.264…), with resolution and frame rate.
+  - **Dynamic range** and the **video decoder's** name.
+  - **Audio** from the file to what Arc sends (e.g. TrueHD 7.1 → Dolby Digital Plus 5.1), and the
+    audio output (a decoder, or passthrough).
+  - **File bitrate, time buffered ahead, dropped frames**, and **what this TV told Arc** it shows
+    and passes through.
+- Logs at info: once per player, what the TV reports (HDR formats, Dolby Vision profiles,
+  passthrough); and per decoder, the decoder chosen and the format it was given. That shows
+  whether a Dolby Vision title fell back to its HDR10 base.
