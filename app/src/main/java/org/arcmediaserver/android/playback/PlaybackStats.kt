@@ -76,8 +76,9 @@ class PlaybackStatsCollector(private val log: ArcLog = ArcLog.Android) : Analyti
     }
 
     override fun onAudioInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
-        // A new audio format starts with no decoder known: passthrough never names one.
-        _stats.update { it.copy(audioMime = format.sampleMimeType, audioChannels = format.channelCount, audioDecoder = null) }
+        // The decoder (if any) is reported just before its format, so it's kept here; each new
+        // stream starts from reset(). Passthrough never names a decoder.
+        _stats.update { it.copy(audioMime = format.sampleMimeType, audioChannels = format.channelCount) }
     }
 
     override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
