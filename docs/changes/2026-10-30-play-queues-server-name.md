@@ -113,3 +113,31 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
 - Logs at info: once per player, what the TV reports (HDR formats, Dolby Vision profiles,
   passthrough); and per decoder, the decoder chosen and the format it was given. That shows
   whether a Dolby Vision title fell back to its HDR10 base.
+- **Player menus really give focus back now.** The earlier fix put the focus on the menu's button,
+  but while the menu slid away it switched to drawing the Info layout, which took the focus back
+  and then vanished. Nothing had the focus, so the controls ignored the remote and Back seemed to
+  need pressing twice. The panel now keeps drawing the menu that was open while it slides away.
+  `PlayerMenuFocusTest` drives the remote's keys through a menu (a choice, and Back) and checks
+  the button has the focus and Left moves on. Both tests fail on the old code.
+- **Waits are measured.** The stats panel shows the **download speed** from Arc, next to the
+  file's bitrate, and how many waits (spinner) there have been and the longest. A wait over 2 s is
+  logged once at info, with where it happened, the download speed and the stream's bitrate.
+- **The decoder log line names the format** it was made for. Before, it was written before the
+  format was known ("for null").
+
+## Subtitles never hold up the film (owner, 31 October)
+
+- With subtitles on, a film could sit on the spinner for a long time. The player waits for a
+  sideloaded subtitle file to load completely before it plays, and Arc may still be extracting the
+  track from the film (arc-media-server#324 makes Arc answer at once, but the player still waited
+  for the whole file).
+- **Text subtitles are now loaded and drawn by the app** (`playback/TextSubtitles.kt`): the WebVTT
+  is fetched in the background, parsed with Media3's WebVTT parser, and the due cues are put on
+  their own subtitle view ten times a second, in the profile's style. The film starts at once and
+  the subtitles appear when they arrive. Switching between text subtitles, or turning them off,
+  no longer restarts the stream.
+- A failed load is retried twice (after 3 s and 6 s). Logged: the cue count and load time at info,
+  and failures as warnings with the exception type only (no URLs).
+- **Limits:** ASS/SSA tracks still go through the player for libass, so they can still hold up the
+  start while Arc extracts them. Subtitles placed at the top aren't supported yet, as before.
+  `TextSubtitlesTest` covers timing and overlapping cues; not yet checked on a TV.

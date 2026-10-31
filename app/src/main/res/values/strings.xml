@@ -63,6 +63,8 @@
     <string name="stats_passthrough_list">passthrough %1$s</string>
     <string name="stats_bitrate">File bitrate</string>
     <string name="stats_buffer">Buffered ahead</string>
+    <string name="stats_download">Download speed</string>
+    <string name="stats_waits">Waits</string>
     <string name="stats_dropped">Dropped frames</string>
     <string name="stats_this_tv">This TV</string>
     <string name="stats_hdr_unknown">HDR unknown</string>
@@ -273,4 +275,8 @@
         <item quantity="other">Next episode in %1$ds</item>
     </plurals>
     <string name="player_play_now">Play Now</string>
+    <plurals name="stats_waits_value">
+        <item quantity="one">%1$d (%2$.1f s)</item>
+        <item quantity="other">%1$d (longest %2$.1f s)</item>
+    </plurals>
 </resources>

@@ -31,6 +31,11 @@ data class PlaybackStats(
     val audioMime: String? = null,
     val audioChannels: Int = 0,
     val droppedFrames: Int = 0,
+    /** How fast video arrives from Arc (kbit/s), averaged over recent segments; 0 before any. */
+    val downloadKbps: Int = 0,
+    /** Waits for data longer than a moment while playing (the spinner), and the longest (ms). */
+    val waits: Int = 0,
+    val longestWaitMs: Long = 0,
 ) {
     val dolbyVision: Boolean get() = videoMime == MimeTypes.VIDEO_DOLBY_VISION
 
@@ -50,15 +55,21 @@ class PlaybackStatsCollector(private val log: ArcLog = ArcLog.Android) : Analyti
     private val _stats = MutableStateFlow(PlaybackStats())
     val stats: StateFlow<PlaybackStats> = _stats
 
+    /** The stream's average bitrate (kbit/s), to compare the download speed with in logs. */
+    @Volatile var streamKbps: Int = 0
+
+    private var loggedDecoder: String? = null
+    private var waitingSince = 0L
+    private var waitingAt = 0L
+
     fun reset() {
         _stats.value = PlaybackStats()
+        loggedDecoder = null
+        waitingSince = 0L
     }
 
     override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
         _stats.update { it.copy(videoDecoder = decoderName) }
-        val s = _stats.value
-        // Once per decoder: the line that answers "why isn't this Dolby Vision?".
-        log.info("video decoder $decoderName for ${s.videoMime} ${s.videoCodecs.orEmpty()} (${s.dynamicRange})")
     }
 
     override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
@@ -68,6 +79,44 @@ class PlaybackStatsCollector(private val log: ArcLog = ArcLog.Android) : Analyti
                 frameRate = format.frameRate, colorTransfer = format.colorInfo?.colorTransfer ?: Format.NO_VALUE, videoBitrate = format.bitrate,
             )
         }
+        // Once per decoder, with the format it was made for (reported just before it): the line
+        // that answers "why isn't this Dolby Vision?".
+        val s = _stats.value
+        if (s.videoDecoder != null && s.videoDecoder != loggedDecoder) {
+            loggedDecoder = s.videoDecoder
+            log.info("video decoder ${s.videoDecoder} for ${s.videoMime} ${s.videoCodecs.orEmpty()} (${s.dynamicRange})")
+        }
+    }
+
+    override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo, mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData) {
+        // Media segments only (not playlists): their size over how long they took.
+        if (mediaLoadData.dataType != C.DATA_TYPE_MEDIA || loadEventInfo.loadDurationMs <= 0 || loadEventInfo.bytesLoaded < 64 * 1024) return
+        val kbps = (loadEventInfo.bytesLoaded * 8 / loadEventInfo.loadDurationMs).toInt()
+        _stats.update { it.copy(downloadKbps = if (it.downloadKbps == 0) kbps else (it.downloadKbps * 3 + kbps) / 4) }
+    }
+
+    override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
+        when (state) {
+            androidx.media3.common.Player.STATE_BUFFERING -> if (waitingSince == 0L) {
+                waitingSince = eventTime.realtimeMs
+                waitingAt = eventTime.currentPlaybackPositionMs
+            }
+            else -> if (waitingSince != 0L) {
+                val waited = eventTime.realtimeMs - waitingSince
+                waitingSince = 0L
+                // A moment's buffering is normal; a wait you'd notice (the spinner) is logged once.
+                if (waited >= 2_000) {
+                    _stats.update { it.copy(waits = it.waits + 1, longestWaitMs = maxOf(it.longestWaitMs, waited)) }
+                    val speed = _stats.value.downloadKbps
+                    log.info(
+                        String.format(
+                            java.util.Locale.ROOT, "waited %.1f s for video at %d s (downloading at ~%.1f Mbps; the stream averages ~%.1f Mbps)",
+                            waited / 1000.0, waitingAt / 1000, speed / 1000.0, streamKbps / 1000.0,
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
@@ -76,8 +125,9 @@ class PlaybackStatsCollector(private val log: ArcLog = ArcLog.Android) : Analyti
     }
 
     override fun onAudioInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
-        // A new audio format starts with no decoder known: passthrough never names one.
-        _stats.update { it.copy(audioMime = format.sampleMimeType, audioChannels = format.channelCount, audioDecoder = null) }
+        // The decoder (if any) is reported just before its format, so it's kept here; each new
+        // stream starts from reset(). Passthrough never names a decoder.
+        _stats.update { it.copy(audioMime = format.sampleMimeType, audioChannels = format.channelCount) }
     }
 
     override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {

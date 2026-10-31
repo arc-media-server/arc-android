@@ -252,6 +252,17 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize(),
         )
+        // Text subtitles the app loads itself, on their own view so the player never clears them.
+        val cues by vm.cues.collectAsStateWithLifecycle()
+        AndroidView(
+            factory = { ctx -> androidx.media3.ui.SubtitleView(ctx) },
+            update = { view ->
+                view.setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+                view.setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
+                view.setCues(cues)
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
         when {
             state.stopped != null -> StoppedPane(state.stopped!!, onClose)
             state.error != null -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f))) {
@@ -598,7 +609,7 @@ private data class Option(val name: String, val detail: String?, val selected: B
 
 /** Each menu's choices, from the same rules the web player's menus follow. */
 @Composable
-private fun PlayerMenuPanel(
+internal fun PlayerMenuPanel(
     menu: PlayerMenu,
     state: PlayerUiState,
     plan: PlaybackPlan,
@@ -611,11 +622,15 @@ private fun PlayerMenuPanel(
     onChapter: (Long) -> Unit,
     onSpeed: (Float) -> Unit,
 ) {
+    // While it slides away the panel keeps showing the menu that was open: switching to another
+    // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
+    var shown by remember { mutableStateOf(menu) }
+    if (menu != PlayerMenu.None) shown = menu
     AnimatedVisibility(menu != PlayerMenu.None, enter = slideInHorizontally { it } + fadeIn(), exit = slideOutHorizontally { it } + fadeOut()) {
         val title: String
         var body: String? = null
         val options: List<Option>
-        when (menu) {
+        when (shown) {
             PlayerMenu.Audio -> {
                 title = stringResource(R.string.player_audio)
                 options = plan.audioTracks.mapIndexed { i, t -> Option(audioName(t, i), audioDetail(t), t.index == plan.audioStream) { onAudio(t.index) } }
@@ -662,7 +677,7 @@ private fun PlayerMenuPanel(
                 options = emptyList()
             }
         }
-        if (menu == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
+        if (shown == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
     }
 }
 
@@ -767,6 +782,9 @@ internal fun statsRows(
     val output = stats.audioDecoder ?: if (stats.audioMime != null) stringResource(R.string.stats_passthrough) else null
     output?.let { add(stringResource(R.string.stats_audio_output) to it) }
     if (plan.sourceKbps > 0) add(stringResource(R.string.stats_bitrate) to String.format(java.util.Locale.ROOT, "%.1f Mbps", plan.sourceKbps / 1000.0))
+    // How fast it arrives, to set against the bitrate: slower than the file means waiting.
+    if (stats.downloadKbps > 0) add(stringResource(R.string.stats_download) to String.format(java.util.Locale.ROOT, "%.1f Mbps", stats.downloadKbps / 1000.0))
+    if (stats.waits > 0) add(stringResource(R.string.stats_waits) to pluralStringResource(R.plurals.stats_waits_value, stats.waits, stats.waits, stats.longestWaitMs / 1000.0))
     add(stringResource(R.string.stats_buffer) to String.format(java.util.Locale.ROOT, "%.1f s", (state.bufferedMs - state.positionMs).coerceAtLeast(0) / 1000.0))
     add(stringResource(R.string.stats_dropped) to stats.droppedFrames.toString())
     if (caps != null) {
