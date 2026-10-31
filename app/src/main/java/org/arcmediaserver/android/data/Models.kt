@@ -229,6 +229,20 @@ data class Prefs(
     /** Play the next episode by itself (the Up Next countdown); absent means on. */
     @SerialName("auto_play") val autoPlay: Boolean = true,
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
+    @SerialName("subtitle_style") val subtitleStyle: SubtitleStyle = SubtitleStyle(),
+)
+
+/** The profile's subtitle look (set on the web); "" means the default of each. */
+@Serializable
+data class SubtitleStyle(
+    /** small, medium, large or huge. */
+    val size: String = "",
+    /** white or yellow. */
+    val color: String = "",
+    /** box (translucent, the default), solid or none. */
+    val background: String = "",
+    /** bottom or top. */
+    val position: String = "",
 )
 
 /** GET /search: best matches first in each group. Collections and genres aren't shown on the TV yet. */
@@ -378,8 +392,15 @@ data class SeasonsResponse(
 data class PlayerCaps(
     val containers: List<String>,
     val video: List<String>,
+    /** Sound formats the device decodes itself. */
     val audio: List<String>,
     @SerialName("max_height") val maxHeight: Int,
+    /** Sound formats the TV or receiver takes as they are (HDMI passthrough): direct play only. */
+    @SerialName("audio_passthrough") val audioPassthrough: List<String> = emptyList(),
+    /** HDR the screen shows (hdr10, hlg, hdr10_plus, dolby_vision); null when the device can't tell. */
+    @SerialName("hdr_formats") val hdrFormats: List<String>? = null,
+    /** Dolby Vision profiles the decoder plays (e.g. 5, 8); null when unknown. */
+    @SerialName("dolby_vision_profiles") val dolbyVisionProfiles: List<Int>? = null,
 )
 
 @Serializable

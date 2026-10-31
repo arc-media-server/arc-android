@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,7 +56,6 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.ui.components.requestWhenReady
@@ -325,7 +323,18 @@ private fun ActionButton(icon: ImageVector, label: String, primary: Boolean = fa
     if (primary) {
         Button(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding, content = content)
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding, content = content)
+        // Filled like the round Watched/Watchlist/More buttons beside it, not just outlined,
+        // so it reads over bright artwork too.
+        Button(
+            onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+            colors = ButtonDefaults.colors(
+                containerColor = ArcColors.Surface3.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                focusedContainerColor = Color.White,
+                focusedContentColor = Color.Black,
+            ),
+            content = content,
+        )
     }
 }
 
@@ -397,8 +406,12 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
             if (!ep.available) stringResource(R.string.details_missing) else null,
         ).joinToString(" · ")
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted)
-        if (focused && !ep.overview.isNullOrBlank()) {
-            Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(max = 40.dp))
+        // The focused episode's description has its room kept, so showing it doesn't push the
+        // cast and everything under the episodes down.
+        Box(Modifier.height(40.dp)) {
+            if (focused && !ep.overview.isNullOrBlank()) {
+                Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }

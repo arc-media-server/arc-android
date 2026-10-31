@@ -242,6 +242,13 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                     subtitleView?.withAssSupport(vm.ass)
                 }
             },
+            // Text subtitles in the profile's style, not Android's caption settings (a black box).
+            update = { view ->
+                view.subtitleView?.apply {
+                    setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+                    setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
+                }
+            },
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize(),
         )
