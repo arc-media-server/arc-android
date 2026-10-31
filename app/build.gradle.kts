@@ -24,7 +24,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks and optimises the code: Compose is several times faster than in a
+            // debug build, which matters on slow TV boxes (Chromecast with Google TV).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // No release keys in git: release builds are signed with the debug key until the
             // project has a signing setup of its own.
             signingConfig = signingConfigs.getByName("debug")
