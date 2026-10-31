@@ -252,6 +252,17 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize(),
         )
+        // Text subtitles the app loads itself, on their own view so the player never clears them.
+        val cues by vm.cues.collectAsStateWithLifecycle()
+        AndroidView(
+            factory = { ctx -> androidx.media3.ui.SubtitleView(ctx) },
+            update = { view ->
+                view.setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+                view.setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
+                view.setCues(cues)
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
         when {
             state.stopped != null -> StoppedPane(state.stopped!!, onClose)
             state.error != null -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f))) {
