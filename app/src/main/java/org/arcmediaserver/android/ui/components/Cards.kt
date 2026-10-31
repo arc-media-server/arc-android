@@ -1,5 +1,8 @@
 package org.arcmediaserver.android.ui.components
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -58,8 +61,8 @@ val LocalImageUrl = compositionLocalOf<(String) -> String> { { it } }
 interface CardMenu {
     /** The title as it is now, with changes made in the app. */
     fun current(item: Item): Item
-    /** Opens [item]'s menu; [onClose] puts the focus back on the card. */
-    fun open(item: Item, onClose: () -> Unit)
+    /** Opens [item]'s menu beside [anchor] (the card, in root coordinates); [onClose] puts the focus back on the card. */
+    fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null)
     /** Play Next ([next]) or Add to Queue, with a note of what happened; null when the server keeps no queue. */
     val queue: ((item: Item, next: Boolean) -> Unit)? get() = null
 }
@@ -94,8 +97,8 @@ fun Artwork(url: String?, label: String, modifier: Modifier = Modifier, contentS
 }
 
 /**
- * A focusable card: it grows a little, takes an accent outline and a soft glow when focused,
- * as cards do on Google TV and in Plex.
+ * A focusable card: it grows a little, takes a white outline and a dark shadow when focused, as
+ * cards do in the Apple TV app (no coloured glow, owner, 31 October).
  */
 @Composable
 fun FocusCard(
@@ -112,7 +115,7 @@ fun FocusCard(
         shape = CardDefaults.shape(CardShape),
         scale = CardDefaults.scale(focusedScale = 1.08f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, ArcColors.Foreground), shape = CardShape)),
-        glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = ArcColors.AccentStrong.copy(alpha = 0.55f), elevation = 18.dp)),
+        glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = Color.Black.copy(alpha = 0.55f), elevation = 18.dp)),
         colors = CardDefaults.colors(containerColor = ArcColors.Surface, focusedContainerColor = ArcColors.Surface),
     ) {
         Box(Modifier.fillMaxWidth()) { content() }
@@ -215,11 +218,13 @@ fun MediaCardView(
     val cardWidth: Dp = width ?: if (landscape) ThumbWidth else PosterWidth
     Column(modifier.width(cardWidth)) {
         val self = remember { androidx.compose.ui.focus.FocusRequester() }
+        // Where the card is, so its menu opens beside it.
+        val bounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
         FocusCard(
             onClick = onClick,
-            modifier = Modifier.focusRequester(self),
+            modifier = Modifier.focusRequester(self).onGloballyPositioned { bounds[0] = it.boundsInRoot() },
             onFocused = { focused = it },
-            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item) { runCatching { self.requestFocus() } } } },
+            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item, { runCatching { self.requestFocus() } }, bounds[0]) } },
         ) {
             if (backdrop) {
                 BackdropArt(card)

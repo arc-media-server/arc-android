@@ -92,22 +92,29 @@ fun MoreMenu(
     onClose: () -> Unit,
     /** Play Next ([true]) or Add to Queue; null when this server keeps no queue. */
     onQueue: ((next: Boolean) -> Unit)? = null,
+    /** The opener (a card or the ⋯ button), in root coordinates: the menu opens beside it. */
+    anchor: androidx.compose.ui.geometry.Rect? = null,
 ) {
     val first = remember { FocusRequester() }
-    Overlay(420.dp, onBack = onClose) {
-        Text(item.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(12.dp))
-        MenuItem(ArcIcons.CircleCheck, stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched), Modifier.focusRequester(first)) { onWatched(); onClose() }
+    // The Apple TV app's floating menu beside the opener (owner, 31 October).
+    org.arcmediaserver.android.ui.components.Popover(anchor = anchor, onClose = onClose, title = item.title) {
+        org.arcmediaserver.android.ui.components.PopoverItem(
+            stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched),
+            if (item.watched) ArcIcons.CircleCheck else ArcIcons.Check, focus = first,
+        ) { onWatched(); onClose() }
         if (item.canWatchlist) {
-            MenuItem(if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark, stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist)) { onWatchlist(); onClose() }
+            org.arcmediaserver.android.ui.components.PopoverItem(
+                stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist),
+                if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark,
+            ) { onWatchlist(); onClose() }
         }
         // The web's queue choices, for what can be played (a show queues its episodes).
         if (onQueue != null && item.queueable) {
-            MenuItem(ArcIcons.ListStart, stringResource(R.string.queue_play_next)) { onQueue(true); onClose() }
-            MenuItem(ArcIcons.ListVideo, stringResource(R.string.queue_add)) { onQueue(false); onClose() }
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
         }
         if (item.files.isNotEmpty()) {
-            MenuItem(ArcIcons.Info, stringResource(R.string.media_info)) { onMediaInfo() }
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.media_info), ArcIcons.Info) { onMediaInfo() }
         }
     }
     LaunchedEffect(Unit) { first.requestWhenReady() }

@@ -137,7 +137,7 @@ class ScreenshotTest {
         // On a server that keeps play queues: Play Next and Add to Queue.
         val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
             override fun current(item: Item) = item
-            override fun open(item: Item, onClose: () -> Unit) = Unit
+            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?) = Unit
             override val queue: ((Item, Boolean) -> Unit)? = { _, _ -> }
         }
         androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
@@ -170,6 +170,25 @@ class ScreenshotTest {
             onSwitchProfile = {}, onSignOut = {},
             drawerValue = if (drawerOpen) androidx.tv.material3.DrawerValue.Open else androidx.tv.material3.DrawerValue.Closed,
             searchContent = search,
+        )
+    }
+
+    @Test
+    fun settings() = shot("settings") {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(
+                prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs(audioLanguage = "eng", subtitleMode = "foreign", autoSkip = true)),
+                serverName = "Living Room Arc",
+            ),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
+        )
+    }
+
+    @Test
+    fun settingsLanguage() = shot("settings-language", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + androidx.compose.ui.input.key.Key.DirectionCenter) {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs(audioLanguage = "eng"))),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
         )
     }
 

@@ -129,6 +129,9 @@ class ArcApi(
     suspend fun updatePrefs(changes: Map<String, String>): Prefs =
         send("PATCH", "me/prefs", JsonObject(changes.mapValues { JsonPrimitive(it.value) }).toString(), Prefs.serializer())
 
+    /** Changes only the preferences in [changes], which may be any JSON (auto_play, subtitle_style). */
+    suspend fun updatePrefs(changes: JsonObject): Prefs = send("PATCH", "me/prefs", changes.toString(), Prefs.serializer())
+
     suspend fun search(query: String): SearchResults = get("search?q=${enc(query)}", SearchResults.serializer(), route = "search")
 
     suspend fun person(id: Long): PersonPage = get("people/$id", PersonPage.serializer(), route = "people/{id}")

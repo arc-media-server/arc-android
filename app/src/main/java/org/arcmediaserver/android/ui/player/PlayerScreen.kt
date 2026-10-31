@@ -1,5 +1,15 @@
 package org.arcmediaserver.android.ui.player
 
+import androidx.compose.foundation.layout.heightIn
+
+import androidx.compose.animation.slideOutVertically
+
+import androidx.compose.animation.slideInVertically
+
+import androidx.compose.foundation.layout.PaddingValues
+
+import androidx.compose.ui.draw.shadow
+
 import io.github.peerless2012.ass.media.kt.withAssSupport
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
@@ -140,7 +150,17 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
     // goes straight on, Cancel lets the credits play (or, at the end, closes the player, as Plex).
     var upNextIn by remember { mutableStateOf<Int?>(null) }
     var creditsOffered by remember { mutableStateOf(false) }
-    val inCredits = state.plan?.let { skippable(it.markers, state.positionMs) }?.kind == "credits"
+    val atMarker = state.plan?.let { skippable(it.markers, state.positionMs) }
+    val inCredits = atMarker?.kind == "credits"
+    // Skip Intros Automatically (Settings): each intro and recap is skipped once, as the web player.
+    val autoSkipped = remember { mutableSetOf<Long>() }
+    LaunchedEffect(atMarker?.startMs, state.autoSkip) {
+        val m = atMarker ?: return@LaunchedEffect
+        if (state.autoSkip && (m.kind == "intro" || m.kind == "recap") && autoSkipped.add(m.startMs)) {
+            org.arcmediaserver.android.data.ArcLog.Android.info("player: skipped the ${m.kind} automatically")
+            vm.seekTo(m.endMs)
+        }
+    }
     LaunchedEffect(inCredits, state.next) {
         if (inCredits && UpNext.atCredits(state.next, state.autoPlay, creditsOffered)) {
             creditsOffered = true
@@ -368,48 +388,54 @@ fun PlayerControls(
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize()) {
-                // Top: what's playing, and Close.
-                Box(Modifier.fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent))))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 32.dp), verticalAlignment = Alignment.Top) {
-                    val item = state.item
-                    Column(Modifier.weight(1f)) {
-                        if (item != null) {
-                            Text(item.title, style = MaterialTheme.typography.headlineSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            val sub = if (item.isEpisode) listOfNotNull(item.seriesTitle, episodeCode(item)).joinToString(" · ") else item.year?.toString()
-                            if (!sub.isNullOrEmpty()) Text(sub, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.6f))
+                // As the Apple TV app's player (owner, 31 October): what's playing at the bottom
+                // left, the buttons in a row of round glass buttons at the bottom right with the
+                // focused one named above them, then a thin white bar with the time played and left.
+                // Back closes the player.
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.85f)))))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 24.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        val item = state.item
+                        Column(Modifier.weight(1f).padding(end = 20.dp)) {
+                            if (item != null) {
+                                val sub = if (item.isEpisode) listOfNotNull(item.seriesTitle, episodeCode(item)).joinToString(" · ") else item.year?.toString()
+                                if (!sub.isNullOrEmpty()) Text(sub, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Box(Modifier.height(20.dp)) {
+                                focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1) }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                val playLabel = stringResource(if (state.playing) R.string.player_pause else R.string.player_play)
+                                ControlButton(if (state.playing) ArcIcons.Pause else ArcIcons.Play, playLabel, onPlayPause, Modifier.focusRequester(playFocus), onLabel = { focusedLabel = it })
+                                state.next?.let { next ->
+                                    ControlButton(ArcIcons.SkipForward, stringResource(R.string.player_next_title, next.title), onNext, onLabel = { focusedLabel = it })
+                                }
+                                ControlButton(ArcIcons.RotateCcw, stringResource(R.string.player_back_10), onBack10, onLabel = { focusedLabel = it })
+                                ControlButton(ArcIcons.RotateCw, stringResource(R.string.player_forward_10), onForward10, onLabel = { focusedLabel = it })
+                                Spacer(Modifier.width(8.dp))
+                                if (plan != null) {
+                                    if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { open(PlayerMenu.Audio) }, menuButton(PlayerMenu.Audio), onLabel = { focusedLabel = it })
+                                    if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { open(PlayerMenu.Subtitles) }, menuButton(PlayerMenu.Subtitles), onLabel = { focusedLabel = it })
+                                    if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { open(PlayerMenu.Version) }, menuButton(PlayerMenu.Version), onLabel = { focusedLabel = it })
+                                    ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { open(PlayerMenu.Quality) }, menuButton(PlayerMenu.Quality), onLabel = { focusedLabel = it })
+                                    if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { open(PlayerMenu.Chapters) }, menuButton(PlayerMenu.Chapters), onLabel = { focusedLabel = it })
+                                }
+                                ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { open(PlayerMenu.Speed) }, menuButton(PlayerMenu.Speed), onLabel = { focusedLabel = it })
+                                if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { open(PlayerMenu.Info) }, menuButton(PlayerMenu.Info), onLabel = { focusedLabel = it })
+                            }
                         }
                     }
-                    ControlButton(ArcIcons.Close, stringResource(R.string.player_close_player), onClose, onLabel = { focusedLabel = it })
-                }
-                // Bottom: timeline and buttons.
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(0.45f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f), Color.Black.copy(alpha = 0.8f)))))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 28.dp)) {
+                    Spacer(Modifier.height(10.dp))
                     Timeline(state, scrubMs, onScrub, plan?.chapters.orEmpty())
-                    Spacer(Modifier.height(12.dp))
-                    Box(Modifier.fillMaxWidth().height(20.dp)) {
-                        focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f)) }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val playLabel = stringResource(if (state.playing) R.string.player_pause else R.string.player_play)
-                        ControlButton(if (state.playing) ArcIcons.Pause else ArcIcons.Play, playLabel, onPlayPause, Modifier.focusRequester(playFocus), onLabel = { focusedLabel = it })
-                        state.next?.let { next ->
-                            ControlButton(ArcIcons.SkipForward, stringResource(R.string.player_next_title, next.title), onNext, onLabel = { focusedLabel = it })
-                        }
-                        ControlButton(ArcIcons.RotateCcw, stringResource(R.string.player_back_10), onBack10, onLabel = { focusedLabel = it })
-                        ControlButton(ArcIcons.RotateCw, stringResource(R.string.player_forward_10), onForward10, onLabel = { focusedLabel = it })
-                        Spacer(Modifier.width(8.dp))
-                        Text(clock(scrubMs ?: state.positionMs), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
-                        Text(" / " + if (state.durationMs > 0) clock(state.durationMs) else "–:––", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.4f))
+                    Row(Modifier.fillMaxWidth()) {
+                        val at = scrubMs ?: state.positionMs
+                        Text(clock(at), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
                         Spacer(Modifier.weight(1f))
-                        if (plan != null) {
-                            if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { open(PlayerMenu.Audio) }, menuButton(PlayerMenu.Audio), onLabel = { focusedLabel = it })
-                            if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { open(PlayerMenu.Subtitles) }, menuButton(PlayerMenu.Subtitles), onLabel = { focusedLabel = it })
-                            if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { open(PlayerMenu.Version) }, menuButton(PlayerMenu.Version), onLabel = { focusedLabel = it })
-                            ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { open(PlayerMenu.Quality) }, menuButton(PlayerMenu.Quality), onLabel = { focusedLabel = it })
-                            if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { open(PlayerMenu.Chapters) }, menuButton(PlayerMenu.Chapters), onLabel = { focusedLabel = it })
-                        }
-                        ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { open(PlayerMenu.Speed) }, menuButton(PlayerMenu.Speed), onLabel = { focusedLabel = it })
-                        if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { open(PlayerMenu.Info) }, menuButton(PlayerMenu.Info), onLabel = { focusedLabel = it })
+                        Text(if (state.durationMs > 0) "-" + clock((state.durationMs - at).coerceAtLeast(0)) else "–:––", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
                     }
                 }
             }
@@ -445,10 +471,10 @@ fun PlayerControls(
     }
 }
 
-/** A round icon button; its label shows above the row while it has the focus. */
+/** A round glass button; its label shows above the row while it has the focus. */
 @Composable
 private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, onLabel: (String?) -> Unit) =
-    org.arcmediaserver.android.ui.components.RoundIconButton(icon, label, onClick, modifier, onLabel = onLabel)
+    org.arcmediaserver.android.ui.components.RoundIconButton(icon, label, onClick, modifier, size = 34.dp, containerColor = Color.White.copy(alpha = 0.14f), onLabel = onLabel)
 
 /** The chapter at a point, by index. */
 private fun chapterAt(chapters: List<Chapter>, ms: Long): Int = chapters.indexOfLast { it.startMs <= ms }
@@ -476,9 +502,9 @@ private fun Timeline(state: PlayerUiState, scrubMs: Long?, onScrub: (Long) -> Un
         contentAlignment = Alignment.CenterStart,
     ) {
         val h = if (focused) 8.dp else 4.dp
-        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.2f)))
-        Box(Modifier.fillMaxWidth((state.bufferedMs.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.3f)))
-        Box(Modifier.fillMaxWidth((shown.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(ArcColors.Accent))
+        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.25f)))
+        Box(Modifier.fillMaxWidth((state.bufferedMs.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.4f)))
+        Box(Modifier.fillMaxWidth((shown.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(Color.White))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             chapters.drop(1).forEach { c ->
                 Box(Modifier.offset(x = maxWidth * (c.startMs.toFloat() / duration).coerceIn(0f, 1f)).width(2.dp).height(h).background(Color.Black.copy(alpha = 0.6f)))
@@ -486,7 +512,7 @@ private fun Timeline(state: PlayerUiState, scrubMs: Long?, onScrub: (Long) -> Un
             // Scrubbing happens on the focused timeline, so a scrub point also shows its knob.
             if (focused || scrubMs != null) {
                 val x = maxWidth * (shown.toFloat() / duration).coerceIn(0f, 1f)
-                Box(Modifier.offset(x = x - 8.dp).size(16.dp).clip(CircleShape).background(Color.White))
+                Box(Modifier.offset(x = x - 7.dp).size(14.dp).shadow(4.dp, CircleShape).clip(CircleShape).background(Color.White))
                 // While scrubbing: the picture at that point, above the timeline (web Player.tsx Thumb).
                 val thumbs = state.trickplay
                 val frame = if (scrubMs != null && thumbs != null) trickplayFrame(thumbs.info, thumbs.sheets, scrubMs) else null
@@ -534,29 +560,35 @@ fun TrickplayThumb(frame: TrickplayFrame, info: TrickplayInfo, width: androidx.c
 @Composable
 fun UpNextCard(next: Item, seconds: Int, onPlayNow: () -> Unit, onCancel: () -> Unit) {
     val play = remember { FocusRequester() }
+    // A compact card (owner, 31 October: the first was too big), as the TV web app's.
     Box(Modifier.fillMaxSize().padding(end = 48.dp, bottom = 150.dp), contentAlignment = Alignment.BottomEnd) {
         Row(
-            Modifier.width(520.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.82f))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)).padding(16.dp),
+            Modifier.width(360.dp).shadow(24.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)).background(Color(0xE6141416)).padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val card = cardFor(next)
-            Artwork(card.thumb, label = next.title, modifier = Modifier.width(176.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp)))
-            Spacer(Modifier.width(16.dp))
+            Artwork(card.thumb, label = next.title, modifier = Modifier.width(120.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(pluralStringResource(R.plurals.player_up_next_in, seconds, seconds), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f))
-                Spacer(Modifier.height(4.dp))
-                Text(next.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(pluralStringResource(R.plurals.player_up_next_in, seconds, seconds), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.55f))
+                Text(next.title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val sub = listOfNotNull(next.seriesTitle, episodeCode(next)).joinToString(" · ")
-                if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = onPlayNow, modifier = Modifier.focusRequester(play), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                        Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                        Text(stringResource(R.string.player_play_now))
+                if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
+                Spacer(Modifier.height(7.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    val small = PaddingValues(horizontal = 13.dp, vertical = 0.dp)
+                    Button(
+                        onClick = onPlayNow, modifier = Modifier.height(28.dp).focusRequester(play), contentPadding = small,
+                        colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.9f), contentColor = Color.Black, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+                    ) {
+                        Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.size(11.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(stringResource(R.string.player_play_now), style = MaterialTheme.typography.labelMedium)
                     }
-                    OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+                    Button(
+                        onClick = onCancel, modifier = Modifier.height(28.dp), contentPadding = small,
+                        colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+                    ) { Text(stringResource(R.string.action_cancel), style = MaterialTheme.typography.labelMedium) }
                 }
             }
         }
@@ -626,7 +658,7 @@ internal fun PlayerMenuPanel(
     // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
     var shown by remember { mutableStateOf(menu) }
     if (menu != PlayerMenu.None) shown = menu
-    AnimatedVisibility(menu != PlayerMenu.None, enter = slideInHorizontally { it } + fadeIn(), exit = slideOutHorizontally { it } + fadeOut()) {
+    AnimatedVisibility(menu != PlayerMenu.None, enter = slideInVertically { it / 8 } + fadeIn(), exit = slideOutVertically { it / 8 } + fadeOut()) {
         val title: String
         var body: String? = null
         val options: List<Option>
@@ -700,43 +732,19 @@ fun methodLabel(p: PlaybackPlan): Pair<String, String> {
 @Composable
 private fun OptionPanel(title: String, options: List<Option>, body: String?) {
     val focus = remember { FocusRequester() }
-    Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(360.dp).background(ArcColors.Surface.copy(alpha = 0.97f)).padding(horizontal = 20.dp, vertical = 28.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(12.dp))
-            body?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
-                Spacer(Modifier.height(12.dp))
-            }
-            if (options.isEmpty()) {
-                // Playback info has nothing to choose: a focusable close target keeps D-pad focus here.
-                Box(Modifier.focusRequester(focus).focusable())
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(options) { o ->
-                        ListItem(
-                            selected = o.selected,
-                            onClick = o.onClick,
-                            modifier = if (o.selected || o === options.first() && options.none { it.selected }) Modifier.focusRequester(focus) else Modifier,
-                            headlineContent = { Text(o.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            supportingContent = o.detail?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-                            leadingContent = {
-                                Box(Modifier.size(20.dp)) {
-                                    if (o.selected) Icon(ArcIcons.Check, contentDescription = null, tint = ArcColors.Accent, modifier = Modifier.size(20.dp))
-                                }
-                            },
-                            colors = ListItemDefaults.colors(
-                                containerColor = Color.Transparent,
-                                selectedContainerColor = Color.Transparent,
-                                focusedContainerColor = ArcColors.Surface3,
-                                contentColor = ArcColors.Foreground,
-                                selectedContentColor = ArcColors.Foreground,
-                                focusedContentColor = ArcColors.Foreground,
-                            ),
-                        )
-                    }
+    // The Apple TV app's floating list, over the controls' buttons (owner, 31 October).
+    MenuFloat(380.dp) {
+        PanelHeading(title, body)
+        if (options.isEmpty()) {
+            // Playback info has nothing to choose: a focusable close target keeps D-pad focus here.
+            Box(Modifier.focusRequester(focus).focusable())
+        } else {
+            LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                items(options) { o ->
+                    val first = o.selected || o === options.first() && options.none { it.selected }
+                    org.arcmediaserver.android.ui.components.PopoverItem(
+                        o.name, if (o.selected) ArcIcons.Check else null, o.detail, focus = if (first) focus else null, onClick = o.onClick,
+                    )
                 }
             }
         }
@@ -744,11 +752,27 @@ private fun OptionPanel(title: String, options: List<Option>, body: String?) {
     LaunchedEffect(title) { focus.requestWhenReady() }
 }
 
-/**
- * Stats for nerds: what the player is really doing, as labelled rows. The video line names the
- * format the decoder is fed (Dolby Vision shows its profile, e.g. dvhe.08.06), so a Dolby Vision
- * title that falls back to HDR10 says so here.
- */
+/** A player menu's floating panel, at the bottom right above the controls' buttons. */
+@Composable
+private fun MenuFloat(width: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Box(Modifier.fillMaxSize().padding(end = 48.dp, bottom = 120.dp), contentAlignment = Alignment.BottomEnd) {
+        Column(
+            modifier.width(width)
+                .shadow(30.dp, RoundedCornerShape(18.dp))
+                .background(org.arcmediaserver.android.ui.components.PopoverColor, RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                .padding(7.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun PanelHeading(title: String, body: String?) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 11.dp, end = 11.dp, top = 5.dp, bottom = 6.dp))
+    body?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, modifier = Modifier.padding(start = 11.dp, end = 11.dp, bottom = 6.dp)) }
+}
+
 @Composable
 internal fun statsRows(
     state: PlayerUiState,
@@ -800,24 +824,16 @@ internal fun statsRows(
 @Composable
 internal fun StatsPanel(title: String, body: String?, rows: List<Pair<String, String>>) {
     val focus = remember { FocusRequester() }
-    Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(440.dp).background(ArcColors.Surface.copy(alpha = 0.97f)).padding(horizontal = 24.dp, vertical = 28.dp)
-                .focusRequester(focus).focusable(),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            body?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
-            }
-            Spacer(Modifier.height(18.dp))
-            rows.forEach { (label, value) ->
-                Row(Modifier.padding(vertical = 5.dp)) {
-                    Text(label, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted, modifier = Modifier.width(130.dp))
-                    Text(value, style = MaterialTheme.typography.bodyMedium)
-                }
+    MenuFloat(440.dp, Modifier.focusRequester(focus).focusable()) {
+        PanelHeading(title, body)
+        Spacer(Modifier.height(4.dp))
+        rows.forEach { (label, value) ->
+            Row(Modifier.padding(horizontal = 11.dp, vertical = 3.dp)) {
+                Text(label, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, modifier = Modifier.width(120.dp))
+                Text(value, style = MaterialTheme.typography.bodySmall)
             }
         }
+        Spacer(Modifier.height(6.dp))
     }
     LaunchedEffect(Unit) { focus.requestWhenReady() }
 }

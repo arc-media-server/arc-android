@@ -105,6 +105,7 @@ sealed interface Section {
     data object Search : Section
     data class Library(val id: Long) : Section
     data object Watchlist : Section
+    data object Settings : Section
 }
 
 data class BrowseUiState(

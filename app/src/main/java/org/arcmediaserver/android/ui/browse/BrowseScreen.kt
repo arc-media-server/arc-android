@@ -1,5 +1,11 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.ui.draw.clip
+
+import androidx.compose.ui.draw.shadow
+
+import androidx.compose.foundation.border
+
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.layout.aspectRatio
@@ -113,6 +119,7 @@ fun BrowseRoute(
     onSignedOut: () -> Unit,
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
+    onSwitchServer: () -> Unit = onSignedOut,
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -140,6 +147,7 @@ fun BrowseRoute(
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
         onPlayQueued = onPlayQueued,
+        settingsContent = { org.arcmediaserver.android.ui.settings.SettingsRoute(onSignedOut = onSignedOut, onSwitchServer = onSwitchServer) },
     )
 }
 
@@ -162,6 +170,7 @@ fun BrowseScreen(
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
+    settingsContent: @Composable () -> Unit = {},
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
@@ -171,7 +180,7 @@ fun BrowseScreen(
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
                 drawerState = drawer,
-                scrimBrush = Brush.horizontalGradient(listOf(ArcColors.Background.copy(alpha = 0.92f), Color.Transparent)),
+                scrimBrush = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Black.copy(alpha = 0.25f))),
                 drawerContent = { value ->
                     Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut)
                 },
@@ -184,6 +193,7 @@ fun BrowseScreen(
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued)
                             Section.Search -> searchContent()
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
+                            Section.Settings -> settingsContent()
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
                         }
                     }
@@ -194,8 +204,10 @@ fun BrowseScreen(
 }
 
 /**
- * The left rail, as in Plex and Google TV: icons that open into labels when focused. Entries are
- * compact (40dp, as Google TV's own menu) so ten or so libraries fit without scrolling.
+ * The sidebar, as the Apple TV app's (owner, 31 October): closed, a column of small icons; open,
+ * a floating rounded panel over the page with the profile and the time at the top, then Search,
+ * Home and the libraries, and Settings at the foot. Entries are compact (34dp) so ten or so
+ * libraries fit without scrolling.
  */
 @Composable
 private fun NavigationDrawerScope.Sidebar(
@@ -206,69 +218,129 @@ private fun NavigationDrawerScope.Sidebar(
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxHeight().width(IntrinsicSize.Max).background(if (value == DrawerValue.Open) ArcColors.Surface else Color.Transparent).padding(12.dp).selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Box(Modifier.padding(start = 8.dp, top = 12.dp, bottom = 16.dp)) {
-            Icon(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), tint = Color.Unspecified, modifier = Modifier.size(28.dp))
+    val open = value == DrawerValue.Open
+    val panel = RoundedCornerShape(24.dp)
+    // As the Apple TV app: the panel grows out, the icons ride out with its edge and the names
+    // slide in beside them (owner, 31 October).
+    val width by androidx.compose.animation.core.animateDpAsState(if (open) 220.dp else 52.dp, SidebarEasing, label = "width")
+    val shown by androidx.compose.animation.core.animateFloatAsState(if (open) 1f else 0f, SidebarEasingF, label = "panel")
+    Box(Modifier.fillMaxHeight().padding(12.dp)) {
+        Column(
+            Modifier
+                .fillMaxHeight()
+                .width(width)
+                .shadow(30.dp * shown, panel)
+                .background(SidebarColor.copy(alpha = SidebarColor.alpha * shown), panel)
+                .border(1.dp, Color.White.copy(alpha = 0.08f * shown), panel)
+                .clip(panel)
+                .padding(horizontal = 6.dp, vertical = 10.dp)
+                .selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            val profile = frame.profile
+            if (profile != null && frame.canSwitchProfile) {
+                // The profile and the time, at the top as the Apple TV app's; choosing it switches profile.
+                SidebarEntry(
+                    leading = { Avatar(profile, 22.dp) },
+                    label = profile.name,
+                    extra = { SidebarClock() },
+                    selected = false,
+                    onClick = onSwitchProfile,
+                )
+            } else {
+                // A friend's TV has no profile picker, so keeps Sign Out here.
+                SidebarItem(ArcIcons.SignOut, stringResource(R.string.nav_sign_out), false, onSignOut)
+            }
+            Spacer(Modifier.height(12.dp))
+            SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
+            SidebarItem(ArcIcons.Home, stringResource(R.string.nav_home), section == Section.Home) { onSection(Section.Home) }
+            // The Watchlist sits among the libraries where the profile put it (as Plex pins it).
+            val watchlist: @Composable () -> Unit = {
+                SidebarItem(ArcIcons.Bookmark, stringResource(R.string.row_watchlist), section == Section.Watchlist) { onSection(Section.Watchlist) }
+            }
+            frame.libraries.forEachIndexed { i, lib ->
+                if (i == frame.watchlistAt) watchlist()
+                SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
+            }
+            if (frame.watchlistAt >= frame.libraries.size) watchlist()
+            Spacer(Modifier.weight(1f))
+            SidebarItem(ArcIcons.Settings, stringResource(R.string.nav_settings), section == Section.Settings) { onSection(Section.Settings) }
         }
-        SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
-        SidebarItem(ArcIcons.Home, stringResource(R.string.nav_home), section == Section.Home) { onSection(Section.Home) }
-        // The Watchlist sits among the libraries where the profile put it (as Plex pins it).
-        val watchlist: @Composable () -> Unit = {
-            SidebarItem(ArcIcons.Bookmark, stringResource(R.string.row_watchlist), section == Section.Watchlist) { onSection(Section.Watchlist) }
-        }
-        frame.libraries.forEachIndexed { i, lib ->
-            if (i == frame.watchlistAt) watchlist()
-            SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
-        }
-        if (frame.watchlistAt >= frame.libraries.size) watchlist()
-        Spacer(Modifier.weight(1f))
-        val profile = frame.profile
-        if (profile != null && frame.canSwitchProfile) {
-            SidebarEntry(
-                leading = { Avatar(profile, 22.dp) },
-                label = profile.name,
-                sub = stringResource(R.string.nav_switch_profile),
-                selected = false,
-                onClick = onSwitchProfile,
-            )
-        }
-        // Sign Out is on the profile picker (as Plex); a friend's TV has no picker, so keeps it here.
-        if (!frame.canSwitchProfile) SidebarItem(ArcIcons.SignOut, stringResource(R.string.nav_sign_out), false, onSignOut)
     }
+}
+
+/** The open sidebar's colour: a near-opaque grey panel, as the Apple TV app's. */
+private val SidebarColor = Color(0xF724242C)
+private val SidebarCurve = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0.9f, 0.3f, 1f)
+private val SidebarEasing = androidx.compose.animation.core.tween<Dp>(320, easing = SidebarCurve)
+private val SidebarEasingF = androidx.compose.animation.core.tween<Float>(320, easing = SidebarCurve)
+
+/** The time, beside the profile's name, updated each minute. */
+@Composable
+private fun SidebarClock() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000 - now % 60_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    Text(android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(now)), style = MaterialTheme.typography.labelMedium)
 }
 
 @Composable
 private fun NavigationDrawerScope.SidebarItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) =
-    SidebarEntry({ Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) }, label, null, selected, onClick)
+    SidebarEntry({ Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) }, label, null, selected, onClick)
 
 /**
- * One sidebar entry, 40dp tall (48dp with a second line): the icon alone while the rail is closed,
- * the label beside it once it opens. Drawn here because Compose for TV's drawer item is 56dp.
+ * One sidebar entry, 34dp tall: the icon alone while the sidebar is closed, the label beside it
+ * (and [extra], dimmed, on the right) once it opens. Drawn here because Compose for TV's drawer
+ * item is 56dp.
  */
 @Composable
-private fun NavigationDrawerScope.SidebarEntry(leading: @Composable () -> Unit, label: String, sub: String?, selected: Boolean, onClick: () -> Unit) {
+private fun NavigationDrawerScope.SidebarEntry(
+    leading: @Composable () -> Unit,
+    label: String,
+    extra: (@Composable () -> Unit)?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     androidx.tv.material3.Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(if (sub != null) 48.dp else 40.dp),
+        modifier = Modifier.fillMaxWidth().height(34.dp),
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) ArcColors.Surface3 else Color.Transparent,
+            containerColor = if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
             contentColor = if (selected) ArcColors.Foreground else ArcColors.Muted,
             focusedContainerColor = ArcColors.Foreground,
             focusedContentColor = ArcColors.Background,
         ),
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { leading() }
-            if (hasFocus) {
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.padding(end = 8.dp)) {
-                    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.7f))
+        val open = hasFocus
+        val inset by androidx.compose.animation.core.animateDpAsState(if (open) 15.dp else 10.dp, SidebarEasing, label = "inset")
+        val slide by androidx.compose.animation.core.animateDpAsState(if (open) 0.dp else (-20).dp, SidebarEasing, label = "slide")
+        val fade by androidx.compose.animation.core.animateFloatAsState(
+            if (open) 1f else 0f,
+            if (open) androidx.compose.animation.core.tween(220, delayMillis = 60) else androidx.compose.animation.core.tween(120),
+            label = "fade",
+        )
+        Row(Modifier.fillMaxSize().padding(start = inset, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) { leading() }
+            if (open || fade > 0f) {
+                Row(
+                    Modifier.weight(1f).graphicsLayer { alpha = fade; translationX = slide.toPx() },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(Modifier.width(11.dp))
+                    Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip, modifier = Modifier.weight(1f))
+                    if (extra != null) {
+                        Spacer(Modifier.width(6.dp))
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            androidx.tv.material3.LocalContentColor provides androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.6f),
+                        ) { extra() }
+                    }
                 }
             }
         }
