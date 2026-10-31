@@ -373,7 +373,7 @@ private fun PlayPill(label: String, modifier: Modifier = Modifier, onClick: () -
 
 /** The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled. */
 @Composable
-private fun HeroBackdrop(item: Item, dim: Boolean) {
+internal fun HeroBackdrop(item: Item, dim: Boolean) {
     val url = org.arcmediaserver.android.ui.browse.backdropOf(item)
     val resolve = org.arcmediaserver.android.ui.components.LocalImageUrl.current
     val dimAlpha by androidx.compose.animation.core.animateFloatAsState(if (dim) 0.82f else 0f, label = "dim")
