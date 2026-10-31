@@ -272,6 +272,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                     onMenu = { menu = it },
                     onClose = onClose,
                     upNextShown = upNextIn != null,
+                    menu = menu,
                 )
                 val plan = state.plan
                 if (plan != null) {
@@ -295,7 +296,9 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
             }
         }
     }
-    LaunchedEffect(Unit) { rootFocus.requestWhenReady() }
+    // The player itself takes the keys only while the controls are hidden: on arrival the
+    // controls show and Play has the focus (taking it here too left them unusable).
+    LaunchedEffect(Unit) { if (!controls) rootFocus.requestWhenReady() }
 }
 
 @Composable
@@ -332,9 +335,18 @@ fun PlayerControls(
     onMenu: (PlayerMenu) -> Unit,
     onClose: () -> Unit,
     upNextShown: Boolean = false,
+    /** The menu open over the controls; when it closes, its button has the focus again. */
+    menu: PlayerMenu = PlayerMenu.None,
 ) {
     val plan = state.plan
     val playFocus = remember { FocusRequester() }
+    val menuFocus = remember { mutableMapOf<PlayerMenu, FocusRequester>() }
+    var lastMenu by remember { mutableStateOf<PlayerMenu?>(null) }
+    fun open(m: PlayerMenu) {
+        lastMenu = m
+        onMenu(m)
+    }
+    fun menuButton(m: PlayerMenu) = Modifier.focusRequester(menuFocus.getOrPut(m) { FocusRequester() })
     val skipFocus = remember { FocusRequester() }
     var focusedLabel by remember { mutableStateOf<String?>(null) }
     // While Up Next counts down, its card offers what Play Next would.
@@ -376,14 +388,14 @@ fun PlayerControls(
                         Text(" / " + if (state.durationMs > 0) clock(state.durationMs) else "–:––", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.4f))
                         Spacer(Modifier.weight(1f))
                         if (plan != null) {
-                            if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { onMenu(PlayerMenu.Audio) }, onLabel = { focusedLabel = it })
-                            if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { onMenu(PlayerMenu.Subtitles) }, onLabel = { focusedLabel = it })
-                            if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { onMenu(PlayerMenu.Version) }, onLabel = { focusedLabel = it })
-                            ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { onMenu(PlayerMenu.Quality) }, onLabel = { focusedLabel = it })
-                            if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { onMenu(PlayerMenu.Chapters) }, onLabel = { focusedLabel = it })
+                            if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { open(PlayerMenu.Audio) }, menuButton(PlayerMenu.Audio), onLabel = { focusedLabel = it })
+                            if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { open(PlayerMenu.Subtitles) }, menuButton(PlayerMenu.Subtitles), onLabel = { focusedLabel = it })
+                            if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { open(PlayerMenu.Version) }, menuButton(PlayerMenu.Version), onLabel = { focusedLabel = it })
+                            ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { open(PlayerMenu.Quality) }, menuButton(PlayerMenu.Quality), onLabel = { focusedLabel = it })
+                            if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { open(PlayerMenu.Chapters) }, menuButton(PlayerMenu.Chapters), onLabel = { focusedLabel = it })
                         }
-                        ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { onMenu(PlayerMenu.Speed) }, onLabel = { focusedLabel = it })
-                        if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { onMenu(PlayerMenu.Info) }, onLabel = { focusedLabel = it })
+                        ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { open(PlayerMenu.Speed) }, menuButton(PlayerMenu.Speed), onLabel = { focusedLabel = it })
+                        if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { open(PlayerMenu.Info) }, menuButton(PlayerMenu.Info), onLabel = { focusedLabel = it })
                     }
                 }
             }
@@ -410,6 +422,13 @@ fun PlayerControls(
         }
     }
     LaunchedEffect(visible) { if (visible) playFocus.requestWhenReady() }
+    // A menu closed (a choice made, or Back): back to the button that opened it.
+    LaunchedEffect(menu) {
+        val from = lastMenu ?: return@LaunchedEffect
+        if (menu != PlayerMenu.None) return@LaunchedEffect
+        lastMenu = null
+        if (visible) (menuFocus[from] ?: playFocus).requestWhenReady()
+    }
 }
 
 /** A round icon button; its label shows above the row while it has the focus. */
