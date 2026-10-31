@@ -24,7 +24,16 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.common.text.Cue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Request
+import okhttp3.Response
+import org.arcmediaserver.android.playback.TextSubtitles
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -170,6 +179,12 @@ class PlayerViewModel(
     private val statsCollector = org.arcmediaserver.android.playback.PlaybackStatsCollector().also { player.addAnalyticsListener(it) }
     val stats: StateFlow<org.arcmediaserver.android.playback.PlaybackStats> = statsCollector.stats
 
+    /** Text subtitles the app draws itself (see [TextSubtitles]); ASS/SSA go to libass instead. */
+    private val _cues = MutableStateFlow<List<Cue>>(emptyList())
+    val cues: StateFlow<List<Cue>> = _cues
+    private var textSubtitles: TextSubtitles? = null
+    private var textJob: Job? = null
+
     /** What this TV told Arc it plays, for the stats panel. */
     val caps: PlayerCaps get() = currentCaps
 
@@ -239,6 +254,7 @@ class PlayerViewModel(
             load(startMs)
         }
         viewModelScope.launch { tick() }
+        viewModelScope.launch { drawCues() }
         viewModelScope.launch { keepAlive() }
     }
 
@@ -321,6 +337,7 @@ class PlayerViewModel(
 
     private fun install(p: PlaybackPlan, fileMs: Long, subtitle: SubtitleTrack?) {
         statsCollector.reset()
+        statsCollector.streamKbps = p.sourceKbps
         val builder = MediaItem.Builder().setUri(api.absolute(p.url))
         if (p.hls) {
             builder.setMimeType(MimeTypes.APPLICATION_M3U8)
@@ -328,16 +345,16 @@ class PlayerViewModel(
             // of it at normal speed, rather than racing to its live edge.
             builder.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().setMinPlaybackSpeed(1f).setMaxPlaybackSpeed(1f).build())
         }
-        if (subtitle != null) {
-            val shift = if (p.hls) -p.offsetMs else 0
-            // ASS/SSA as its own script (with the video's fonts) for libass; the rest as WebVTT.
-            val ass = subtitle.codec == "ass" || subtitle.codec == "ssa"
-            val format = if (ass) "ass" else "vtt"
-            val url = api.absolute("/api/items/${enc(itemId)}/subtitles/${enc(subtitle.id)}/$format?file=${p.fileId}&shift_ms=$shift")
+        // ASS/SSA as its own script (with the video's fonts) for libass, which the player loads.
+        // Everything else is WebVTT the app loads and draws itself, so the film never waits for it.
+        val ass = subtitle != null && isAss(subtitle)
+        loadText(p, subtitle.takeUnless { ass })
+        if (subtitle != null && ass) {
+            val url = subtitleUrl(p, subtitle, "ass")
             builder.setSubtitleConfigurations(
                 listOf(
                     MediaItem.SubtitleConfiguration.Builder(Uri.parse(url))
-                        .setMimeType(if (ass) MimeTypes.TEXT_SSA else MimeTypes.TEXT_VTT)
+                        .setMimeType(MimeTypes.TEXT_SSA)
                         .setLanguage(subtitle.language)
                         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
                         .setId("arc-${subtitle.id}")
@@ -346,12 +363,77 @@ class PlayerViewModel(
             )
         }
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, subtitle == null)
-            .apply { if (subtitle != null) setPreferredTextLanguage(subtitle.language) }
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !ass)
+            .apply { if (ass) setPreferredTextLanguage(subtitle!!.language) }
             .build()
         player.setMediaItem(builder.build(), PlaybackClock.playerStart(p, fileMs))
         player.prepare()
         player.playWhenReady = true
+    }
+
+    private fun isAss(t: SubtitleTrack) = t.codec == "ass" || t.codec == "ssa"
+
+    private fun subtitleUrl(p: PlaybackPlan, t: SubtitleTrack, format: String): String {
+        val shift = if (p.hls) -p.offsetMs else 0
+        return api.absolute("/api/items/${enc(itemId)}/subtitles/${enc(t.id)}/$format?file=${p.fileId}&shift_ms=$shift")
+    }
+
+    /**
+     * Loads a text subtitle in the background. Arc may take a while to extract it from the film;
+     * meanwhile the film plays and the subtitles appear once they're here. Tries three times.
+     */
+    private fun loadText(p: PlaybackPlan, track: SubtitleTrack?) {
+        textJob?.cancel()
+        textSubtitles = null
+        _cues.value = emptyList()
+        if (track == null) return
+        val url = subtitleUrl(p, track, "vtt")
+        textJob = viewModelScope.launch {
+            val started = System.currentTimeMillis()
+            for (attempt in 1..3) {
+                try {
+                    val bytes = fetch(url)
+                    val subs = withContext(Dispatchers.Default) { TextSubtitles.parse(bytes) }
+                    textSubtitles = subs
+                    log.info("subtitles loaded: ${subs.size} cues in ${System.currentTimeMillis() - started} ms")
+                    return@launch
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.warn("loading subtitles failed (attempt $attempt): ${e.javaClass.simpleName}")
+                    if (attempt < 3) delay(3_000L * attempt)
+                }
+            }
+        }
+    }
+
+    private suspend fun fetch(url: String): ByteArray = withContext(Dispatchers.IO) {
+        val call = container.mediaClient.newCall(Request.Builder().url(url).build())
+        suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: java.io.IOException) { cont.resumeWith(Result.failure(e)) }
+                override fun onResponse(call: Call, response: Response) {
+                    val result = runCatching {
+                        response.use {
+                            if (!it.isSuccessful) throw java.io.IOException("HTTP ${it.code}")
+                            it.body.bytes()
+                        }
+                    }
+                    cont.resumeWith(result)
+                }
+            })
+        }
+    }
+
+    /** Puts the due text subtitles on screen, ten times a second. */
+    private suspend fun drawCues() {
+        while (currentCoroutineContextActive()) {
+            delay(100)
+            val subs = textSubtitles
+            val now = if (subs == null) emptyList() else subs.cuesAt(player.currentPosition.coerceAtLeast(0) * 1000)
+            if (now != _cues.value) _cues.value = now
+        }
     }
 
     /** The file as it is (or repackaged) didn't play here: ask Arc to do more, once, as the web player does. */
@@ -397,8 +479,11 @@ class PlayerViewModel(
     fun chooseSubtitle(track: SubtitleTrack?) {
         val p = plan ?: return
         rememberedSubtitleLanguage(track, prefs.subtitleMode)?.takeIf { it != prefs.subtitleLanguage }?.let { remember("subtitle_language", it) }
+        val before = _state.value.subtitle
         _state.update { it.copy(subtitle = track) }
-        install(p, position(), track)
+        // Between text subtitles (or off), only the drawn cues change: the film carries on.
+        if ((before == null || !isAss(before)) && (track == null || !isAss(track))) loadText(p, track)
+        else install(p, position(), track)
     }
 
     /** Quality as the web player offers it: -1 Automatic, 0 Original, or a limit in kbit/s. */
