@@ -77,6 +77,7 @@ fun ArcNavHost() {
                         onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
                         onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
                         onSwitchServer = { nav.startAt(ServerDest) },
+                        onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
                     )
                 }
                 composable<CollectionDest> { entry ->

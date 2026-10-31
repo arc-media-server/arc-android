@@ -33,6 +33,15 @@ for the Android TV app to match, sidebar included. The TV web app's screens are 
   thin white bar with time played and time left. Back closes the player (the Close button went,
   as on Apple TV and the TV web app). Its lists and Info are floating panels above the buttons.
   Up Next is a compact card (the owner found the first one too big).
+- **Home hero** (the owner's pick, 31 October). Home opens on a full-screen hero, as the Apple TV
+  app's: the first two titles of each row with artwork (one per title, at most six) take turns,
+  each with its logo, details, labels and description, a Play button (Resume or Play S1 · E3 as
+  the title page says; View for a show) and a round More Info button. Left from Play and Right
+  from More Info move between titles (Left on the first goes on to the sidebar); the next comes by
+  itself every nine seconds while the hero is in view, and dots show which. The rows peek in below
+  and scroll up over a dimmed copy of the artwork, as on a title's page, replacing the one-row band
+  and the backdrop that followed the focused card. Coming back, the focus returns to the row last
+  used.
 
 ## Logging
 

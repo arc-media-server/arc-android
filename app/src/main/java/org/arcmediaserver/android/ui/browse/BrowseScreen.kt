@@ -120,6 +120,7 @@ fun BrowseRoute(
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     onSwitchServer: () -> Unit = onSignedOut,
+    onPlay: (Item, Long) -> Unit = { _, _ -> },
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -148,6 +149,7 @@ fun BrowseRoute(
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
         onPlayQueued = onPlayQueued,
         settingsContent = { org.arcmediaserver.android.ui.settings.SettingsRoute(onSignedOut = onSignedOut, onSwitchServer = onSwitchServer) },
+        onPlay = onPlay,
     )
 }
 
@@ -171,11 +173,13 @@ fun BrowseScreen(
     searchContent: @Composable () -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     settingsContent: @Composable () -> Unit = {},
+    onPlay: (Item, Long) -> Unit = { _, _ -> },
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
+    var homeScrolled by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        // Home's whole-screen backdrop sits behind the sidebar too.
-        if (state.section == Section.Home && state.frame is LoadState.Ready) ImmersiveBackdrop(focusedCard?.item)
+        // Home's whole-screen hero artwork sits behind the sidebar too.
+        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
         Loaded(state.frame, onRetry) { frame ->
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
@@ -190,7 +194,7 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 48.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued)
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued, onScrolled = { homeScrolled = it }, onPlay = onPlay)
                             Section.Search -> searchContent()
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
                             Section.Settings -> settingsContent()
@@ -373,9 +377,12 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
 }
 
 /**
- * Home is immersive, as Google TV's and an item's own page are: the focused title's backdrop
- * fills the screen (fading as the focus moves), its logo (or title), details and a short summary
- * sit at the top left, and the profile's rows run along the lower part. Empty rows are left out.
+ * Home, as the Apple TV app's (owner, 31 October): a full-screen hero of featured titles (the
+ * first two of each row with artwork, one per title, at most six) with Play and More Info; Left
+ * from Play and Right from More Info move between them (Left on the first goes on to the sidebar),
+ * the next comes by itself every nine seconds while the hero is in view, and dots show which. The
+ * profile's rows peek in below and scroll up over a dimmed copy of the artwork. Empty rows are
+ * left out. The TV web app's Home is the same.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -385,9 +392,10 @@ fun HomeContent(
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
+    /** Whether the page has scrolled past the hero (the backdrop dims). */
+    onScrolled: (Boolean) -> Unit = {},
+    onPlay: (Item, Long) -> Unit = { _, _ -> },
 ) {
-
-    var focused by remember { mutableStateOf<MediaCard?>(null) }
     val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
         EmptyHome()
@@ -397,81 +405,198 @@ fun HomeContent(
         LoadingPane()
         return
     }
-    val shown = focused ?: visible.firstNotNullOfOrNull { (it.cards as? LoadState.Ready)?.value?.firstOrNull() }
-    LaunchedEffect(shown?.key) { onFocusedCard(shown) }
+    val heroes = remember(visible) { featured(visible.mapNotNull { (it.cards as? LoadState.Ready)?.value }) }
+    var heroAt by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    val hero = heroes.takeIf { it.isNotEmpty() }?.let { it[heroAt % it.size] }
+    val list = rememberLazyListState()
+    val scrolled by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 40 } }
+    LaunchedEffect(hero?.key) { onFocusedCard(hero) }
+    LaunchedEffect(scrolled) { onScrolled(scrolled) }
+    // The next title comes by itself while the hero is in view.
+    LaunchedEffect(heroAt, scrolled, heroes.size) {
+        if (scrolled || heroes.size < 2) return@LaunchedEffect
+        kotlinx.coroutines.delay(HeroSeconds * 1000L)
+        heroAt = (heroAt + 1) % heroes.size
+    }
+    val play = remember { FocusRequester() }
     val firstCard = remember { FocusRequester() }
-    var focusedOnce by remember { mutableStateOf(false) }
     // The row last focused, kept while away (a title's page, the player), to come back to.
     var lastRow by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
-    val list = rememberLazyListState()
     val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
-    var current by remember { mutableIntStateOf(0) }
-    Box(Modifier.fillMaxSize()) {
-        shown?.let { Overview(it) }
-        val scope = rememberCoroutineScope()
-        // One row at a time, pinned to the bottom (as Plex): the band is exactly one row tall, the
-        // focused row slides into it, and posters carry no captions because the overview above
-        // names whatever has focus.
-        // The band itself moves in whole rows (no margin); each row keeps its cards clear of the edge.
-        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(0.dp)) {
-            // The band shows one row, so focus can't find the next row on its own: Up and Down
-            // slide the neighbouring row in and return to the card last focused there.
-            fun moveTo(step: Int): Boolean {
-                var target = current + step
-                while (target in visible.indices && visible[target].cards is LoadState.Loading) target += step
-                if (target !in visible.indices) return false
-                val requester = rowFocus.getOrPut(visible[target].spec.id) { FocusRequester() }
-                scope.launch {
-                    list.animateScrollToItem(target)
-                    requester.requestWhenReady()
-                }
-                return true
-            }
-            LazyColumn(
-                state = list,
-                userScrollEnabled = false,
-                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 24.dp).fillMaxWidth().height(HomeBandHeight)
-                    .onPreviewKeyEvent { e ->
-                        if (e.type != KeyEventType.KeyDown) false
-                        else when (e.key) {
-                            Key.DirectionDown -> moveTo(1)
-                            Key.DirectionUp -> moveTo(-1)
-                            else -> false
-                        }
-                    },
-            ) {
-                itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
-                    val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged {
-                        if (it.hasFocus) {
-                            current = index
-                            lastRow = row.spec.id
-                        }
-                    }, contentAlignment = Alignment.BottomStart) {
-                        HomeRow(
-                            row,
-                            // A queue card plays on from its entry; every other card opens its title.
-                            onOpen = { card -> card.queueEntryId()?.let { onPlayQueued(card.item, it) } ?: onOpen(card.item) },
-                            onFocused = { focused = it },
-                            onRetry = { onRetryRow(row.spec) },
-                            firstCard = if (isFirst) firstCard else null,
-                            rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
+    val scope = rememberCoroutineScope()
+    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+            if (hero != null) {
+                item(key = "hero") {
+                    Box(
+                        Modifier.fillParentMaxHeight(0.84f).fillMaxWidth().onFocusChanged {
+                            if (it.hasFocus) {
+                                lastRow = null
+                                scope.launch { list.animateScrollToItem(0) }
+                            }
+                        },
+                        contentAlignment = Alignment.BottomStart,
+                    ) {
+                        HomeHero(
+                            hero, heroes.size, heroAt % heroes.size, play,
+                            onStep = { by -> heroAt = (heroAt + by + heroes.size) % heroes.size },
+                            onOpen = { onOpen(hero.item) },
+                            onPlay = onPlay,
                         )
                     }
                 }
             }
+            items(visible, key = { it.spec.id }) { row ->
+                val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
+                Box(Modifier.padding(top = 4.dp).onFocusChanged { if (it.hasFocus) lastRow = row.spec.id }) {
+                    HomeRow(
+                        row,
+                        // A queue card plays on from its entry; every other card opens its title.
+                        onOpen = { card -> card.queueEntryId()?.let { onPlayQueued(card.item, it) } ?: onOpen(card.item) },
+                        onFocused = {},
+                        onRetry = { onRetryRow(row.spec) },
+                        firstCard = if (isFirst) firstCard else null,
+                        rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
+                    )
+                }
+            }
         }
     }
-    // Arriving (or coming back), focus goes to the row last used, or the first, never left in
-    // the sidebar (which would open it). Retried if that row goes (e.g. the queue finished).
+    // Arriving, focus goes to the hero's Play; coming back, to the row last used. Never left in
+    // the sidebar (which would open it).
+    var focusedOnce by remember { mutableStateOf(false) }
     val readyIds = visible.filter { it.cards is LoadState.Ready }.map { it.spec.id }
-    val target = lastRow?.takeIf { it in readyIds } ?: readyIds.firstOrNull()
-    LaunchedEffect(target, focusedOnce) {
-        if (target == null || focusedOnce) return@LaunchedEffect
-        val index = visible.indexOfFirst { it.spec.id == target }
-        if (index > 0) list.scrollToItem(index)
-        current = index.coerceAtLeast(0)
-        focusedOnce = rowFocus.getOrPut(target) { FocusRequester() }.requestWhenReady() || firstCard.requestWhenReady()
+    LaunchedEffect(readyIds.isNotEmpty(), hero != null) {
+        if (focusedOnce || readyIds.isEmpty()) return@LaunchedEffect
+        val back = lastRow?.takeIf { it in readyIds }
+        focusedOnce = if (back != null) {
+            list.scrollToItem(visible.indexOfFirst { it.spec.id == back } + if (hero != null) 1 else 0)
+            rowFocus.getOrPut(back) { FocusRequester() }.requestWhenReady()
+        } else {
+            (hero != null && play.requestWhenReady()) || firstCard.requestWhenReady()
+        }
+    }
+}
+
+private const val HeroMax = 6
+private const val HeroSeconds = 9
+
+/** The hero's titles: the first two of each row with artwork, one per title, at most six. */
+private fun featured(rows: List<List<MediaCard>>): List<MediaCard> {
+    val seen = mutableSetOf<String>()
+    val out = mutableListOf<MediaCard>()
+    for (i in 0 until 2) {
+        for (cards in rows) {
+            val c = cards.getOrNull(i) ?: continue
+            val key = if (c.item.isEpisode) c.item.parentId ?: c.item.id else c.item.id
+            if (backdropOf(c.item) == null || !seen.add(key)) continue
+            out += c
+            if (out.size == HeroMax) return out
+        }
+    }
+    return out
+}
+
+@Composable
+private fun HomeHero(
+    card: MediaCard,
+    count: Int,
+    at: Int,
+    play: FocusRequester,
+    onStep: (Int) -> Unit,
+    onOpen: () -> Unit,
+    onPlay: (Item, Long) -> Unit,
+) {
+    val item = card.item
+    var label by remember { mutableStateOf<String?>(null) }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.align(Alignment.BottomStart).padding(start = 48.dp, end = 48.dp, bottom = 34.dp)) {
+            Crossfade(card.key, animationSpec = tween(400), label = "hero") { _ ->
+                Column(Modifier.widthIn(max = 520.dp)) {
+                    TitleLogo(item, maxHeight = 90.dp, maxWidth = 380.dp, textStyle = MaterialTheme.typography.displayMedium)
+                    Spacer(Modifier.height(10.dp))
+                    val meta = listOfNotNull(
+                        if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
+                        item.year?.toString()?.takeIf { !item.isEpisode },
+                        item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
+                        item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
+                    ).filter { it.isNotBlank() }
+                    // The age rating is among the labels after this line.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (meta.isNotEmpty()) {
+                            Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.75f), maxLines = 1)
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        org.arcmediaserver.android.ui.components.FormatBadges(org.arcmediaserver.android.ui.components.formatLabels(item))
+                    }
+                    item.overview?.takeIf { it.isNotBlank() }?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            val playable = item.playable
+            val resume = item.resumeMs
+            val code = if (item.isEpisode) episodeCode(item) else null
+            val playLabel = when {
+                !playable -> stringResource(R.string.home_hero_view)
+                resume > 0 && code != null -> stringResource(R.string.action_resume_episode, code)
+                resume > 0 -> stringResource(R.string.action_resume, org.arcmediaserver.android.ui.details.clock(resume))
+                code != null -> stringResource(R.string.action_play_episode, code)
+                else -> stringResource(R.string.action_play)
+            }
+            val info = stringResource(R.string.home_hero_info)
+            var onPlayButton by remember { mutableStateOf(false) }
+            var onInfoButton by remember { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                // Left from Play and Right from More Info move between the titles; Left on the
+                // first title goes on to the sidebar.
+                modifier = Modifier.onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown || count < 2) false
+                    else when {
+                        e.key == Key.DirectionLeft && onPlayButton && at > 0 -> { onStep(-1); true }
+                        e.key == Key.DirectionRight && onInfoButton -> { onStep(1); true }
+                        else -> false
+                    }
+                },
+            ) {
+                androidx.tv.material3.Button(
+                    onClick = { if (playable) onPlay(item, resume) else onOpen() },
+                    modifier = Modifier.height(44.dp).focusRequester(play).onFocusChanged { onPlayButton = it.isFocused },
+                    contentPadding = PaddingValues(start = 18.dp, end = 22.dp),
+                    scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.06f),
+                    colors = androidx.tv.material3.ButtonDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.9f), contentColor = Color.Black,
+                        focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+                    ),
+                ) {
+                    Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.size(androidx.tv.material3.ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(androidx.tv.material3.ButtonDefaults.IconSpacing))
+                    Text(playLabel, style = MaterialTheme.typography.titleSmall)
+                }
+                org.arcmediaserver.android.ui.components.RoundIconButton(
+                    ArcIcons.Info, info, onOpen, size = 44.dp, containerColor = Color.White.copy(alpha = 0.16f),
+                    modifier = Modifier.onFocusChanged {
+                        onInfoButton = it.isFocused
+                        label = if (it.isFocused) info else null
+                    },
+                )
+            }
+            Box(Modifier.height(24.dp).padding(top = 6.dp)) {
+                label?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f)) }
+            }
+        }
+        if (count > 1) {
+            Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(count) { i ->
+                    val w by androidx.compose.animation.core.animateDpAsState(if (i == at) 16.dp else 6.dp, label = "dot")
+                    Box(Modifier.width(w).height(6.dp).clip(RoundedCornerShape(3.dp)).background(if (i == at) Color.White else Color.White.copy(alpha = 0.35f)))
+                }
+            }
+        }
     }
 }
 
