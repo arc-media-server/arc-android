@@ -79,6 +79,8 @@ data class PlayerUiState(
      * for the play queue's next title (it was queued on purpose).
      */
     val autoPlay: Boolean = true,
+    /** The profile's subtitle look, for text subtitles. */
+    val subtitleStyle: org.arcmediaserver.android.data.SubtitleStyle = org.arcmediaserver.android.data.SubtitleStyle(),
     /** The playing file's timeline thumbnails, or null when it has none. */
     val trickplay: Trickplay? = null,
 )
@@ -111,10 +113,18 @@ fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null
 @androidx.annotation.OptIn(UnstableApi::class)
 private class ArcSubtitleParsers(private val ass: AssSubtitleParserFactory) : SubtitleParser.Factory {
     private val default = DefaultSubtitleParserFactory()
-    private fun libass(format: Format) = format.sampleMimeType == MimeTypes.TEXT_SSA && format.id?.startsWith("arc-") == true
+    // The id can come back prefixed ("1:arc-…") once Media3 merges the subtitle with the video.
+    private fun libass(format: Format) = format.sampleMimeType == MimeTypes.TEXT_SSA && format.id?.contains("arc-") == true
     override fun supportsFormat(format: Format) = if (libass(format)) ass.supportsFormat(format) else default.supportsFormat(format)
     override fun getCueReplacementBehavior(format: Format) = if (libass(format)) ass.getCueReplacementBehavior(format) else default.getCueReplacementBehavior(format)
-    override fun create(format: Format): SubtitleParser = if (libass(format)) ass.create(format) else default.create(format)
+    override fun create(format: Format): SubtitleParser {
+        if (libass(format)) {
+            ArcLog.Android.info("ASS subtitles drawn by libass")
+            return ass.create(format)
+        }
+        if (format.sampleMimeType == MimeTypes.TEXT_SSA) ArcLog.Android.debug("an ASS track read as plain text (not Arc's)")
+        return default.create(format)
+    }
 }
 
 /**
@@ -163,7 +173,7 @@ class PlayerViewModel(
             // The subtitle the app loaded from Arc is the one shown, not a track of the same
             // language inside the file.
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-                val ours = tracks.groups.firstOrNull { g -> g.type == C.TRACK_TYPE_TEXT && (0 until g.length).any { g.getTrackFormat(it).id?.startsWith("arc-") == true } } ?: return
+                val ours = tracks.groups.firstOrNull { g -> g.type == C.TRACK_TYPE_TEXT && (0 until g.length).any { g.getTrackFormat(it).id?.contains("arc-") == true } } ?: return
                 if (ours.isSelected) return
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .setOverrideForType(androidx.media3.common.TrackSelectionOverride(ours.mediaTrackGroup, 0))
@@ -215,6 +225,7 @@ class PlayerViewModel(
         }
         viewModelScope.launch {
             prefs = loadedPrefs.await()
+            _state.update { it.copy(subtitleStyle = prefs.subtitleStyle) }
             load(startMs)
         }
         viewModelScope.launch { tick() }

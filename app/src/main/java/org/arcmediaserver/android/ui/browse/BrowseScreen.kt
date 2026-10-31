@@ -320,9 +320,13 @@ fun HomeContent(
     LaunchedEffect(shown?.key) { onFocusedCard(shown) }
     val firstCard = remember { FocusRequester() }
     var focusedOnce by remember { mutableStateOf(false) }
+    // The row last focused, kept while away (a title's page, the player), to come back to.
+    var lastRow by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val list = rememberLazyListState()
+    val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
+    var current by remember { mutableIntStateOf(0) }
     Box(Modifier.fillMaxSize()) {
         shown?.let { Overview(it) }
-        val list = rememberLazyListState()
         val scope = rememberCoroutineScope()
         // One row at a time, pinned to the bottom (as Plex): the band is exactly one row tall, the
         // focused row slides into it, and posters carry no captions because the overview above
@@ -331,8 +335,6 @@ fun HomeContent(
         CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(0.dp)) {
             // The band shows one row, so focus can't find the next row on its own: Up and Down
             // slide the neighbouring row in and return to the card last focused there.
-            var current by remember { mutableIntStateOf(0) }
-            val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
             fun moveTo(step: Int): Boolean {
                 var target = current + step
                 while (target in visible.indices && visible[target].cards is LoadState.Loading) target += step
@@ -359,7 +361,12 @@ fun HomeContent(
             ) {
                 itemsIndexed(visible, key = { _, it -> it.spec.id }) { index, row ->
                     val isFirst = row === visible.firstOrNull { it.cards is LoadState.Ready }
-                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged { if (it.hasFocus) current = index }, contentAlignment = Alignment.BottomStart) {
+                    Box(Modifier.height(HomeBandHeight).fillMaxWidth().onFocusChanged {
+                        if (it.hasFocus) {
+                            current = index
+                            lastRow = row.spec.id
+                        }
+                    }, contentAlignment = Alignment.BottomStart) {
                         HomeRow(
                             row,
                             // A queue card plays on from its entry; every other card opens its title.
@@ -374,11 +381,16 @@ fun HomeContent(
             }
         }
     }
-    val ready = visible.any { it.cards is LoadState.Ready }
-    LaunchedEffect(ready) {
-        if (ready && !focusedOnce) {
-            focusedOnce = firstCard.requestWhenReady()
-        }
+    // Arriving (or coming back), focus goes to the row last used, or the first, never left in
+    // the sidebar (which would open it). Retried if that row goes (e.g. the queue finished).
+    val readyIds = visible.filter { it.cards is LoadState.Ready }.map { it.spec.id }
+    val target = lastRow?.takeIf { it in readyIds } ?: readyIds.firstOrNull()
+    LaunchedEffect(target, focusedOnce) {
+        if (target == null || focusedOnce) return@LaunchedEffect
+        val index = visible.indexOfFirst { it.spec.id == target }
+        if (index > 0) list.scrollToItem(index)
+        current = index.coerceAtLeast(0)
+        focusedOnce = rowFocus.getOrPut(target) { FocusRequester() }.requestWhenReady() || firstCard.requestWhenReady()
     }
 }
 

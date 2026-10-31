@@ -110,7 +110,7 @@ class ArcApiTest {
         val req = server.takeRequest()
         assertEquals("/api/v1/items/ep%3A1%3Atvdb%3A2/playback", req.url.encodedPath)
         assertEquals(
-            """{"caps":{"containers":["mp4","mkv"],"video":["h264","hevc"],"audio":["aac","ac3"],"max_height":2160},"start_ms":120000}""",
+            """{"caps":{"containers":["mp4","mkv"],"video":["h264","hevc"],"audio":["aac","ac3"],"max_height":2160,"audio_passthrough":[]},"start_ms":120000}""",
             req.body?.utf8(),
         )
     }

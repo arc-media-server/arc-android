@@ -62,3 +62,27 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
 - The titles tab is called **Library** (Recommended, Library, Collections), as in Plex, instead of
   Movies / Shows / Videos, which repeated the library's own name. The web still says Movies /
   Shows; that's logged on arc-media-server#80.
+
+## Fixes from the first real-TV test (owner, 31 October)
+
+- **Optimised builds.** Release builds go through R8 (19 MB instead of 35 MB). Debug builds
+  lagged badly on a Chromecast with Google TV.
+- **HDR, Dolby Vision and passthrough are reported to Arc.**
+  - `hdr_formats` comes from the display's HDR types; Dolby Vision also needs a decoder.
+  - `dolby_vision_profiles` comes from the decoder's profile flags.
+  - `audio_passthrough` lists TrueHD and DTS by passthrough, which work only when the file plays
+    as it is. Dolby Digital (Plus) by passthrough still counts as playable in converted streams.
+  - A display that reports nothing is sent as unknown, not SDR only, so HDR films aren't converted
+    needlessly.
+- **Subtitles use the profile's style** (colour, box/solid/none, size), as on the web. Before,
+  they used Android's caption settings, which default to a solid black box. ASS/SSA drawn by
+  libass keep their own styling.
+  - The check that sends Arc's ASS script to libass now tolerates the id prefix Media3 can add,
+    and logs which path a subtitle took.
+  - Top position isn't supported yet.
+- **Title page buttons:** Play from Beginning and Shuffle are filled like the round buttons, not
+  outlined.
+- **Episode row:** the focused episode's description has its space kept, so the cast below
+  doesn't jump.
+- **Coming back to Home** returns focus to the row last used (or the first one), so the sidebar
+  no longer opens.
