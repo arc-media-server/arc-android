@@ -91,15 +91,33 @@ data class ProfilesUiState(
     /** Signed in with the password: the admin profile needs no PIN (else it shows a lock, as on the web). */
     val passwordSession: Boolean = true,
     val chosen: Boolean = false,
+    /** The server's name as set in Arc (e.g. "Living Room"), once this TV has learnt it. */
+    val serverName: String? = null,
 )
 
 class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
-    private val _state = MutableStateFlow(ProfilesUiState())
+    private val _state = MutableStateFlow(ProfilesUiState(serverName = container.session.serverName))
     val state: StateFlow<ProfilesUiState> = _state
 
     init {
         load()
+        learnServerName()
     }
+
+    /**
+     * Arc tells its name only once a profile is chosen: kept for this picker next time. Before
+     * then (or from an older Arc) the name last learnt stays.
+     */
+    private fun learnServerName() {
+        val api = container.api() ?: return
+        container.appScope.launch {
+            val name = runCatching { api.identity().name }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+            container.session.serverName = name
+            _state.update { it.copy(serverName = name) }
+        }
+    }
+
+    fun signOut(done: () -> Unit) = container.signOut(done)
 
     fun load() {
         val api = container.api() ?: return
@@ -147,6 +165,8 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             try {
                 api.chooseProfile(profile.id, pin)
+                container.profileChanged()
+                learnServerName()
                 _state.update { it.copy(chosen = true) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -165,7 +185,7 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
 }
 
 @Composable
-fun ProfilesRoute(onChosen: () -> Unit) {
+fun ProfilesRoute(onChosen: () -> Unit, onSignedOut: () -> Unit) {
     val vm = arcViewModel { ProfilesViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.chosen) {
@@ -175,7 +195,7 @@ fun ProfilesRoute(onChosen: () -> Unit) {
         }
     }
     androidx.activity.compose.BackHandler(enabled = state.pin != null) { vm.cancelPin() }
-    ProfilesScreen(state, onChoose = vm::choose, onRetry = vm::load, onDigit = vm::typeDigit, onDelete = vm::deleteDigit, onBack = vm::cancelPin)
+    ProfilesScreen(state, onChoose = vm::choose, onRetry = vm::load, onDigit = vm::typeDigit, onDelete = vm::deleteDigit, onBack = vm::cancelPin, onSignOut = { vm.signOut(onSignedOut) })
 }
 
 /**
@@ -191,6 +211,7 @@ fun ProfilesScreen(
     onDigit: (Char) -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         AuthGlow()
@@ -204,6 +225,11 @@ fun ProfilesScreen(
                 ArcWordmark()
                 Spacer(Modifier.height(28.dp))
                 Text(stringResource(R.string.profiles_title), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 30.sp))
+                // Which server this is, by the name set in Arc's settings.
+                state.serverName?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted)
+                }
                 Spacer(Modifier.height(36.dp))
                 val first = remember { FocusRequester() }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(32.dp), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp)) {
@@ -225,6 +251,10 @@ fun ProfilesScreen(
                 }
                 Spacer(Modifier.height(24.dp))
                 Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Warning, textAlign = TextAlign.Center, modifier = Modifier.width(560.dp))
+                // Signing this TV out lives here, under the profiles, as on Plex: the sidebar
+                // only switches profile.
+                Spacer(Modifier.height(12.dp))
+                androidx.tv.material3.OutlinedButton(onClick = onSignOut) { Text(stringResource(R.string.nav_sign_out)) }
             }
         }
     }

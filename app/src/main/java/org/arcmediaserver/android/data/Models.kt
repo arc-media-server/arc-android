@@ -133,9 +133,17 @@ data class Item(
     val files: List<MediaFile> = emptyList(),
     /** Only on episodes in a season list: whether a file is on disk. */
     val available: Boolean = true,
+    /** Cast and crew, on a movie's or show's own page. */
+    val credits: List<Credit> = emptyList(),
+    /** Trailers, featurettes and the like, played straight from their file. */
+    val extras: List<Extra> = emptyList(),
+    /** The collections it's in, each shown as a row on its page. */
+    val collections: List<CollectionRef> = emptyList(),
 ) {
     val isEpisode get() = kind == "episode"
     val isSeries get() = kind == "series"
+    /** A movie, an episode or a show (its episodes): what a play queue takes. */
+    val queueable get() = kind == "movie" || kind == "episode" || kind == "series"
     val playable get() = kind == "movie" || kind == "episode"
 
     /** How long it runs, as well as Arc knows: the file's length, or the listed runtime. */
@@ -163,7 +171,28 @@ data class Item(
 }
 
 @Serializable
-data class ItemPage(val total: Int = 0, val items: List<Item> = emptyList())
+data class ItemPage(
+    val total: Int = 0,
+    val items: List<Item> = emptyList(),
+    /** Where this page starts in the whole list (a jump to a letter starts part-way). */
+    val offset: Int = 0,
+    /** With letters=1: how many titles start with each character, A–Z then the rest. */
+    val letters: List<LetterCount> = emptyList(),
+)
+
+@Serializable
+data class LetterCount(val letter: String, val count: Int)
+
+/** GET /libraries/{id}/facets: the values a library's filters can take, with how many titles have each. */
+@Serializable
+data class Facets(
+    val genres: List<Facet> = emptyList(),
+    val decades: List<Facet> = emptyList(),
+    val resolutions: List<Facet> = emptyList(),
+)
+
+@Serializable
+data class Facet(val value: String, val count: Int = 0)
 
 @Serializable
 data class RecentCard(
@@ -184,6 +213,8 @@ data class HomeRowPref(
     val filter: JsonObject? = null,
     val style: String? = null,
     @SerialName("shows_only") val showsOnly: Boolean = false,
+    /** "series" or "season": whose posters an episode row shows; absent for the row's usual choice. */
+    val posters: String? = null,
 )
 
 @Serializable
@@ -191,6 +222,8 @@ data class Prefs(
     val home: List<HomeRowPref> = emptyList(),
     @SerialName("split_up_next") val splitUpNext: Boolean = false,
     @SerialName("library_order") val libraryOrder: List<Long> = emptyList(),
+    /** How many libraries come before the Watchlist in the sidebar (and on Home), as Plex pins it. */
+    @SerialName("watchlist_position") val watchlistPosition: Int = 0,
     @SerialName("subtitle_language") val subtitleLanguage: String = "",
     /** "" (the language last chosen), "manual" (forced only), "foreign" or "always", as Plex's. */
     @SerialName("subtitle_mode") val subtitleMode: String = "",
@@ -198,6 +231,20 @@ data class Prefs(
     /** Play the next episode by itself (the Up Next countdown); absent means on. */
     @SerialName("auto_play") val autoPlay: Boolean = true,
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
+    @SerialName("subtitle_style") val subtitleStyle: SubtitleStyle = SubtitleStyle(),
+)
+
+/** The profile's subtitle look (set on the web); "" means the default of each. */
+@Serializable
+data class SubtitleStyle(
+    /** small, medium, large or huge. */
+    val size: String = "",
+    /** white or yellow. */
+    val color: String = "",
+    /** box (translucent, the default), solid or none. */
+    val background: String = "",
+    /** bottom or top. */
+    val position: String = "",
 )
 
 /** GET /search: best matches first in each group. Collections and genres aren't shown on the TV yet. */
@@ -219,6 +266,87 @@ data class Person(
     /** actor, director, writer or creator. */
     @SerialName("known_for") val knownFor: String? = null,
 )
+
+/** Someone in a title's cast or crew. */
+@Serializable
+data class Credit(
+    @SerialName("person_id") val personId: Long,
+    val name: String,
+    /** actor, director, writer or creator. */
+    val role: String = "",
+    val character: String? = null,
+    val image: String? = null,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+)
+
+/** A trailer or other extra. [kind]: trailer, featurette, behind_the_scenes, deleted_scene, interview, scene, short or other. */
+@Serializable
+data class Extra(
+    val id: String,
+    val title: String,
+    val kind: String = "other",
+    @SerialName("stream_url") val streamUrl: String,
+    @SerialName("duration_ms") val durationMs: Long = 0,
+)
+
+/** A collection: on a title (id, title), in a library's Collections tab (with its poster and size too). */
+@Serializable
+data class CollectionRef(val id: String, val title: String, val kind: String = "", val count: Int = 0, val images: Images? = null)
+
+/**
+ * A row of a library's Recommended view. [type] says what it is (continue, recently_released,
+ * recently_added, start_watching, because_you_watched, top_rated, recently_watched, rediscover,
+ * more_in_genre, top_in_genre, top_by_person, top_unwatched) for the app to title in its own
+ * language from [name], [genre] and [role]; [title] is Arc's English title for anything newer.
+ * [style] is the card style the server owner chose (poster, thumb, arc) or "" for automatic.
+ */
+@Serializable
+data class RecommendedRow(
+    val type: String = "",
+    val title: String = "",
+    val name: String? = null,
+    val genre: String? = null,
+    @SerialName("person_id") val personId: Long? = null,
+    val role: String? = null,
+    val style: String = "",
+    val items: List<Item> = emptyList(),
+)
+
+@Serializable
+data class RecommendedPage(val rows: List<RecommendedRow> = emptyList())
+
+/** GET /collections/{id}: a collection and its titles. A folder collection (home videos) is shown as thumbnails. */
+@Serializable
+data class CollectionPage(val collection: CollectionRef, val items: List<Item> = emptyList())
+
+/**
+ * GET /items/{id}/artwork/palette: four colours Arc takes from a title's backdrop (or poster), one
+ * per region, for the app's Ultra Blur wash. [available] is false when there's nothing to use.
+ */
+@Serializable
+data class ArtworkPalette(
+    val available: Boolean = false,
+    val colors: PaletteColors? = null,
+)
+
+/** Opaque "#rrggbb" colours for each region of the artwork. */
+@Serializable
+data class PaletteColors(
+    @SerialName("top_left") val topLeft: String,
+    @SerialName("top_right") val topRight: String,
+    @SerialName("bottom_left") val bottomLeft: String,
+    @SerialName("bottom_right") val bottomRight: String,
+)
+
+/** GET /playlists/{id}: a playlist and its titles in order. */
+@Serializable
+data class PlaylistPage(val playlist: PlaylistInfo, val entries: List<PlaylistEntry> = emptyList())
+
+@Serializable
+data class PlaylistInfo(val id: String, val title: String)
+
+@Serializable
+data class PlaylistEntry(@SerialName("entry_id") val entryId: Long, val item: Item)
 
 @Serializable
 data class PersonCredit(val item: Item, val roles: List<String> = emptyList(), val character: String? = null)
@@ -266,8 +394,15 @@ data class SeasonsResponse(
 data class PlayerCaps(
     val containers: List<String>,
     val video: List<String>,
+    /** Sound formats the device decodes itself. */
     val audio: List<String>,
     @SerialName("max_height") val maxHeight: Int,
+    /** Sound formats the TV or receiver takes as they are (HDMI passthrough): direct play only. */
+    @SerialName("audio_passthrough") val audioPassthrough: List<String> = emptyList(),
+    /** HDR the screen shows (hdr10, hlg, hdr10_plus, dolby_vision); null when the device can't tell. */
+    @SerialName("hdr_formats") val hdrFormats: List<String>? = null,
+    /** Dolby Vision profiles the decoder plays (e.g. 5, 8); null when unknown. */
+    @SerialName("dolby_vision_profiles") val dolbyVisionProfiles: List<Int>? = null,
 )
 
 @Serializable
@@ -329,7 +464,12 @@ data class PlaybackPlan(
     @SerialName("source_height") val sourceHeight: Int = 0,
     /** The ceiling away from home (0 at home or with no limit). */
     @SerialName("server_limit_kbps") val serverLimitKbps: Int = 0,
+    /** The audio as Arc sends it (codec as ffprobe names it, channels, whether converted). */
+    @SerialName("audio_output") val audioOutput: AudioOutput? = null,
 )
+
+@Serializable
+data class AudioOutput(val codec: String = "", val channels: Int = 0, val converted: Boolean = false)
 
 @Serializable
 data class Version(
@@ -360,3 +500,60 @@ data class ProgressReport(
     /** playing, paused or stopped. */
     val state: String,
 )
+
+/** This server's own identity (GET /identity): its friendly name, set in Arc's settings. */
+@Serializable
+data class Identity(
+    val id: String = "",
+    val name: String = "",
+    val version: String = "",
+    @SerialName("api_version") val apiVersion: Int = 0,
+)
+
+/**
+ * What the server supports (GET /capabilities). A feature is usable when it's supported,
+ * available now and allowed for the profile; a missing key means this server doesn't have it.
+ */
+@Serializable
+data class Capabilities(
+    @SerialName("api_version") val apiVersion: Int = 0,
+    val features: Map<String, Feature> = emptyMap(),
+) {
+    @Serializable
+    data class Feature(val supported: Boolean = false, val available: Boolean = false, val allowed: Boolean = false)
+
+    fun usable(key: String): Boolean = features[key]?.let { it.supported && it.available && it.allowed } == true
+}
+
+/**
+ * This TV and profile's play queue, kept by Arc (so it's there again after the app restarts).
+ * Entries are told apart by their own ids: the same title can be queued twice.
+ */
+@Serializable
+data class PlayQueue(
+    val id: String,
+    val revision: Long,
+    /** Empty once the queue has played through. */
+    @SerialName("current_entry_id") val currentEntryId: String = "",
+    val shuffled: Boolean = false,
+    val entries: List<PlayQueueEntry> = emptyList(),
+) {
+    val currentIndex: Int get() = entries.indexOfFirst { it.id == currentEntryId }
+
+    /** The first entry after the current one that can be played. */
+    fun nextAvailable(): PlayQueueEntry? = currentIndex.takeIf { it >= 0 }?.let { at -> entries.drop(at + 1).firstOrNull { it.playable } }
+
+    /** The current entry and those after it that can be played (Home's Queue row). */
+    fun upcoming(): List<PlayQueueEntry> = currentIndex.takeIf { it >= 0 }?.let { at -> entries.drop(at).filter { it.playable } }.orEmpty()
+}
+
+/** A queued title; one that's gone or no longer allowed carries only its id. */
+@Serializable
+data class PlayQueueEntry(
+    val id: String,
+    val available: Boolean = false,
+    @SerialName("item_id") val itemId: String? = null,
+    val item: Item? = null,
+) {
+    val playable: Boolean get() = available && item != null
+}

@@ -6,6 +6,7 @@ import android.provider.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -49,6 +50,45 @@ class AppContainer(private val context: Context) {
         val server = session.server ?: return null
         cachedApi?.takeIf { it.baseUrl == server }?.let { return it }
         return ArcApi(server, baseClient, token = { session.token }).also { cachedApi = it }
+    }
+
+    /**
+     * Watched and watchlist changes made in the app (a card's menu, a title's page), so every card
+     * of that title shows them at once, whichever screen loaded it. Playing a title clears its
+     * entry, since playing changes it on the server.
+     */
+    val itemChanges = androidx.compose.runtime.mutableStateMapOf<String, org.arcmediaserver.android.data.Item>()
+
+    /**
+     * Ultra Blur colours Arc gave for titles this session, by title id (null: Arc had none). Kept
+     * for the signed-in profile only: cleared when the profile changes or the TV signs out.
+     */
+    val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
+
+    /** This TV's play queue on Arc, for the profile. */
+    val queues = org.arcmediaserver.android.data.PlayQueues(::api)
+
+    /** A different profile (or none): what was kept for the last one doesn't carry over. */
+    fun profileChanged() {
+        palettes.clear()
+        itemChanges.clear()
+        queues.reset()
+    }
+
+    /** [item] with any change made in the app since it was loaded. */
+    fun withChanges(item: org.arcmediaserver.android.data.Item): org.arcmediaserver.android.data.Item =
+        itemChanges[item.id]?.let { item.copy(userData = it.userData, unwatchedCount = it.unwatchedCount) } ?: item
+
+    /** Signs this TV out of Arc (forgetting its token), then calls [done] on the main thread. */
+    fun signOut(done: () -> Unit) {
+        val api = api()
+        appScope.launch {
+            runCatching { api?.signOut() }
+            session.token = null
+            profileChanged()
+            org.arcmediaserver.android.data.ArcLog.Android.info("signed out")
+            kotlinx.coroutines.withContext(Dispatchers.Main) { done() }
+        }
     }
 
     /** An API for checking an address before it's saved. */

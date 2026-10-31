@@ -1,5 +1,9 @@
 package org.arcmediaserver.android.screenshots
 
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,7 +62,7 @@ class ScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun shot(name: String, content: @Composable () -> Unit) {
+    private fun shot(name: String, keys: List<androidx.compose.ui.input.key.Key> = emptyList(), content: @Composable () -> Unit) {
         compose.setContent {
             CompositionLocalProvider(
                 LocalInspectionMode provides true,
@@ -71,6 +75,12 @@ class ScreenshotTest {
         // Let focus land (lazy rows compose their items a frame later) and the focus animation finish.
         compose.mainClock.advanceTimeBy(1_500)
         compose.waitForIdle()
+        for (key in keys) {
+            @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+            compose.onRoot().performKeyInput { pressKey(key) }
+            compose.mainClock.advanceTimeBy(600)
+            compose.waitForIdle()
+        }
         compose.onRoot().captureRoboImage("screenshots/tv-$name.png")
     }
 
@@ -95,6 +105,57 @@ class ScreenshotTest {
     }
 
     @Test
+    fun profilesServerName() = shot("profiles-server-name") {
+        // The server's own name (Arc's Settings), under the heading.
+        ProfilesScreen(ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles), serverName = "Living Room"), onChoose = {}, onRetry = {}, onDigit = {}, onDelete = {})
+    }
+
+    @Test
+    fun watchlist() = shot("watchlist") {
+        // The Watchlist from the sidebar, placed after the first library.
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame.copy(watchlistAt = 1)),
+                section = Section.Watchlist,
+                watchlist = LoadState.Ready(Fixtures.movies.take(5) + Fixtures.show),
+            ),
+            drawerOpen = true,
+        )
+    }
+
+    @Test
+    fun homeQueue() = shot("home-queue") {
+        // The play queue, first while there's one to carry on: from the title it's on.
+        val queued = listOf(Fixtures.movies[2], Fixtures.seasons[0].episodes[4], Fixtures.movies[4])
+            .mapIndexed { i, item -> org.arcmediaserver.android.data.cardFor(item, key = "queue:e$i") }
+        val rows = listOf(org.arcmediaserver.android.ui.browse.HomeRowState(org.arcmediaserver.android.data.QueueRow, LoadState.Ready(queued))) + Fixtures.homeRows
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = rows))
+    }
+
+    @Test
+    fun moreMenuQueue() = shot("movie-more-menu-queue") {
+        // On a server that keeps play queues: Play Next and Add to Queue.
+        val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
+            override fun current(item: Item) = item
+            override fun open(item: Item, onClose: () -> Unit) = Unit
+            override val queue: ((Item, Boolean) -> Unit)? = { _, _ -> }
+        }
+        androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
+            DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
+        }
+    }
+
+    @Test
+    fun showShuffle() = shot("show-shuffle") {
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(onShuffle = {}),
+        )
+    }
+
+    @Test
     fun pin() = shot("pin") {
         ProfilesScreen(
             ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles), pin = PinPrompt(Fixtures.profiles[1], digits = "12")),
@@ -105,7 +166,7 @@ class ScreenshotTest {
     @Composable
     private fun browse(state: BrowseUiState, drawerOpen: Boolean = false, search: @Composable () -> Unit = {}) {
         BrowseScreen(
-            state, onSection = {}, onOpen = {}, onRetry = {}, onRetryRow = {}, onRetryLibrary = {}, onNearEnd = {},
+            state, onSection = {}, onOpen = {}, onRetry = {}, onRetryRow = {}, onRetryLibrary = {}, onNeedTitles = {},
             onSwitchProfile = {}, onSignOut = {},
             drawerValue = if (drawerOpen) androidx.tv.material3.DrawerValue.Open else androidx.tv.material3.DrawerValue.Closed,
             searchContent = search,
@@ -128,7 +189,79 @@ class ScreenshotTest {
             BrowseUiState(
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
-                library = LoadState.Ready(LibraryPage(Fixtures.libraries[0], Fixtures.movies + Fixtures.movies.map { it.copy(id = it.id + "b", title = it.title + " II") }, 16)),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies + Fixtures.movies.map { it.copy(id = it.id + "b", title = it.title + " II") }).copy(letters = listOf(org.arcmediaserver.android.data.LetterCount("g", 2), org.arcmediaserver.android.data.LetterCount("l", 2), org.arcmediaserver.android.data.LetterCount("n", 2), org.arcmediaserver.android.data.LetterCount("p", 2), org.arcmediaserver.android.data.LetterCount("q", 1), org.arcmediaserver.android.data.LetterCount("s", 4), org.arcmediaserver.android.data.LetterCount("t", 3)))),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
+
+    private val libraryExtras = org.arcmediaserver.android.ui.browse.LibraryExtras(
+        recommended = LoadState.Ready(
+            listOf(
+                org.arcmediaserver.android.data.RecommendedRow(type = "recently_added", items = Fixtures.movies),
+                org.arcmediaserver.android.data.RecommendedRow(type = "because_you_watched", name = "The Long Orbit", items = Fixtures.movies.reversed()),
+            ),
+        ),
+        collections = LoadState.Ready(
+            listOf(
+                org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Trilogy", "auto", 3, org.arcmediaserver.android.data.Images(primary = "art:poster:The Orbit Trilogy")),
+                org.arcmediaserver.android.data.CollectionRef("c2", "Harbour Nights", "manual", 5, org.arcmediaserver.android.data.Images(primary = "art:poster:Harbour Nights")),
+            ),
+        ),
+    )
+
+    @Test
+    fun libraryScrolled() = shot("library-scrolled", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        // Two rows down: the third row's titles show whole under its cards.
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], (1..4).flatMap { n -> Fixtures.movies.map { it.copy(id = it.id + n, title = it.title + " " + n) } })),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
+
+    @Test
+    fun librarySort() = shot("library-sort") {
+        org.arcmediaserver.android.ui.browse.SortPanel(org.arcmediaserver.android.ui.browse.LibraryQuery(sort = "added"), onChoose = {}, onClose = {})
+    }
+
+    @Test
+    fun libraryFilters() = shot("library-filters") {
+        org.arcmediaserver.android.ui.browse.FilterPanel(
+            org.arcmediaserver.android.ui.browse.LibraryQuery(unwatched = true, genre = "Drama"),
+            org.arcmediaserver.android.data.Facets(genres = listOf(org.arcmediaserver.android.data.Facet("Drama", 4)), decades = listOf(org.arcmediaserver.android.data.Facet("2010", 3)), resolutions = listOf(org.arcmediaserver.android.data.Facet("4k", 2))),
+            onChoose = {},
+            onClose = {},
+        )
+    }
+
+    @Test
+    fun libraryRecommended() = shot("library-recommended") {
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
+                libraryExtras = libraryExtras,
+            ),
+        )
+    }
+
+    @Test
+    fun libraryCollections() = shot("library-collections") {
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Collections,
+                libraryExtras = libraryExtras,
             ),
         )
     }
@@ -140,7 +273,37 @@ class ScreenshotTest {
 
     @Test
     fun movie() = shot("movie") {
-        DetailsScreen(Details(Fixtures.movies[0]), onPlay = { _: Item, _: Long -> }, onOpen = {})
+        // With its cast, which should show on arrival under the buttons.
+        val cast = listOf("Ada Reyes" to "Captain Reyes", "Tomas Hale" to "Hale", "Mira Okafor" to "Dr. Okafor", "Jun Park" to "Pilot", "Sol Varga" to "Engineer", "Lena Ruiz" to "Navigator")
+            .mapIndexed { i, (name, role) -> org.arcmediaserver.android.data.Credit(personId = i.toLong(), name = name, role = "actor", character = role) }
+        DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
+    fun showFromEpisode() = shot("show-from-episode") {
+        // Opened from an episode's card on Home: the show's page, focused on that episode.
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0, focus = Fixtures.seasons[0].episodes[3]),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
+    fun movieRowBack() = shot("movie-row-back", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown) + List(9) { androidx.compose.ui.input.key.Key.DirectionRight } + List(9) { androidx.compose.ui.input.key.Key.DirectionLeft }) {
+        // Into the cast, along it and back: the first card returns to the row's start, not the edge.
+        val cast = (1..10).map { org.arcmediaserver.android.data.Credit(personId = it.toLong(), name = "Actor $it", role = "actor", character = "Role $it") }
+        DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
+    fun showRowBack() = shot("show-row-back", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(6) { androidx.compose.ui.input.key.Key.DirectionLeft }) {
+        // Into the episodes and left to the first: it lines up with the row's start (48dp).
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
     }
 
     @Test
@@ -150,6 +313,31 @@ class ScreenshotTest {
             onPlay = { _: Item, _: Long -> },
             onOpen = {},
         )
+    }
+
+    @Test
+    fun playerStats() = shot("player-stats") {
+        // Stats for nerds over a remuxed Dolby Vision profile 8 film with TrueHD sent as DD+ 5.1.
+        val plan = Fixtures.plan.copy(
+            sourceKbps = 48_200,
+            audioTracks = listOf(org.arcmediaserver.android.data.AudioTrack(1, "eng", codec = "truehd", channels = 8, default = true)),
+            audioStream = 1,
+            audioOutput = org.arcmediaserver.android.data.AudioOutput("eac3", 6, converted = true),
+        )
+        val state = PlayerUiState(plan = plan, loading = false, playing = true, positionMs = 600_000, bufferedMs = 642_000, durationMs = plan.durationMs)
+        val stats = org.arcmediaserver.android.playback.PlaybackStats(
+            videoDecoder = "c2.amlogic.dvhe.decoder", videoMime = "video/dolby-vision", videoCodecs = "dvhe.08.06",
+            width = 3840, height = 2160, frameRate = 23.976f, colorTransfer = androidx.media3.common.C.COLOR_TRANSFER_ST2084,
+            audioDecoder = null, audioMime = "audio/eac3", audioChannels = 6, droppedFrames = 2,
+        )
+        val caps = org.arcmediaserver.android.data.PlayerCaps(
+            listOf("mp4", "mkv"), listOf("hevc"), listOf("aac", "eac3"), 2160,
+            audioPassthrough = listOf("eac3"), hdrFormats = listOf("hdr10", "hlg", "dolby_vision"), dolbyVisionProfiles = listOf(5, 8),
+        )
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.DarkGray)) {
+            val (title, body) = org.arcmediaserver.android.ui.player.methodLabel(plan)
+            org.arcmediaserver.android.ui.player.StatsPanel(title, body, org.arcmediaserver.android.ui.player.statsRows(state, plan, stats, caps))
+        }
     }
 
     @Test
@@ -208,6 +396,19 @@ class ScreenshotTest {
                 )
             },
         )
+    }
+
+    @Test
+    fun movieRelated() = shot("movie-related") {
+        // The rows under a title's page, as they appear once the page is scrolled down.
+        androidx.compose.foundation.layout.Column(Modifier.padding(top = 24.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp)) {
+            org.arcmediaserver.android.ui.components.Shelf("Cast", start = 56.dp) {
+                items(Fixtures.profiles.size) { i -> org.arcmediaserver.android.ui.components.PersonCard(Fixtures.profiles[i].name, null, "Captain Reyes") {} }
+            }
+            org.arcmediaserver.android.ui.components.Shelf("More Like This", start = 56.dp) {
+                items(Fixtures.movies.size) { i -> org.arcmediaserver.android.ui.components.MediaCardView(org.arcmediaserver.android.data.cardFor(Fixtures.movies[i]), landscape = false, onClick = {}) }
+            }
+        }
     }
 
     @Test

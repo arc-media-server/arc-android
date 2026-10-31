@@ -46,7 +46,9 @@ import org.arcmediaserver.android.data.MediaFile
 import org.arcmediaserver.android.data.MediaStream
 import org.arcmediaserver.android.playback.sameLanguage
 import org.arcmediaserver.android.ui.components.ArcIcons
+import org.arcmediaserver.android.ui.components.channelsName
 import org.arcmediaserver.android.ui.components.codecName
+import org.arcmediaserver.android.ui.components.hdrLabels
 import org.arcmediaserver.android.ui.components.requestWhenReady
 import org.arcmediaserver.android.ui.components.resolutionName
 import org.arcmediaserver.android.ui.theme.ArcColors
@@ -60,7 +62,7 @@ enum class DetailsPanel { None, More, MediaInfo }
  * closes it, as a Google TV dialog does.
  */
 @Composable
-private fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onBack)
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
         Column(
@@ -82,7 +84,15 @@ private fun Overlay(width: androidx.compose.ui.unit.Dp, onBack: () -> Unit, cont
  * which Arc's API doesn't offer to apps; the server owner's tools stay in the browser.)
  */
 @Composable
-fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMediaInfo: () -> Unit, onClose: () -> Unit) {
+fun MoreMenu(
+    item: Item,
+    onWatched: () -> Unit,
+    onWatchlist: () -> Unit,
+    onMediaInfo: () -> Unit,
+    onClose: () -> Unit,
+    /** Play Next ([true]) or Add to Queue; null when this server keeps no queue. */
+    onQueue: ((next: Boolean) -> Unit)? = null,
+) {
     val first = remember { FocusRequester() }
     Overlay(420.dp, onBack = onClose) {
         Text(item.title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -90,6 +100,11 @@ fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMedia
         MenuItem(ArcIcons.CircleCheck, stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched), Modifier.focusRequester(first)) { onWatched(); onClose() }
         if (item.canWatchlist) {
             MenuItem(if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark, stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist)) { onWatchlist(); onClose() }
+        }
+        // The web's queue choices, for what can be played (a show queues its episodes).
+        if (onQueue != null && item.queueable) {
+            MenuItem(ArcIcons.ListStart, stringResource(R.string.queue_play_next)) { onQueue(true); onClose() }
+            MenuItem(ArcIcons.ListVideo, stringResource(R.string.queue_add)) { onQueue(false); onClose() }
         }
         if (item.files.isNotEmpty()) {
             MenuItem(ArcIcons.Info, stringResource(R.string.media_info)) { onMediaInfo() }
@@ -99,13 +114,14 @@ fun MoreMenu(item: Item, onWatched: () -> Unit, onWatchlist: () -> Unit, onMedia
 }
 
 @Composable
-private fun MenuItem(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun MenuItem(icon: ImageVector?, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     ListItem(
         selected = false,
         onClick = onClick,
         modifier = modifier,
         headlineContent = { Text(label) },
-        leadingContent = { Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        // A choice that isn't the current one keeps the icon's space, so labels line up.
+        leadingContent = { if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp)) else Spacer(Modifier.size(20.dp)) },
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = ArcColors.Foreground,
@@ -148,23 +164,6 @@ private fun rate(bitsPerSecond: Long): String? = when {
     bitsPerSecond <= 0 -> null
     bitsPerSecond >= 1_000_000 -> stringResource(R.string.media_megabits, fixed(bitsPerSecond / 1e6, 1))
     else -> stringResource(R.string.media_kilobits, fixed(bitsPerSecond / 1e3, 0))
-}
-
-@Composable
-private fun channelsName(n: Int): String? = when (n) {
-    0 -> null
-    1 -> stringResource(R.string.player_mono)
-    2 -> stringResource(R.string.player_stereo)
-    6 -> "5.1"
-    8 -> "7.1"
-    else -> stringResource(R.string.player_channels, n)
-}
-
-private fun hdrLabels(v: MediaStream): List<String> = buildList {
-    if (v.dolbyVision) add("Dolby Vision")
-    if (v.hdr10Plus) add("HDR10+")
-    if (isEmpty() && v.colorTransfer == "smpte2084") add("HDR10")
-    if (v.colorTransfer == "arib-std-b67") add("HLG")
 }
 
 private fun aspect(r: Double): String? = when {

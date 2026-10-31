@@ -53,11 +53,86 @@
 
     <!-- Home -->
     <string name="row_continue">Continue Watching</string>
+    <string name="row_queue">Queue</string>
+    <string name="stats_video">Video</string>
+    <string name="stats_dynamic_range">Dynamic range</string>
+    <string name="stats_video_decoder">Video decoder</string>
+    <string name="stats_audio">Audio</string>
+    <string name="stats_audio_output">Audio output</string>
+    <string name="stats_passthrough">Passthrough to the TV or receiver</string>
+    <string name="stats_passthrough_list">passthrough %1$s</string>
+    <string name="stats_bitrate">File bitrate</string>
+    <string name="stats_buffer">Buffered ahead</string>
+    <string name="stats_dropped">Dropped frames</string>
+    <string name="stats_this_tv">This TV</string>
+    <string name="stats_hdr_unknown">HDR unknown</string>
+    <string name="queue_play_next">Play Next</string>
+    <string name="queue_add">Add to Queue</string>
+    <string name="queue_added_next">%1$s plays next</string>
+    <string name="queue_added">%1$s added to the queue</string>
+    <string name="queue_failed">Couldn\'t add %1$s to the queue</string>
+    <string name="action_shuffle">Shuffle</string>
     <string name="row_next_up">Up Next</string>
     <string name="row_watchlist">Watchlist</string>
     <string name="row_recent">Recently Added in %1$s</string>
     <string name="home_empty_title">Nothing here yet</string>
     <string name="home_empty_body">Add a library in Arc in a browser, and what you add will appear here.</string>
+    <string name="library_tab_recommended">Recommended</string>
+    <string name="library_tab_library">Library</string>
+    <string name="library_tab_collections">Collections</string>
+    <string name="library_recommended_empty">Recommendations appear here once this library has titles you can watch.</string>
+    <string name="rec_continue">Continue Watching</string>
+    <string name="rec_recently_released">Recently Released</string>
+    <string name="rec_recently_added">Recently Added in %1$s</string>
+    <string name="rec_start_watching">Start Watching</string>
+    <string name="rec_because_you_watched">Because you watched %1$s</string>
+    <string name="rec_top_rated_movies">Top Rated Movies</string>
+    <string name="rec_top_rated_shows">Top Rated Shows</string>
+    <string name="rec_recently_watched">Recently Watched</string>
+    <string name="rec_recently_watched_episodes">Recently Watched Episodes</string>
+    <string name="rec_rediscover">Rediscover</string>
+    <string name="rec_more_in_genre">More in %1$s</string>
+    <string name="rec_top_movies_in_genre">Top Movies in %1$s</string>
+    <string name="rec_top_shows_in_genre">Top Shows in %1$s</string>
+    <string name="rec_top_movies_with">Top Movies with %1$s</string>
+    <string name="rec_top_movies_by">Top Movies by %1$s</string>
+    <string name="rec_top_shows_with">Top Shows with %1$s</string>
+    <string name="rec_top_shows_by">Top Shows by %1$s</string>
+    <string name="rec_top_unwatched">Top Unwatched</string>
+    <string name="row_seasonal_romance">Romance for Valentine\'s Day</string>
+    <string name="row_seasonal_horror">Horror for Halloween</string>
+    <string name="row_seasonal_christmas">Christmas Films</string>
+    <string name="row_collection">Collection</string>
+    <string name="row_playlist">Playlist</string>
+    <string name="library_filters">Filters</string>
+    <string name="library_nothing_matches">Nothing matches. Try fewer filters.</string>
+    <string name="library_sort_by">Sort by</string>
+    <string name="library_order">Order</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_added">Recently Added</string>
+    <string name="sort_watched">Recently Watched</string>
+    <string name="sort_release">Release Date</string>
+    <string name="sort_year">Year</string>
+    <string name="sort_rating">Rating</string>
+    <string name="sort_runtime">Length</string>
+    <string name="sort_shuffle">Shuffle</string>
+    <string name="direction_a_to_z">A–Z</string>
+    <string name="direction_z_to_a">Z–A</string>
+    <string name="direction_newest">Newest first</string>
+    <string name="direction_oldest">Oldest first</string>
+    <string name="direction_highest">Highest first</string>
+    <string name="direction_lowest">Lowest first</string>
+    <string name="direction_longest">Longest first</string>
+    <string name="direction_shortest">Shortest first</string>
+    <string name="direction_most_recent">Most recent first</string>
+    <string name="direction_least_recent">Least recent first</string>
+    <string name="filter_unwatched">Only things I haven\'t watched</string>
+    <string name="filter_genre">Genre</string>
+    <string name="filter_decade">Decade</string>
+    <string name="filter_decade_value">%1$ds</string>
+    <string name="filter_quality">Quality</string>
+    <string name="filter_any">Any</string>
+    <string name="filter_clear">Clear Filters</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
     <!-- Search -->
@@ -75,11 +150,20 @@
     </plurals>
 
     <!-- Library -->
+    <plurals name="library_filters_on">
+        <item quantity="one">Filters, %1$d on</item>
+        <item quantity="other">Filters, %1$d on</item>
+    </plurals>
+    <plurals name="media_versions">
+        <item quantity="one">%1$d version</item>
+        <item quantity="other">%1$d versions</item>
+    </plurals>
     <plurals name="library_count">
         <item quantity="one">%1$d title</item>
         <item quantity="other">%1$d titles</item>
     </plurals>
     <string name="library_empty">This library is empty.</string>
+    <string name="watchlist_empty">Nothing on your Watchlist yet. Add a movie or show from its page.</string>
 
     <!-- Details -->
     <string name="season_number">Season %1$d</string>
@@ -104,6 +188,17 @@
     <string name="time_left">%1$s left</string>
     <string name="details_unplaced">Not in this order</string>
     <string name="details_missing">Not on disk</string>
+    <string name="details_cast">Cast</string>
+    <string name="details_more_like_this">More Like This</string>
+    <string name="details_extras">Extras</string>
+    <string name="extras_trailer">Trailer</string>
+    <string name="extras_featurette">Featurette</string>
+    <string name="extras_behind_the_scenes">Behind the Scenes</string>
+    <string name="extras_deleted_scene">Deleted Scene</string>
+    <string name="extras_interview">Interview</string>
+    <string name="extras_scene">Scene</string>
+    <string name="extras_short">Short</string>
+    <string name="extras_other">Extra</string>
     <string name="details_no_episodes">No episodes on disk yet.</string>
     <string name="action_mark_watched">Mark as Watched</string>
     <string name="action_mark_unwatched">Mark as Unwatched</string>

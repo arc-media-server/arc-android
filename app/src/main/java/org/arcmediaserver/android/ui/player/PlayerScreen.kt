@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.player
 
+import io.github.peerless2012.ass.media.kt.withAssSupport
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -128,11 +129,13 @@ fun skippable(markers: List<Marker>, positionMs: Long): Marker? =
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: (Item) -> Unit) {
+fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
     val context = LocalContext.current
     val container = (context.applicationContext as ArcApplication).container
-    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs) } })
+    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn) } })
     val state by vm.state.collectAsStateWithLifecycle()
+    // The next title goes with its queue entry, when it's the queue's.
+    val onPlayNext: (Item) -> Unit = { next -> onPlayNextEntry(next, state.nextEntryId) }
     // Up Next (web Player.tsx): a countdown when the credits start and again at the end; Play Now
     // goes straight on, Cancel lets the credits play (or, at the end, closes the player, as Plex).
     var upNextIn by remember { mutableStateOf<Int?>(null) }
@@ -235,6 +238,15 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     player = vm.player
+                    // libass draws ASS/SSA subtitles over the player's own subtitle view.
+                    subtitleView?.withAssSupport(vm.ass)
+                }
+            },
+            // Text subtitles in the profile's style, not Android's caption settings (a black box).
+            update = { view ->
+                view.subtitleView?.apply {
+                    setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+                    setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
                 }
             },
             onRelease = { it.player = null },
@@ -260,13 +272,17 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
                     onMenu = { menu = it },
                     onClose = onClose,
                     upNextShown = upNextIn != null,
+                    menu = menu,
                 )
                 val plan = state.plan
                 if (plan != null) {
+                    val stats by vm.stats.collectAsStateWithLifecycle()
                     PlayerMenuPanel(
                         menu = menu,
                         state = state,
                         plan = plan,
+                        stats = stats,
+                        caps = vm.caps,
                         onAudio = { vm.chooseAudio(it); menu = PlayerMenu.None },
                         onSubtitle = { vm.chooseSubtitle(it); menu = PlayerMenu.None },
                         onVersion = { vm.chooseVersion(it); menu = PlayerMenu.None },
@@ -283,7 +299,9 @@ fun PlayerRoute(itemId: String, startMs: Long, onClose: () -> Unit, onPlayNext: 
             }
         }
     }
-    LaunchedEffect(Unit) { rootFocus.requestWhenReady() }
+    // The player itself takes the keys only while the controls are hidden: on arrival the
+    // controls show and Play has the focus (taking it here too left them unusable).
+    LaunchedEffect(Unit) { if (!controls) rootFocus.requestWhenReady() }
 }
 
 @Composable
@@ -320,9 +338,18 @@ fun PlayerControls(
     onMenu: (PlayerMenu) -> Unit,
     onClose: () -> Unit,
     upNextShown: Boolean = false,
+    /** The menu open over the controls; when it closes, its button has the focus again. */
+    menu: PlayerMenu = PlayerMenu.None,
 ) {
     val plan = state.plan
     val playFocus = remember { FocusRequester() }
+    val menuFocus = remember { mutableMapOf<PlayerMenu, FocusRequester>() }
+    var lastMenu by remember { mutableStateOf<PlayerMenu?>(null) }
+    fun open(m: PlayerMenu) {
+        lastMenu = m
+        onMenu(m)
+    }
+    fun menuButton(m: PlayerMenu) = Modifier.focusRequester(menuFocus.getOrPut(m) { FocusRequester() })
     val skipFocus = remember { FocusRequester() }
     var focusedLabel by remember { mutableStateOf<String?>(null) }
     // While Up Next counts down, its card offers what Play Next would.
@@ -364,14 +391,14 @@ fun PlayerControls(
                         Text(" / " + if (state.durationMs > 0) clock(state.durationMs) else "–:––", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.4f))
                         Spacer(Modifier.weight(1f))
                         if (plan != null) {
-                            if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { onMenu(PlayerMenu.Audio) }, onLabel = { focusedLabel = it })
-                            if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { onMenu(PlayerMenu.Subtitles) }, onLabel = { focusedLabel = it })
-                            if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { onMenu(PlayerMenu.Version) }, onLabel = { focusedLabel = it })
-                            ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { onMenu(PlayerMenu.Quality) }, onLabel = { focusedLabel = it })
-                            if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { onMenu(PlayerMenu.Chapters) }, onLabel = { focusedLabel = it })
+                            if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { open(PlayerMenu.Audio) }, menuButton(PlayerMenu.Audio), onLabel = { focusedLabel = it })
+                            if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { open(PlayerMenu.Subtitles) }, menuButton(PlayerMenu.Subtitles), onLabel = { focusedLabel = it })
+                            if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { open(PlayerMenu.Version) }, menuButton(PlayerMenu.Version), onLabel = { focusedLabel = it })
+                            ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { open(PlayerMenu.Quality) }, menuButton(PlayerMenu.Quality), onLabel = { focusedLabel = it })
+                            if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { open(PlayerMenu.Chapters) }, menuButton(PlayerMenu.Chapters), onLabel = { focusedLabel = it })
                         }
-                        ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { onMenu(PlayerMenu.Speed) }, onLabel = { focusedLabel = it })
-                        if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { onMenu(PlayerMenu.Info) }, onLabel = { focusedLabel = it })
+                        ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { open(PlayerMenu.Speed) }, menuButton(PlayerMenu.Speed), onLabel = { focusedLabel = it })
+                        if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { open(PlayerMenu.Info) }, menuButton(PlayerMenu.Info), onLabel = { focusedLabel = it })
                     }
                 }
             }
@@ -398,6 +425,13 @@ fun PlayerControls(
         }
     }
     LaunchedEffect(visible) { if (visible) playFocus.requestWhenReady() }
+    // A menu closed (a choice made, or Back): back to the button that opened it.
+    LaunchedEffect(menu) {
+        val from = lastMenu ?: return@LaunchedEffect
+        if (menu != PlayerMenu.None) return@LaunchedEffect
+        lastMenu = null
+        if (visible) (menuFocus[from] ?: playFocus).requestWhenReady()
+    }
 }
 
 /** A round icon button; its label shows above the row while it has the focus. */
@@ -568,6 +602,8 @@ private fun PlayerMenuPanel(
     menu: PlayerMenu,
     state: PlayerUiState,
     plan: PlaybackPlan,
+    stats: org.arcmediaserver.android.playback.PlaybackStats = org.arcmediaserver.android.playback.PlaybackStats(),
+    caps: org.arcmediaserver.android.data.PlayerCaps? = null,
     onAudio: (Int) -> Unit,
     onSubtitle: (SubtitleTrack?) -> Unit,
     onVersion: (Long) -> Unit,
@@ -626,7 +662,7 @@ private fun PlayerMenuPanel(
                 options = emptyList()
             }
         }
-        OptionPanel(title, options, body)
+        if (menu == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
     }
 }
 
@@ -691,4 +727,79 @@ private fun OptionPanel(title: String, options: List<Option>, body: String?) {
         }
     }
     LaunchedEffect(title) { focus.requestWhenReady() }
+}
+
+/**
+ * Stats for nerds: what the player is really doing, as labelled rows. The video line names the
+ * format the decoder is fed (Dolby Vision shows its profile, e.g. dvhe.08.06), so a Dolby Vision
+ * title that falls back to HDR10 says so here.
+ */
+@Composable
+internal fun statsRows(
+    state: PlayerUiState,
+    plan: PlaybackPlan,
+    stats: org.arcmediaserver.android.playback.PlaybackStats,
+    caps: org.arcmediaserver.android.data.PlayerCaps?,
+): List<Pair<String, String>> = buildList {
+    val videoFormat = when (stats.videoMime) {
+        null -> null
+        androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION -> "Dolby Vision"
+        androidx.media3.common.MimeTypes.VIDEO_H265 -> "HEVC"
+        androidx.media3.common.MimeTypes.VIDEO_H264 -> "H.264"
+        androidx.media3.common.MimeTypes.VIDEO_AV1 -> "AV1"
+        androidx.media3.common.MimeTypes.VIDEO_VP9 -> "VP9"
+        else -> stats.videoMime.substringAfter('/')
+    }
+    val video = listOfNotNull(
+        listOfNotNull(videoFormat, stats.videoCodecs?.let { "($it)" }).joinToString(" ").ifBlank { null },
+        if (stats.width > 0) "${stats.width}×${stats.height}" else null,
+        if (stats.frameRate > 0) String.format(java.util.Locale.ROOT, "%.3f fps", stats.frameRate).replace(".000", "") else null,
+    ).joinToString(" · ")
+    if (video.isNotBlank()) add(stringResource(R.string.stats_video) to video)
+    add(stringResource(R.string.stats_dynamic_range) to stats.dynamicRange)
+    stats.videoDecoder?.let { add(stringResource(R.string.stats_video_decoder) to it) }
+    val source = plan.audioTracks.firstOrNull { it.index == plan.audioStream }
+    val sourceAudio = source?.let { listOfNotNull(org.arcmediaserver.android.ui.components.codecName(it.codec), org.arcmediaserver.android.ui.components.channelsName(it.channels)).joinToString(" ") }
+    val sent = plan.audioOutput?.takeIf { it.converted }?.let {
+        listOfNotNull(org.arcmediaserver.android.ui.components.codecName(it.codec), org.arcmediaserver.android.ui.components.channelsName(it.channels)).joinToString(" ")
+    }
+    if (sourceAudio != null) add(stringResource(R.string.stats_audio) to (if (sent != null) "$sourceAudio → $sent" else sourceAudio))
+    val output = stats.audioDecoder ?: if (stats.audioMime != null) stringResource(R.string.stats_passthrough) else null
+    output?.let { add(stringResource(R.string.stats_audio_output) to it) }
+    if (plan.sourceKbps > 0) add(stringResource(R.string.stats_bitrate) to String.format(java.util.Locale.ROOT, "%.1f Mbps", plan.sourceKbps / 1000.0))
+    add(stringResource(R.string.stats_buffer) to String.format(java.util.Locale.ROOT, "%.1f s", (state.bufferedMs - state.positionMs).coerceAtLeast(0) / 1000.0))
+    add(stringResource(R.string.stats_dropped) to stats.droppedFrames.toString())
+    if (caps != null) {
+        val tv = listOfNotNull(
+            caps.hdrFormats?.joinToString(", ") ?: stringResource(R.string.stats_hdr_unknown),
+            caps.dolbyVisionProfiles?.let { p -> "DV " + p.joinToString("/") { "P$it" } },
+            caps.audioPassthrough.takeIf { it.isNotEmpty() }?.let { a -> stringResource(R.string.stats_passthrough_list, a.joinToString(", ")) },
+        ).joinToString(" · ")
+        add(stringResource(R.string.stats_this_tv) to tv)
+    }
+}
+
+@Composable
+internal fun StatsPanel(title: String, body: String?, rows: List<Pair<String, String>>) {
+    val focus = remember { FocusRequester() }
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(440.dp).background(ArcColors.Surface.copy(alpha = 0.97f)).padding(horizontal = 24.dp, vertical = 28.dp)
+                .focusRequester(focus).focusable(),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            body?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
+            }
+            Spacer(Modifier.height(18.dp))
+            rows.forEach { (label, value) ->
+                Row(Modifier.padding(vertical = 5.dp)) {
+                    Text(label, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted, modifier = Modifier.width(130.dp))
+                    Text(value, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { focus.requestWhenReady() }
 }

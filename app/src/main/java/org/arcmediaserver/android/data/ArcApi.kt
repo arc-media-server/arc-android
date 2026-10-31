@@ -79,6 +79,48 @@ class ArcApi(
         raw("POST", "auth/logout", "{}")
     }
 
+    /** This server's name and identity; needs a chosen profile. */
+    suspend fun identity(): Identity = get("identity", Identity.serializer())
+
+    suspend fun capabilities(): Capabilities = get("capabilities", Capabilities.serializer())
+
+    /** Starts this TV's queue with [itemIds] (a show adds its episodes), replacing [replace]. */
+    suspend fun createPlayQueue(itemIds: List<String>, replace: PlayQueue? = null): PlayQueue {
+        val body = buildMap {
+            put("item_ids", kotlinx.serialization.json.JsonArray(itemIds.map { JsonPrimitive(it) }))
+            if (replace != null) {
+                put("replace_id", JsonPrimitive(replace.id))
+                put("revision", JsonPrimitive(replace.revision))
+            }
+        }
+        return send("POST", "play-queues", JsonObject(body).toString(), PlayQueue.serializer())
+    }
+
+    /** This TV and profile's queue, or null when there's none (or it expired). */
+    suspend fun currentPlayQueue(): PlayQueue? {
+        val route = "play-queues/current"
+        val (status, body) = raw("GET", route, null)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, PlayQueue.serializer(), route)
+            else -> throw failure(status, body, route)
+        }
+    }
+
+    /**
+     * One edit to the queue: [operation] (append, next, remove, clear, advance, select...) with its
+     * [fields]. Arc refuses it (409) when [queue] isn't its latest revision.
+     */
+    suspend fun editPlayQueue(queue: PlayQueue, operation: String, fields: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap()): PlayQueue {
+        val body = JsonObject(mapOf("revision" to JsonPrimitive(queue.revision), "operation" to JsonPrimitive(operation)) + fields)
+        return send("PATCH", "play-queues/${enc(queue.id)}", body.toString(), PlayQueue.serializer(), route = "play-queues/{id}")
+    }
+
+    suspend fun deletePlayQueue(queue: PlayQueue) {
+        val (status, body) = raw("DELETE", "play-queues/${enc(queue.id)}?revision=${queue.revision}", null, route = "play-queues/{id}")
+        if (status !in 200..299 && status != 404) throw failure(status, body, "play-queues/{id}")
+    }
+
     suspend fun libraries(): List<Library> = get("libraries", kotlinx.serialization.builtins.ListSerializer(Library.serializer()))
 
     suspend fun prefs(): Prefs = get("me/prefs", Prefs.serializer())
@@ -123,10 +165,41 @@ class ArcApi(
         return get("items?$query", ItemPage.serializer(), route = "items")
     }
 
+    /** The values a library's filters can take (genres, decades, qualities). */
+    suspend fun facets(libraryId: Long): Facets = get("libraries/$libraryId/facets", Facets.serializer(), route = "libraries/{id}/facets")
+
+    /** A library's Recommended view for the profile. */
+    suspend fun recommended(libraryId: Long): List<RecommendedRow> =
+        get("libraries/$libraryId/recommended", RecommendedPage.serializer(), route = "libraries/{id}/recommended").rows
+
+    suspend fun libraryCollections(libraryId: Long): List<CollectionRef> =
+        get("libraries/$libraryId/collections", kotlinx.serialization.builtins.ListSerializer(CollectionRef.serializer()), route = "libraries/{id}/collections")
+
     suspend fun recentShows(libraryId: Long): List<RecentCard> =
         get("libraries/$libraryId/recent-shows", kotlinx.serialization.builtins.ListSerializer(RecentCard.serializer()), route = "libraries/{id}/recent-shows")
 
     suspend fun item(id: String): Item = get("items/${enc(id)}", Item.serializer(), route = "items/{id}")
+
+    /**
+     * A title's artwork palette, or null when this server has none to give (an older Arc answers
+     * 404; a title without usable artwork answers available = false).
+     */
+    suspend fun artworkPalette(id: String): ArtworkPalette? {
+        val route = "items/{id}/artwork/palette"
+        val (status, body) = raw("GET", "items/${enc(id)}/artwork/palette", null, route = route)
+        return when (status) {
+            404 -> null
+            in 200..299 -> decode(body, ArtworkPalette.serializer(), route).takeIf { it.available && it.colors != null }
+            else -> throw failure(status, body, route)
+        }
+    }
+
+    /** Titles like this one in the same library (More Like This). */
+    suspend fun similar(id: String): List<Item> = get("items/${enc(id)}/similar", ItemList, route = "items/{id}/similar")
+
+    suspend fun playlist(id: String): PlaylistPage = get("playlists/${enc(id)}", PlaylistPage.serializer(), route = "playlists/{id}")
+
+    suspend fun collection(id: String): CollectionPage = get("collections/${enc(id)}", CollectionPage.serializer(), route = "collections/{id}")
 
     suspend fun seasons(seriesId: String): SeasonsResponse =
         get("series/${enc(seriesId)}/seasons", SeasonsResponse.serializer(), route = "series/{id}/seasons")
