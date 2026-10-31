@@ -464,7 +464,12 @@ data class PlaybackPlan(
     @SerialName("source_height") val sourceHeight: Int = 0,
     /** The ceiling away from home (0 at home or with no limit). */
     @SerialName("server_limit_kbps") val serverLimitKbps: Int = 0,
+    /** The audio as Arc sends it (codec as ffprobe names it, channels, whether converted). */
+    @SerialName("audio_output") val audioOutput: AudioOutput? = null,
 )
+
+@Serializable
+data class AudioOutput(val codec: String = "", val channels: Int = 0, val converted: Boolean = false)
 
 @Serializable
 data class Version(

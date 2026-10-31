@@ -54,6 +54,18 @@
     <!-- Home -->
     <string name="row_continue">Continue Watching</string>
     <string name="row_queue">Queue</string>
+    <string name="stats_video">Video</string>
+    <string name="stats_dynamic_range">Dynamic range</string>
+    <string name="stats_video_decoder">Video decoder</string>
+    <string name="stats_audio">Audio</string>
+    <string name="stats_audio_output">Audio output</string>
+    <string name="stats_passthrough">Passthrough to the TV or receiver</string>
+    <string name="stats_passthrough_list">passthrough %1$s</string>
+    <string name="stats_bitrate">File bitrate</string>
+    <string name="stats_buffer">Buffered ahead</string>
+    <string name="stats_dropped">Dropped frames</string>
+    <string name="stats_this_tv">This TV</string>
+    <string name="stats_hdr_unknown">HDR unknown</string>
     <string name="queue_play_next">Play Next</string>
     <string name="queue_add">Add to Queue</string>
     <string name="queue_added_next">%1$s plays next</string>

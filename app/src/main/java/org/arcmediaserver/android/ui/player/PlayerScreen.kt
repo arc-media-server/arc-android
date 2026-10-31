@@ -276,10 +276,13 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                 )
                 val plan = state.plan
                 if (plan != null) {
+                    val stats by vm.stats.collectAsStateWithLifecycle()
                     PlayerMenuPanel(
                         menu = menu,
                         state = state,
                         plan = plan,
+                        stats = stats,
+                        caps = vm.caps,
                         onAudio = { vm.chooseAudio(it); menu = PlayerMenu.None },
                         onSubtitle = { vm.chooseSubtitle(it); menu = PlayerMenu.None },
                         onVersion = { vm.chooseVersion(it); menu = PlayerMenu.None },
@@ -599,6 +602,8 @@ private fun PlayerMenuPanel(
     menu: PlayerMenu,
     state: PlayerUiState,
     plan: PlaybackPlan,
+    stats: org.arcmediaserver.android.playback.PlaybackStats = org.arcmediaserver.android.playback.PlaybackStats(),
+    caps: org.arcmediaserver.android.data.PlayerCaps? = null,
     onAudio: (Int) -> Unit,
     onSubtitle: (SubtitleTrack?) -> Unit,
     onVersion: (Long) -> Unit,
@@ -657,7 +662,7 @@ private fun PlayerMenuPanel(
                 options = emptyList()
             }
         }
-        OptionPanel(title, options, body)
+        if (menu == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
     }
 }
 
@@ -722,4 +727,79 @@ private fun OptionPanel(title: String, options: List<Option>, body: String?) {
         }
     }
     LaunchedEffect(title) { focus.requestWhenReady() }
+}
+
+/**
+ * Stats for nerds: what the player is really doing, as labelled rows. The video line names the
+ * format the decoder is fed (Dolby Vision shows its profile, e.g. dvhe.08.06), so a Dolby Vision
+ * title that falls back to HDR10 says so here.
+ */
+@Composable
+internal fun statsRows(
+    state: PlayerUiState,
+    plan: PlaybackPlan,
+    stats: org.arcmediaserver.android.playback.PlaybackStats,
+    caps: org.arcmediaserver.android.data.PlayerCaps?,
+): List<Pair<String, String>> = buildList {
+    val videoFormat = when (stats.videoMime) {
+        null -> null
+        androidx.media3.common.MimeTypes.VIDEO_DOLBY_VISION -> "Dolby Vision"
+        androidx.media3.common.MimeTypes.VIDEO_H265 -> "HEVC"
+        androidx.media3.common.MimeTypes.VIDEO_H264 -> "H.264"
+        androidx.media3.common.MimeTypes.VIDEO_AV1 -> "AV1"
+        androidx.media3.common.MimeTypes.VIDEO_VP9 -> "VP9"
+        else -> stats.videoMime.substringAfter('/')
+    }
+    val video = listOfNotNull(
+        listOfNotNull(videoFormat, stats.videoCodecs?.let { "($it)" }).joinToString(" ").ifBlank { null },
+        if (stats.width > 0) "${stats.width}×${stats.height}" else null,
+        if (stats.frameRate > 0) String.format(java.util.Locale.ROOT, "%.3f fps", stats.frameRate).replace(".000", "") else null,
+    ).joinToString(" · ")
+    if (video.isNotBlank()) add(stringResource(R.string.stats_video) to video)
+    add(stringResource(R.string.stats_dynamic_range) to stats.dynamicRange)
+    stats.videoDecoder?.let { add(stringResource(R.string.stats_video_decoder) to it) }
+    val source = plan.audioTracks.firstOrNull { it.index == plan.audioStream }
+    val sourceAudio = source?.let { listOfNotNull(org.arcmediaserver.android.ui.components.codecName(it.codec), org.arcmediaserver.android.ui.components.channelsName(it.channels)).joinToString(" ") }
+    val sent = plan.audioOutput?.takeIf { it.converted }?.let {
+        listOfNotNull(org.arcmediaserver.android.ui.components.codecName(it.codec), org.arcmediaserver.android.ui.components.channelsName(it.channels)).joinToString(" ")
+    }
+    if (sourceAudio != null) add(stringResource(R.string.stats_audio) to (if (sent != null) "$sourceAudio → $sent" else sourceAudio))
+    val output = stats.audioDecoder ?: if (stats.audioMime != null) stringResource(R.string.stats_passthrough) else null
+    output?.let { add(stringResource(R.string.stats_audio_output) to it) }
+    if (plan.sourceKbps > 0) add(stringResource(R.string.stats_bitrate) to String.format(java.util.Locale.ROOT, "%.1f Mbps", plan.sourceKbps / 1000.0))
+    add(stringResource(R.string.stats_buffer) to String.format(java.util.Locale.ROOT, "%.1f s", (state.bufferedMs - state.positionMs).coerceAtLeast(0) / 1000.0))
+    add(stringResource(R.string.stats_dropped) to stats.droppedFrames.toString())
+    if (caps != null) {
+        val tv = listOfNotNull(
+            caps.hdrFormats?.joinToString(", ") ?: stringResource(R.string.stats_hdr_unknown),
+            caps.dolbyVisionProfiles?.let { p -> "DV " + p.joinToString("/") { "P$it" } },
+            caps.audioPassthrough.takeIf { it.isNotEmpty() }?.let { a -> stringResource(R.string.stats_passthrough_list, a.joinToString(", ")) },
+        ).joinToString(" · ")
+        add(stringResource(R.string.stats_this_tv) to tv)
+    }
+}
+
+@Composable
+internal fun StatsPanel(title: String, body: String?, rows: List<Pair<String, String>>) {
+    val focus = remember { FocusRequester() }
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(440.dp).background(ArcColors.Surface.copy(alpha = 0.97f)).padding(horizontal = 24.dp, vertical = 28.dp)
+                .focusRequester(focus).focusable(),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            body?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
+            }
+            Spacer(Modifier.height(18.dp))
+            rows.forEach { (label, value) ->
+                Row(Modifier.padding(vertical = 5.dp)) {
+                    Text(label, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted, modifier = Modifier.width(130.dp))
+                    Text(value, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { focus.requestWhenReady() }
 }
