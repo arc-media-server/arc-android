@@ -124,3 +124,20 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
   logged once at info, with where it happened, the download speed and the stream's bitrate.
 - **The decoder log line names the format** it was made for. Before, it was written before the
   format was known ("for null").
+
+## Subtitles never hold up the film (owner, 31 October)
+
+- With subtitles on, a film could sit on the spinner for a long time. The player waits for a
+  sideloaded subtitle file to load completely before it plays, and Arc may still be extracting the
+  track from the film (arc-media-server#324 makes Arc answer at once, but the player still waited
+  for the whole file).
+- **Text subtitles are now loaded and drawn by the app** (`playback/TextSubtitles.kt`): the WebVTT
+  is fetched in the background, parsed with Media3's WebVTT parser, and the due cues are put on
+  their own subtitle view ten times a second, in the profile's style. The film starts at once and
+  the subtitles appear when they arrive. Switching between text subtitles, or turning them off,
+  no longer restarts the stream.
+- A failed load is retried twice (after 3 s and 6 s). Logged: the cue count and load time at info,
+  and failures as warnings with the exception type only (no URLs).
+- **Limits:** ASS/SSA tracks still go through the player for libass, so they can still hold up the
+  start while Arc extracts them. Subtitles placed at the top aren't supported yet, as before.
+  `TextSubtitlesTest` covers timing and overlapping cues; not yet checked on a TV.
