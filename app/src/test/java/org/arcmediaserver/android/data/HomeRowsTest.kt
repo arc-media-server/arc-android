@@ -32,6 +32,14 @@ class HomeRowsTest {
     }
 
     @Test
+    fun `the Watchlist row sits where the Watchlist sits among the libraries`() {
+        val at = { n: Int -> ids(resolveHomeRows(Prefs(watchlistPosition = n), libs, june)) }
+        assertEquals(listOf("continue", "recent:1", "watchlist", "recent:2", "recent:3"), at(1))
+        assertEquals(listOf("continue", "recent:1", "recent:2", "recent:3", "watchlist"), at(3))
+        assertEquals(listOf("continue", "recent:1", "recent:2", "recent:3", "watchlist"), at(9))
+    }
+
+    @Test
     fun `a split Up Next is its own row`() {
         val rows = resolveHomeRows(Prefs(splitUpNext = true), libs, june)
         assertEquals(listOf("continue", "next-up", "watchlist", "recent:1", "recent:2", "recent:3"), ids(rows))
@@ -129,8 +137,8 @@ class HomeRowsTest {
             ),
         )
         val halloween = resolveHomeRows(prefs, libs, java.time.LocalDate.of(2026, 10, 30))
-        assertEquals(listOf("continue", "watchlist", "seasonal", "recent:1", "recent:2", "recent:3", "playlist:p1", "collection:c1"), ids(halloween))
-        assertEquals(RowSource.Seasonal(SeasonalPick.Horror), halloween[2].source)
+        assertEquals(listOf("continue", "seasonal", "watchlist", "recent:1", "recent:2", "recent:3", "playlist:p1", "collection:c1"), ids(halloween))
+        assertEquals(RowSource.Seasonal(SeasonalPick.Horror), halloween[1].source)
         assertEquals(RowSource.Playlist("p1", "Road trip"), halloween[6].source)
         assertEquals(listOf("continue", "watchlist", "recent:1", "recent:2", "recent:3", "playlist:p1", "collection:c1"), ids(resolveHomeRows(prefs, libs, june)))
         // Hiding the seasonal row keeps it away in season too.

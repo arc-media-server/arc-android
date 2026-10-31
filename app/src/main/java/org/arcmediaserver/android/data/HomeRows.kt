@@ -78,9 +78,11 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>, today: java.time.Loc
     }
     if (shown("continue")) carryOn("continue", RowSource.Continue(withUpNext = !prefs.splitUpNext))
     if (prefs.splitUpNext && shown("next-up")) carryOn("next-up", RowSource.NextUp)
-    if (shown("watchlist")) out += HomeRowSpec("watchlist", RowSource.Watchlist, CardStyle.Poster)
     SeasonalPick.on(today)?.let { if (shown("seasonal")) out += HomeRowSpec("seasonal", RowSource.Seasonal(it), CardStyle.Poster) }
-    for (lib in libraries) {
+    // The Watchlist's row sits where the Watchlist sits among the libraries in the sidebar.
+    val watchlistAt = prefs.watchlistPosition.coerceIn(0, libraries.size)
+    for ((i, lib) in libraries.withIndex()) {
+        if (i == watchlistAt && shown("watchlist")) out += HomeRowSpec("watchlist", RowSource.Watchlist, CardStyle.Poster)
         // Home videos rarely have posters worth showing: their rows use thumbnails.
         val look = if (lib.kind == "videos") CardStyle.Thumb else CardStyle.Poster
         val recent = "recent:${lib.id}"
@@ -92,6 +94,7 @@ fun resolveHomeRows(prefs: Prefs, libraries: List<Library>, today: java.time.Loc
             out += HomeRowSpec(row.id, RowSource.Custom(row.title, lib, filter), look)
         }
     }
+    if (watchlistAt == libraries.size && shown("watchlist")) out += HomeRowSpec("watchlist", RowSource.Watchlist, CardStyle.Poster)
     // Collections and playlists come last, in the order they were added (no library to follow).
     for (row in prefs.home) {
         if (row.hidden) continue

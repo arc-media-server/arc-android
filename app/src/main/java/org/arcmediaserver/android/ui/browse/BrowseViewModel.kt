@@ -29,7 +29,13 @@ import org.arcmediaserver.android.ui.components.toUiError
 data class HomeRowState(val spec: HomeRowSpec, val cards: LoadState<List<MediaCard>>)
 
 /** What the sidebar lists and who's watching. */
-data class BrowseFrame(val libraries: List<Library>, val profile: Profile?, val canSwitchProfile: Boolean)
+data class BrowseFrame(
+    val libraries: List<Library>,
+    val profile: Profile?,
+    val canSwitchProfile: Boolean,
+    /** How many libraries come before the Watchlist in the sidebar. */
+    val watchlistAt: Int = 0,
+)
 
 /**
  * How a library's titles are sorted and filtered, as the web's library page: a sort and its
@@ -98,6 +104,7 @@ sealed interface Section {
     data object Home : Section
     data object Search : Section
     data class Library(val id: Long) : Section
+    data object Watchlist : Section
 }
 
 data class BrowseUiState(
@@ -107,6 +114,8 @@ data class BrowseUiState(
     val library: LoadState<LibraryPage> = LoadState.Loading,
     val libraryTab: LibraryTab = LibraryTab.Recommended,
     val libraryExtras: LibraryExtras = LibraryExtras(),
+    /** The profile's watchlist, while it's shown from the sidebar. */
+    val watchlist: LoadState<List<Item>> = LoadState.Loading,
 )
 
 /** Loads one Home row's cards. */
@@ -144,7 +153,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                 val cards = queueCards(q)
                 _state.update { s ->
                     val rows = s.rows.filter { it.spec.source != RowSource.Queue }
-                    s.copy(rows = if (cards.isEmpty() || rows.isEmpty()) rows else listOf(HomeRowState(QueueRow, LoadState.Ready(cards))) + rows)
+                    s.copy(rows = if (cards.isEmpty() || rows.isEmpty()) rows else rows + HomeRowState(QueueRow, LoadState.Ready(cards)))
                 }
             }
         }
@@ -166,11 +175,12 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                 val order = prefs.libraryOrder
                 val sorted = libraries.sortedBy { lib -> order.indexOf(lib.id).let { if (it < 0) Int.MAX_VALUE else it } }
                 _state.update {
-                    it.copy(frame = LoadState.Ready(BrowseFrame(sorted, status.profile, canSwitchProfile = !status.friend)))
+                    it.copy(frame = LoadState.Ready(BrowseFrame(sorted, status.profile, canSwitchProfile = !status.friend, watchlistAt = prefs.watchlistPosition.coerceIn(0, sorted.size))))
                 }
-                // The queue (when this server keeps one) comes before everything the profile arranged.
+                // The queue (when this server keeps one) comes after everything the profile arranged
+                // (owner, 31 October).
                 val queue = if (container.queues.supported()) container.queues.refresh() else null
-                val specs = (if (queue != null) listOf(QueueRow) else emptyList()) + resolveHomeRows(prefs, sorted)
+                val specs = resolveHomeRows(prefs, sorted) + (if (queue != null) listOf(QueueRow) else emptyList())
                 val current = _state.value.rows.associateBy { it.spec.id }
                 _state.update { s -> s.copy(rows = specs.map { spec -> current[spec.id]?.copy(spec = spec) ?: HomeRowState(spec, LoadState.Loading) }) }
                 if (queue != null) setRow(QueueRow, LoadState.Ready(queueCards(container.queues.queue.value)))
@@ -209,6 +219,22 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         if (section == _state.value.section && section !is Section.Library) return
         _state.update { it.copy(section = section) }
         if (section is Section.Library) loadLibrary(section.id)
+        if (section == Section.Watchlist) loadWatchlist()
+    }
+
+    fun loadWatchlist() {
+        val api = container.api() ?: return
+        if (_state.value.watchlist !is LoadState.Ready) _state.update { it.copy(watchlist = LoadState.Loading) }
+        viewModelScope.launch {
+            val result = try {
+                LoadState.Ready(api.watchlist())
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("watchlist failed to load: ${e.javaClass.simpleName}")
+                LoadState.Failed(e.toUiError())
+            }
+            _state.update { it.copy(watchlist = result) }
+        }
     }
 
     // Each library's sort and filters, kept while the app runs, as the web keeps them per library.

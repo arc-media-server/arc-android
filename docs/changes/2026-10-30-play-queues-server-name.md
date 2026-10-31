@@ -90,3 +90,11 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
   after the controls gave it to Play, so the controls showed but didn't respond until hidden and
   shown again. Now the player takes focus only while the controls are hidden. Closing a menu
   (audio, subtitles, quality…) puts focus back on the button that opened it.
+
+## Watchlist in the sidebar; Queue row last (owner, 31 October)
+
+- **Watchlist in the sidebar.** It sits among the libraries at the profile's `watchlist_position`
+  (arranged on the web, as Plex pins sources). Its Home row follows that place, and it opens a
+  Watchlist page in the library grid. Before, it was a fixed row near the top of Home with no page
+  on the TV.
+- **Queue row last.** Home's Queue row now comes after everything else, the owner's choice.
