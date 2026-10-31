@@ -598,7 +598,7 @@ private data class Option(val name: String, val detail: String?, val selected: B
 
 /** Each menu's choices, from the same rules the web player's menus follow. */
 @Composable
-private fun PlayerMenuPanel(
+internal fun PlayerMenuPanel(
     menu: PlayerMenu,
     state: PlayerUiState,
     plan: PlaybackPlan,
@@ -611,11 +611,15 @@ private fun PlayerMenuPanel(
     onChapter: (Long) -> Unit,
     onSpeed: (Float) -> Unit,
 ) {
+    // While it slides away the panel keeps showing the menu that was open: switching to another
+    // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
+    var shown by remember { mutableStateOf(menu) }
+    if (menu != PlayerMenu.None) shown = menu
     AnimatedVisibility(menu != PlayerMenu.None, enter = slideInHorizontally { it } + fadeIn(), exit = slideOutHorizontally { it } + fadeOut()) {
         val title: String
         var body: String? = null
         val options: List<Option>
-        when (menu) {
+        when (shown) {
             PlayerMenu.Audio -> {
                 title = stringResource(R.string.player_audio)
                 options = plan.audioTracks.mapIndexed { i, t -> Option(audioName(t, i), audioDetail(t), t.index == plan.audioStream) { onAudio(t.index) } }
@@ -662,7 +666,7 @@ private fun PlayerMenuPanel(
                 options = emptyList()
             }
         }
-        if (menu == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
+        if (shown == PlayerMenu.Info) StatsPanel(title, body, statsRows(state, plan, stats, caps)) else OptionPanel(title, options, body)
     }
 }
 

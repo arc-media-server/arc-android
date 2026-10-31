@@ -113,3 +113,9 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
 - Logs at info: once per player, what the TV reports (HDR formats, Dolby Vision profiles,
   passthrough); and per decoder, the decoder chosen and the format it was given. That shows
   whether a Dolby Vision title fell back to its HDR10 base.
+- **Player menus really give focus back now.** The earlier fix put the focus on the menu's button,
+  but while the menu slid away it switched to drawing the Info layout, which took the focus back
+  and then vanished. Nothing had the focus, so the controls ignored the remote and Back seemed to
+  need pressing twice. The panel now keeps drawing the menu that was open while it slides away.
+  `PlayerMenuFocusTest` drives the remote's keys through a menu (a choice, and Back) and checks
+  the button has the focus and Left moves on. Both tests fail on the old code.
