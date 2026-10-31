@@ -135,6 +135,7 @@ fun BrowseRoute(
         onLibraryTab = vm::showLibraryTab,
         onOpenCollection = onOpenCollection,
         onRetryLibraryExtras = vm::retryLibraryExtras,
+        onRetryWatchlist = vm::loadWatchlist,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
@@ -156,6 +157,7 @@ fun BrowseScreen(
     onLibraryTab: (LibraryTab) -> Unit = {},
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
     onRetryLibraryExtras: () -> Unit = {},
+    onRetryWatchlist: () -> Unit = {},
     onLibraryQuery: (LibraryQuery) -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
@@ -181,6 +183,7 @@ fun BrowseScreen(
                         when (section) {
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued)
                             Section.Search -> searchContent()
+                            Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
                         }
                     }
@@ -212,9 +215,15 @@ private fun NavigationDrawerScope.Sidebar(
         }
         SidebarItem(ArcIcons.Search, stringResource(R.string.nav_search), section == Section.Search) { onSection(Section.Search) }
         SidebarItem(ArcIcons.Home, stringResource(R.string.nav_home), section == Section.Home) { onSection(Section.Home) }
-        frame.libraries.forEach { lib ->
+        // The Watchlist sits among the libraries where the profile put it (as Plex pins it).
+        val watchlist: @Composable () -> Unit = {
+            SidebarItem(ArcIcons.Bookmark, stringResource(R.string.row_watchlist), section == Section.Watchlist) { onSection(Section.Watchlist) }
+        }
+        frame.libraries.forEachIndexed { i, lib ->
+            if (i == frame.watchlistAt) watchlist()
             SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
         }
+        if (frame.watchlistAt >= frame.libraries.size) watchlist()
         Spacer(Modifier.weight(1f))
         val profile = frame.profile
         if (profile != null && frame.canSwitchProfile) {
@@ -845,3 +854,24 @@ private val HomeThumbWidth = 236.dp
 private val HomeBackdropWidth = 200.dp
 // Heading, card padding, the poster and its two-line caption.
 private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f + 50.dp
+
+/** The Watchlist from the sidebar: its name and count, then the titles in the library's grid. */
+@Composable
+fun WatchlistContent(state: LoadState<List<Item>>, onOpen: (Item) -> Unit, onRetry: () -> Unit) {
+    Loaded(state, onRetry) { items ->
+        val first = remember { FocusRequester() }
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.row_watchlist), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.width(14.dp))
+                Text(pluralStringResource(R.plurals.library_count, items.size, items.size), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+            }
+            if (items.isEmpty()) {
+                Text(stringResource(R.string.watchlist_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
+            } else {
+                TitleGrid(items, landscape = false, first, onOpen)
+            }
+        }
+        LaunchedEffect(items.isEmpty()) { if (items.isNotEmpty()) first.requestWhenReady() }
+    }
+}

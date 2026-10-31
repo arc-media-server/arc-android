@@ -111,6 +111,19 @@ class ScreenshotTest {
     }
 
     @Test
+    fun watchlist() = shot("watchlist") {
+        // The Watchlist from the sidebar, placed after the first library.
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame.copy(watchlistAt = 1)),
+                section = Section.Watchlist,
+                watchlist = LoadState.Ready(Fixtures.movies.take(5) + Fixtures.show),
+            ),
+            drawerOpen = true,
+        )
+    }
+
+    @Test
     fun homeQueue() = shot("home-queue") {
         // The play queue, first while there's one to carry on: from the title it's on.
         val queued = listOf(Fixtures.movies[2], Fixtures.seasons[0].episodes[4], Fixtures.movies[4])

@@ -222,6 +222,8 @@ data class Prefs(
     val home: List<HomeRowPref> = emptyList(),
     @SerialName("split_up_next") val splitUpNext: Boolean = false,
     @SerialName("library_order") val libraryOrder: List<Long> = emptyList(),
+    /** How many libraries come before the Watchlist in the sidebar (and on Home), as Plex pins it. */
+    @SerialName("watchlist_position") val watchlistPosition: Int = 0,
     @SerialName("subtitle_language") val subtitleLanguage: String = "",
     /** "" (the language last chosen), "manual" (forced only), "foreign" or "always", as Plex's. */
     @SerialName("subtitle_mode") val subtitleMode: String = "",

@@ -151,6 +151,7 @@
         <item quantity="other">%1$d titles</item>
     </plurals>
     <string name="library_empty">This library is empty.</string>
+    <string name="watchlist_empty">Nothing on your Watchlist yet. Add a movie or show from its page.</string>
 
     <!-- Details -->
     <string name="season_number">Season %1$d</string>
