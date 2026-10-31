@@ -1,9 +1,13 @@
 package org.arcmediaserver.android.ui.details
 
+import org.arcmediaserver.android.ui.components.MediaCardView
+import org.arcmediaserver.android.ui.components.PersonCard
+import org.arcmediaserver.android.ui.components.Shelf
+import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
-import org.arcmediaserver.android.ui.components.MinimalBringIntoView
+import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,11 +56,6 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Tab
-import androidx.tv.material3.TabDefaults
-import androidx.tv.material3.TabRow
-import androidx.tv.material3.TabRowDefaults
 import androidx.tv.material3.Text
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.ui.components.requestWhenReady
@@ -78,9 +76,18 @@ import org.arcmediaserver.android.ui.components.episodeCode
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) -> Unit) {
-    val vm = arcViewModel { DetailsViewModel(it, itemId) }
+fun DetailsRoute(
+    itemId: String,
+    onPlay: (Item, Long) -> Unit,
+    onOpen: (String) -> Unit,
+    episodeId: String? = null,
+    onPerson: (Long) -> Unit = {},
+    onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
+    onPlayQueued: (Item, String) -> Unit = { _, _ -> },
+) {
+    val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val canShuffle by vm.canShuffle.collectAsStateWithLifecycle()
     var resumed by remember { mutableStateOf(false) }
     // Coming back from the player: show the new resume point and watched state.
     LifecycleResumeEffect(Unit) {
@@ -93,7 +100,12 @@ fun DetailsRoute(itemId: String, onPlay: (Item, Long) -> Unit, onOpen: (String) 
         Loaded(state, onRetry = { vm.load() }) { details ->
             DetailsScreen(
                 details, onPlay, onOpen,
-                actions = TitleActions(onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown),
+                actions = TitleActions(
+                    onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
+                    onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
+                ),
+                onPerson = onPerson,
+                onExtra = onExtra,
             )
         }
     }
@@ -105,6 +117,8 @@ data class TitleActions(
     val onWatchlist: () -> Unit = {},
     val problem: ActionProblem? = null,
     val onProblemShown: () -> Unit = {},
+    /** A show's Shuffle; null where it can't be shuffled. */
+    val onShuffle: (() -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -115,27 +129,66 @@ fun DetailsScreen(
     onOpen: (String) -> Unit,
     actions: TitleActions = TitleActions(),
     initialPanel: DetailsPanel = DetailsPanel.None,
+    onPerson: (Long) -> Unit = {},
+    onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
 ) {
     val item = details.item
     val primary = remember { FocusRequester() }
     val more = remember { FocusRequester() }
+    val episodeFocus = remember { FocusRequester() }
+    val page = rememberLazyListState()
     var panel by remember { mutableStateOf(initialPanel) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(org.arcmediaserver.android.ui.browse.backdropOf(item))
-        val page = rememberLazyListState()
+        org.arcmediaserver.android.ui.browse.ImmersiveBackdrop(item)
         val scope = rememberCoroutineScope()
         // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
         // pushed the title off the top as soon as Play was focused. Here the page only scrolls
         // what's needed to show the focused thing, and the header always shows whole (as Plex).
-        CompositionLocalProvider(LocalBringIntoViewSpec provides MinimalBringIntoView) {
-            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 40.dp, bottom = 40.dp)) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
+            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp)) {
                 item {
                     Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } }) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { panel = DetailsPanel.More })
                     }
                 }
                 if (item.isSeries) {
-                    item { Seasons(details, onPlay) }
+                    // The seasons show whole while they have focus, so episode names and
+                    // details under the pictures aren't cut off at the bottom.
+                    item {
+                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(1) } }) {
+                            Seasons(details, onPlay, episodeFocus)
+                        }
+                    }
+                }
+                // Under the title, as the web's page: the cast, the collections it's in, More
+                // Like This, then extras.
+                val cast = item.credits.filter { it.role == "actor" }
+                if (cast.isNotEmpty()) {
+                    item(key = "cast") {
+                        Box(Modifier.padding(top = 28.dp)) {
+                            Shelf(stringResource(R.string.details_cast), start = PageStart) {
+                                items(cast, key = { it.personId }) { c -> PersonCard(c.name, c.image, c.character) { onPerson(c.personId) } }
+                            }
+                        }
+                    }
+                }
+                details.related.forEach { row ->
+                    item(key = row.key) {
+                        Box(Modifier.padding(top = 20.dp)) {
+                            Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = PageStart) {
+                                items(row.items, key = { it.id }) { t -> MediaCardView(cardFor(t), landscape = row.landscape, onClick = { onOpen(t.id) }) }
+                            }
+                        }
+                    }
+                }
+                if (item.extras.isNotEmpty()) {
+                    item(key = "extras") {
+                        Box(Modifier.padding(top = 20.dp)) {
+                            Shelf(stringResource(R.string.details_extras), start = PageStart) {
+                                items(item.extras, key = { it.id }) { e -> ExtraCard(e) { onExtra(e) } }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -146,11 +199,25 @@ fun DetailsScreen(
         }
         when (panel) {
             DetailsPanel.None -> Unit
-            DetailsPanel.More -> MoreMenu(item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel)
+            DetailsPanel.More -> {
+                val queue = org.arcmediaserver.android.ui.components.LocalCardMenu.current?.queue
+                MoreMenu(
+                    item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel,
+                    onQueue = queue?.let { q -> { next: Boolean -> q(item, next) } },
+                )
+            }
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
         }
     }
-    LaunchedEffect(item.id) { if (initialPanel == DetailsPanel.None) primary.requestWhenReady() }
+    LaunchedEffect(item.id) {
+        if (initialPanel != DetailsPanel.None) return@LaunchedEffect
+        // Opened from an episode's card: land on that episode in its show, as Plex does.
+        if (details.focus != null) {
+            page.scrollToItem(1)
+            if (episodeFocus.requestWhenReady()) return@LaunchedEffect
+        }
+        primary.requestWhenReady()
+    }
 }
 
 @Composable
@@ -164,39 +231,21 @@ private fun Header(
     onMore: () -> Unit,
 ) {
     val item = details.item
-    Column(Modifier.padding(start = 56.dp)) {
-        Column(Modifier.width(520.dp)) {
-            if (item.isEpisode) {
-                org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 72.dp, textStyle = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(10.dp))
-                Text(item.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            } else {
-                org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 84.dp, textStyle = MaterialTheme.typography.displayMedium)
-            }
-            Spacer(Modifier.height(10.dp))
-            val unwatched = item.unwatchedCount ?: 0
-            val meta = listOfNotNull(
-                if (item.isEpisode) episodeCode(item) else null,
+    Column(Modifier.padding(start = PageStart)) {
+        val unwatched = item.unwatchedCount ?: 0
+        // The same summary as Home's, at the same place (an episode adds its own name).
+        org.arcmediaserver.android.ui.browse.TitleSummary(
+            item,
+            listOfNotNull(
+                if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
                 item.year?.toString(),
-                item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
-            )
-            Text(meta.joinToString("  ·  "), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
-            if (item.genres.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text(item.genres.take(3).joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Subtle)
-            }
-            item.tagline?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(14.dp))
-                Text(it, style = MaterialTheme.typography.titleMedium, color = ArcColors.Foreground)
-            }
-            item.overview?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(10.dp))
-                Text(it, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
-            }
-        }
+                item.genres.take(2).joinToString(", "),
+            ),
+            labels = true,
+        )
         Spacer(Modifier.height(24.dp))
         var focusedLabel by remember { mutableStateOf<String?>(null) }
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -214,6 +263,10 @@ private fun Header(
                 if (resume > 0) {
                     ActionButton(ArcIcons.RotateCcw, stringResource(R.string.action_play_from_start)) { onPlay(target, 0) }
                 }
+            }
+            // Shuffle, after Play as on the web's show page.
+            if (item.isSeries && actions.onShuffle != null && details.seasons.any { s -> s.episodes.any { it.available } }) {
+                ActionButton(ArcIcons.Shuffle, stringResource(R.string.action_shuffle)) { actions.onShuffle.invoke() }
             }
             if (item.isEpisode && item.parentId != null) {
                 ActionButton(ArcIcons.Tv, stringResource(R.string.action_go_to_show)) { onOpen(item.parentId) }
@@ -270,7 +323,18 @@ private fun ActionButton(icon: ImageVector, label: String, primary: Boolean = fa
     if (primary) {
         Button(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding, content = content)
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding, content = content)
+        // Filled like the round Watched/Watchlist/More buttons beside it, not just outlined,
+        // so it reads over bright artwork too.
+        Button(
+            onClick = onClick, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+            colors = ButtonDefaults.colors(
+                containerColor = ArcColors.Surface3.copy(alpha = 0.7f),
+                contentColor = Color.White,
+                focusedContainerColor = Color.White,
+                focusedContentColor = Color.Black,
+            ),
+            content = content,
+        )
     }
 }
 
@@ -283,53 +347,33 @@ fun clock(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit) {
+private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
     if (details.seasons.isEmpty()) {
-        Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 56.dp, top = 32.dp))
+        Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = PageStart, top = 32.dp))
         return
     }
     var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, details.seasons.lastIndex)) }
     Column(Modifier.padding(top = 24.dp)) {
-        TabRow(
-            selectedTabIndex = selected,
-            modifier = Modifier.padding(start = 48.dp),
-            indicator = { tabPositions, doesTabRowHaveFocus ->
-                TabRowDefaults.PillIndicator(
-                    currentTabPosition = tabPositions[selected],
-                    doesTabRowHaveFocus = doesTabRowHaveFocus,
-                    activeColor = ArcColors.Foreground,
-                    inactiveColor = ArcColors.Surface3,
-                )
-            },
-        ) {
-            details.seasons.forEachIndexed { i, season ->
-                Tab(
-                    selected = i == selected,
-                    onFocus = { selected = i },
-                    colors = TabDefaults.pillIndicatorTabColors(
-                        contentColor = ArcColors.Muted,
-                        selectedContentColor = ArcColors.Foreground,
-                        focusedContentColor = ArcColors.Background,
-                        focusedSelectedContentColor = ArcColors.Background,
-                    ),
-                ) {
-                    Text(seasonName(season), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                }
-            }
-        }
+        PillTabs(details.seasons.map { seasonName(it) }, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = PageStart - 8.dp))
         val season = details.seasons[selected]
         val listState = rememberLazyListState()
         LaunchedEffect(selected) {
-            val idx = season.episodes.indexOfFirst { it.id == details.next?.id }
+            val idx = season.episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
-        LazyRow(
-            state = listState,
-            contentPadding = PaddingValues(horizontal = 56.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            items(season.episodes, key = { it.id }) { ep -> EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }) }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(PageStart)) {
+            LazyRow(
+                state = listState,
+                contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                items(season.episodes, key = { it.id }) { ep ->
+                    val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
+                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod)
+                }
+            }
         }
     }
 }
@@ -340,11 +384,11 @@ fun seasonName(season: Season): String = season.name.takeIf { it.isNotBlank() }
 
 /** An episode: its picture with progress and a tick, its number and name, and how long it is. */
 @Composable
-private fun EpisodeCard(ep: Item, onClick: () -> Unit) {
+private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
     Column(Modifier.width(ThumbWidth)) {
-        FocusCard(onClick = onClick, onFocused = { focused = it }) {
+        FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
             Artwork(card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
             WatchBadge(ep)
             ProgressLine(card.progress)
@@ -362,8 +406,47 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit) {
             if (!ep.available) stringResource(R.string.details_missing) else null,
         ).joinToString(" · ")
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted)
-        if (focused && !ep.overview.isNullOrBlank()) {
-            Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(max = 40.dp))
+        // The focused episode's description has its room kept, so showing it doesn't push the
+        // cast and everything under the episodes down.
+        Box(Modifier.height(40.dp)) {
+            if (focused && !ep.overview.isNullOrBlank()) {
+                Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
+
+/** An extra: a wide card with its name, and what kind of extra it is and how long under it. */
+@Composable
+private fun ExtraCard(extra: org.arcmediaserver.android.data.Extra, onClick: () -> Unit) {
+    Column(Modifier.width(ThumbWidth)) {
+        FocusCard(onClick = onClick) {
+            Artwork(null, label = extra.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+            Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.align(Alignment.Center).size(32.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(extra.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val sub = listOfNotNull(extraKindName(extra.kind), (extra.durationMs / 60_000).toInt().takeIf { it > 0 }?.let { runtimeText(it) }).joinToString(" · ")
+        Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun extraKindName(kind: String): String = stringResource(
+    when (kind) {
+        "trailer" -> R.string.extras_trailer
+        "featurette" -> R.string.extras_featurette
+        "behind_the_scenes" -> R.string.extras_behind_the_scenes
+        "deleted_scene" -> R.string.extras_deleted_scene
+        "interview" -> R.string.extras_interview
+        "scene" -> R.string.extras_scene
+        "short" -> R.string.extras_short
+        else -> R.string.extras_other
+    },
+)
+
+/**
+ * Where a title page's text and rows start: Google TV's 48dp edge. The page has no sidebar, so
+ * Home's 96dp (past the sidebar) left an empty strip (owner, 30 October).
+ */
+private val PageStart = 48.dp

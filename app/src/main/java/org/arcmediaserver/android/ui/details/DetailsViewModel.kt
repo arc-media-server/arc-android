@@ -2,6 +2,7 @@ package org.arcmediaserver.android.ui.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -21,9 +22,32 @@ data class Details(
     val seasons: List<Season> = emptyList(),
     /** For a show: the episode Play starts (the one part-way through, or the next unwatched). */
     val next: Item? = null,
-    /** The season to open on: the next episode's. */
+    /** The season to open on: the [focus] episode's, else the next episode's. */
     val initialSeason: Int = 0,
+    /** An episode opened from a row (Continue Watching, Recently Added): the page lands on it. */
+    val focus: Item? = null,
+    /** Rows under the title, loaded after it: each collection it's in, then More Like This. */
+    val related: List<RelatedRow> = emptyList(),
 )
+
+/** A row of titles under a title's page: a collection it's in ([title]), or More Like This (no title). */
+data class RelatedRow(val key: String, val title: String?, val items: List<Item>, val landscape: Boolean = false)
+
+/**
+ * The rows under [item], as the web's title page (CollectionRows, SimilarRow): each collection
+ * it's in without the title itself, then More Like This. A row that fails or is empty is left out.
+ */
+suspend fun relatedRows(api: org.arcmediaserver.android.data.ArcApi, item: Item): List<RelatedRow> = kotlinx.coroutines.coroutineScope {
+    val collections = item.collections.map { c ->
+        async {
+            runCatching { api.collection(c.id) }.getOrNull()?.let { page ->
+                RelatedRow("collection:${c.id}", c.title, page.items.filter { it.id != item.id }, landscape = page.collection.kind == "folder")
+            }
+        }
+    }
+    val similar = async { runCatching { api.similar(item.id) }.getOrNull()?.let { RelatedRow("similar", null, it) } }
+    (collections.map { it.await() } + similar.await()).filterNotNull().filter { it.items.isNotEmpty() }
+}
 
 /** The episode to carry on with: one part-way through, else the first not watched, specials last. */
 fun nextEpisode(seasons: List<Season>): Item? {
@@ -51,7 +75,7 @@ suspend fun optimistic(before: Item, after: Item, show: (Item) -> Unit, save: su
     }
 }
 
-class DetailsViewModel(private val container: AppContainer, private val itemId: String) : ViewModel() {
+class DetailsViewModel(private val container: AppContainer, private val itemId: String, private val episodeId: String? = null) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<Details>>(LoadState.Loading)
     val state: StateFlow<LoadState<Details>> = _state
 
@@ -75,6 +99,7 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         val played = !item.watched
         viewModelScope.launch {
             val ok = optimistic(item, item.withWatched(played), ::showItem) { api.setPlayed(item.id, played) }
+            if (ok) container.itemChanges[item.id] = item.withWatched(played)
             if (!ok) {
                 ArcLog.Android.warn("marking ${item.kind} ${if (played) "watched" else "unwatched"} failed")
                 _problem.value = ActionProblem.Watched
@@ -90,6 +115,7 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         val on = !item.onWatchlist
         viewModelScope.launch {
             val ok = optimistic(item, item.withWatchlist(on), ::showItem) { api.setWatchlist(item.id, on) }
+            if (ok) container.itemChanges[item.id] = item.withWatchlist(on)
             if (!ok) {
                 ArcLog.Android.warn("${if (on) "adding to" else "removing from"} the watchlist failed")
                 _problem.value = ActionProblem.Watchlist
@@ -97,8 +123,30 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         }
     }
 
+    private val _canShuffle = MutableStateFlow(false)
+    /** A show can be shuffled when this server keeps play queues (the episodes play on in that order). */
+    val canShuffle: StateFlow<Boolean> = _canShuffle
+
     init {
         load()
+        viewModelScope.launch { _canShuffle.value = container.queues.supported() }
+    }
+
+    /** Shuffle (a show): its available episodes in a random order, as a new queue; [play] starts it. */
+    fun shuffle(play: (Item, String) -> Unit) {
+        val details = (_state.value as? LoadState.Ready)?.value ?: return
+        val episodes = details.seasons.flatMap { it.episodes }.filter { it.available }.shuffled()
+        if (episodes.isEmpty()) return
+        viewModelScope.launch {
+            val queue = container.queues.start(episodes.map { it.id })
+            val first = queue?.entries?.firstOrNull { it.id == queue.currentEntryId && it.playable }
+            if (queue == null || first?.item == null) {
+                ArcLog.Android.warn("shuffling a show failed")
+                return@launch
+            }
+            ArcLog.Android.debug("shuffled ${episodes.size} episodes")
+            play(first.item, first.id)
+        }
     }
 
     /** Loads the page; [quiet] keeps what's shown while it refreshes (coming back from playing). */
@@ -111,10 +159,12 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
                 if (item.isSeries) {
                     val seasons = api.seasons(item.id).seasons.filter { it.episodes.isNotEmpty() }
                     val next = nextEpisode(seasons)
-                    val idx = seasons.indexOfFirst { s -> s.episodes.any { it.id == next?.id } }.coerceAtLeast(0)
-                    LoadState.Ready(Details(item, seasons, next, idx))
+                    val focus = episodeId?.let { id -> seasons.firstNotNullOfOrNull { s -> s.episodes.firstOrNull { it.id == id } } }
+                    val land = focus ?: next
+                    val idx = seasons.indexOfFirst { s -> s.episodes.any { it.id == land?.id } }.coerceAtLeast(0)
+                    LoadState.Ready(Details(item, seasons, next, idx, focus, related = currentRelated()))
                 } else {
-                    LoadState.Ready(Details(item))
+                    LoadState.Ready(Details(item, related = currentRelated()))
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -122,6 +172,13 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
                 if (quiet && _state.value is LoadState.Ready) return@launch
                 LoadState.Failed(e.toUiError())
             }
+            // The rows under the title come after it, so the page shows without waiting for them.
+            val item = (_state.value as? LoadState.Ready)?.value?.item ?: return@launch
+            if (item.isEpisode) return@launch
+            val related = relatedRows(api, item)
+            (_state.value as? LoadState.Ready)?.value?.let { _state.value = LoadState.Ready(it.copy(related = related)) }
         }
     }
+
+    private fun currentRelated() = (_state.value as? LoadState.Ready)?.value?.related.orEmpty()
 }

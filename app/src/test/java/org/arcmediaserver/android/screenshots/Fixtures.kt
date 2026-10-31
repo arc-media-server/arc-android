@@ -108,11 +108,11 @@ object Fixtures {
             LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(episode(3, 4, "The Ferry", pos = 10 * 60_000).copy(seriesTitle = "Brightwater", images = images("Brightwater").copy(primary = "art:still:The Ferry"))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
         ),
         HomeRowState(
-            HomeRowSpec("recent:1", RowSource.Recent(libraries[0], false), CardStyle.Poster),
+            HomeRowSpec("recent:1", RowSource.Recent(libraries[0], false), CardStyle.Poster, seasonPosters = true),
             LoadState.Ready(movies.drop(1).map { cardFor(it) }),
         ),
         HomeRowState(
-            HomeRowSpec("recent:2", RowSource.Recent(libraries[1], false), CardStyle.Poster),
+            HomeRowSpec("recent:2", RowSource.Recent(libraries[1], false), CardStyle.Poster, seasonPosters = true),
             LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Hollow Creek S2")))),
         ),
     )

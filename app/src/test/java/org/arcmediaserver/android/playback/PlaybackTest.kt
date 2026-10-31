@@ -38,6 +38,26 @@ class PlaybackTest {
         assertEquals(listOf("aac", "mp3", "opus", "flac", "ac3", "eac3"), caps.audio)
         assertEquals(listOf("mp4", "mkv", "webm", "mpegts"), caps.containers)
         assertEquals(2160, caps.maxHeight)
+        assertEquals(listOf("ac3", "eac3"), caps.audioPassthrough)
+        assertNull(caps.hdrFormats) // the display said nothing: unknown, not SDR only
+    }
+
+    @Test
+    fun `TrueHD by passthrough is for files played as they are, HDR and Dolby Vision come from the display and decoder`() {
+        // A Chromecast with Google TV on a Dolby Vision TV and a receiver taking TrueHD.
+        val caps = capsFrom(
+            setOf("video/hevc", "video/dolby-vision", "audio/mp4a-latm", "audio/eac3", "audio/ac3"),
+            passthrough = setOf("eac3", "truehd"), maxHeight = 2160,
+            hdrTypes = setOf(1, 2, 3), dolbyVisionProfileBits = listOf(0x20, 0x100, 0x100),
+        )
+        assertEquals(listOf("aac", "ac3", "eac3"), caps.audio)
+        assertEquals(listOf("eac3", "truehd"), caps.audioPassthrough)
+        assertEquals(listOf("hdr10", "hlg", "dolby_vision"), caps.hdrFormats)
+        assertEquals(listOf(5, 8), caps.dolbyVisionProfiles)
+        // A Dolby Vision TV without a Dolby Vision decoder: HDR10 only.
+        val noDecoder = capsFrom(setOf("video/hevc"), emptySet(), 2160, hdrTypes = setOf(1, 2))
+        assertEquals(listOf("hdr10"), noDecoder.hdrFormats)
+        assertNull(noDecoder.dolbyVisionProfiles)
     }
 
     @Test

@@ -110,7 +110,7 @@ class ArcApiTest {
         val req = server.takeRequest()
         assertEquals("/api/v1/items/ep%3A1%3Atvdb%3A2/playback", req.url.encodedPath)
         assertEquals(
-            """{"caps":{"containers":["mp4","mkv"],"video":["h264","hevc"],"audio":["aac","ac3"],"max_height":2160},"start_ms":120000}""",
+            """{"caps":{"containers":["mp4","mkv"],"video":["h264","hevc"],"audio":["aac","ac3"],"max_height":2160,"audio_passthrough":[]},"start_ms":120000}""",
             req.body?.utf8(),
         )
     }
@@ -238,5 +238,16 @@ class ArcApiTest {
         answer(200, """{"api_version":1}""")
         api.health()
         assertTrue("body was read on the calling thread", readOn != null && readOn != caller)
+    }
+
+    @Test
+    fun `artwork palettes give colours, none for this title, or none from an older Arc`() = runTest {
+        answer(200, """{"available":true,"algorithm":"arc-regional-v1","color_space":"srgb","artwork_type":"backdrop","artwork_url":"/x","artwork_version":"v","colors":{"top_left":"#163064","top_right":"#b84b2c","bottom_left":"#172955","bottom_right":"#643354"}}""")
+        assertEquals("#b84b2c", api.artworkPalette("m1")?.colors?.topRight)
+        assertEquals("/api/v1/items/m1/artwork/palette", server.takeRequest().url.encodedPath)
+        answer(200, """{"available":false,"algorithm":"arc-regional-v1","color_space":"srgb","artwork_type":"primary","artwork_url":"","artwork_version":"","reason":"no_artwork"}""")
+        assertNull(api.artworkPalette("m2"))
+        answer(404, """{"error":"not found"}""")
+        assertNull(api.artworkPalette("m3"))
     }
 }
