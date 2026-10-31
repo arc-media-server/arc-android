@@ -119,3 +119,8 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
   need pressing twice. The panel now keeps drawing the menu that was open while it slides away.
   `PlayerMenuFocusTest` drives the remote's keys through a menu (a choice, and Back) and checks
   the button has the focus and Left moves on. Both tests fail on the old code.
+- **Waits are measured.** The stats panel shows the **download speed** from Arc, next to the
+  file's bitrate, and how many waits (spinner) there have been and the longest. A wait over 2 s is
+  logged once at info, with where it happened, the download speed and the stream's bitrate.
+- **The decoder log line names the format** it was made for. Before, it was written before the
+  format was known ("for null").
