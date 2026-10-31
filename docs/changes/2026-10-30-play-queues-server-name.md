@@ -86,3 +86,7 @@ The TV side of the server's handoff (arc-media-server docs/BACKEND-API-HANDOFF.m
   doesn't jump.
 - **Coming back to Home** returns focus to the row last used (or the first one), so the sidebar
   no longer opens.
+- **Player controls usable on arrival and after a menu.** The player took focus for itself just
+  after the controls gave it to Play, so the controls showed but didn't respond until hidden and
+  shown again. Now the player takes focus only while the controls are hidden. Closing a menu
+  (audio, subtitles, quality…) puts focus back on the button that opened it.
