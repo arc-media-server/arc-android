@@ -321,6 +321,7 @@ class PlayerViewModel(
 
     private fun install(p: PlaybackPlan, fileMs: Long, subtitle: SubtitleTrack?) {
         statsCollector.reset()
+        statsCollector.streamKbps = p.sourceKbps
         val builder = MediaItem.Builder().setUri(api.absolute(p.url))
         if (p.hls) {
             builder.setMimeType(MimeTypes.APPLICATION_M3U8)

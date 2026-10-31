@@ -771,6 +771,9 @@ internal fun statsRows(
     val output = stats.audioDecoder ?: if (stats.audioMime != null) stringResource(R.string.stats_passthrough) else null
     output?.let { add(stringResource(R.string.stats_audio_output) to it) }
     if (plan.sourceKbps > 0) add(stringResource(R.string.stats_bitrate) to String.format(java.util.Locale.ROOT, "%.1f Mbps", plan.sourceKbps / 1000.0))
+    // How fast it arrives, to set against the bitrate: slower than the file means waiting.
+    if (stats.downloadKbps > 0) add(stringResource(R.string.stats_download) to String.format(java.util.Locale.ROOT, "%.1f Mbps", stats.downloadKbps / 1000.0))
+    if (stats.waits > 0) add(stringResource(R.string.stats_waits) to pluralStringResource(R.plurals.stats_waits_value, stats.waits, stats.waits, stats.longestWaitMs / 1000.0))
     add(stringResource(R.string.stats_buffer) to String.format(java.util.Locale.ROOT, "%.1f s", (state.bufferedMs - state.positionMs).coerceAtLeast(0) / 1000.0))
     add(stringResource(R.string.stats_dropped) to stats.droppedFrames.toString())
     if (caps != null) {
