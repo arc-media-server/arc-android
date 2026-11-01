@@ -68,6 +68,17 @@ class AppContainer(private val context: Context) {
      */
     val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
 
+    /** Google TV's Continue watching row, kept in step with Arc's. */
+    val watchNext = org.arcmediaserver.android.watchnext.WatchNextPublisher(context)
+
+    /** Brings Google TV's Continue watching row up to date (the app going to the background). */
+    fun syncWatchNext() {
+        appScope.launch { watchNext.sync(if (session.token != null) api() else null) }
+    }
+
+    /** A title Google TV's row asked to resume, until the app is where it can play it. */
+    val pendingPlay = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
     /** This TV's play queue on Arc, for the profile. */
     val queues = org.arcmediaserver.android.data.PlayQueues(::api)
 
@@ -90,6 +101,7 @@ class AppContainer(private val context: Context) {
             runCatching { api?.signOut() }
             session.token = null
             profileChanged()
+            watchNext.sync(null)
             org.arcmediaserver.android.data.ArcLog.Android.info("signed out")
             kotlinx.coroutines.withContext(Dispatchers.Main) { done() }
         }

@@ -3,6 +3,11 @@ package org.arcmediaserver.android.ui
 import org.arcmediaserver.android.data.Item
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -62,6 +67,7 @@ private fun NavHostController.go(destination: Destination) = startAt(
 fun ArcNavHost() {
     val nav = rememberNavController()
     val container = (LocalContext.current.applicationContext as ArcApplication).container
+    ResumeFromHomeScreen(nav, container)
     CompositionLocalProvider(LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path }) {
         CardMenuHost(container) {
             NavHost(nav, startDestination = LaunchDest) {
@@ -134,5 +140,33 @@ fun ArcNavHost() {
                 }
             }
         }
+    }
+}
+
+/**
+ * A title chosen in Google TV's Continue watching row plays once the app is signed in with a
+ * profile (past the launch, sign-in and profile screens), from where Arc has it now; Back then
+ * goes to wherever the app was (Home on a fresh start). A title Arc can't find opens nothing.
+ */
+@Composable
+private fun ResumeFromHomeScreen(nav: NavHostController, container: org.arcmediaserver.android.AppContainer) {
+    val pending by container.pendingPlay.collectAsState()
+    val entry by nav.currentBackStackEntryAsState()
+    val signedIn = entry?.destination?.let { d ->
+        !(d.hasRoute<LaunchDest>() || d.hasRoute<ServerDest>() || d.hasRoute<SignInDest>() || d.hasRoute<ProfilesDest>())
+    } ?: false
+    LaunchedEffect(pending, signedIn) {
+        val id = pending ?: return@LaunchedEffect
+        if (!signedIn) return@LaunchedEffect
+        container.pendingPlay.value = null
+        val item = try {
+            container.api()?.item(id)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            org.arcmediaserver.android.data.ArcLog.Android.warn("resuming from the home screen failed: ${e.javaClass.simpleName}")
+            null
+        } ?: return@LaunchedEffect
+        if (!item.playable) { nav.navigate(detailsFor(item)); return@LaunchedEffect }
+        nav.navigate(PlayerDest(item.id, item.resumeMs)) { popUpTo<PlayerDest> { inclusive = true } }
     }
 }
