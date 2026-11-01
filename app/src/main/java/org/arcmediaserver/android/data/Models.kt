@@ -344,6 +344,23 @@ data class PaletteColors(
     @SerialName("bottom_right") val bottomRight: String,
 )
 
+/** GET /libraries/{id}/folders: one folder of a home videos library, the folders in it and its own videos. */
+@Serializable
+data class FolderPage(
+    val path: String = "",
+    /** The way back up: each folder above (and this one), by name. */
+    val trail: List<FolderCrumb> = emptyList(),
+    val folders: List<VideoFolder> = emptyList(),
+    val items: List<Item> = emptyList(),
+)
+
+@Serializable
+data class FolderCrumb(val name: String, val path: String)
+
+/** A folder in a home videos library: [count] videos in it and below, [cover] a video's picture. */
+@Serializable
+data class VideoFolder(val name: String, val path: String, val count: Int = 0, val cover: String? = null)
+
 /** GET /playlists/{id}: a playlist and its titles in order. */
 @Serializable
 data class PlaylistPage(val playlist: PlaylistInfo, val entries: List<PlaylistEntry> = emptyList())

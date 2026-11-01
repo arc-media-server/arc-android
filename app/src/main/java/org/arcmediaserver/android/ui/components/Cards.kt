@@ -196,6 +196,19 @@ fun episodeCode(item: Item): String? {
 /** A card's title: the show's for an episode or a season, as Plex labels them on Home. */
 fun cardTitle(card: MediaCard): String = if (card.item.isEpisode) card.item.seriesTitle ?: card.item.title else card.item.title
 
+/** A label over a card's top corner, as the web's folder tag. */
+@Composable
+private fun BoxScope.CornerTag(label: String) {
+    androidx.compose.foundation.layout.Row(
+        Modifier.align(Alignment.TopStart).padding(8.dp).background(Color.Black.copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.tv.material3.Icon(ArcIcons.Folder, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White)
+    }
+}
+
 /** Four posters two by two (a playlist's picture, as the web's PlaylistCover). */
 @Composable
 private fun Mosaic(urls: List<String>, modifier: Modifier) {
@@ -250,6 +263,7 @@ fun MediaCardView(
                     modifier = Modifier.fillMaxWidth().aspectRatio(if (landscape) 16f / 9f else 2f / 3f),
                 )
             }
+            card.tag?.let { CornerTag(it) }
             WatchBadge(card.item)
             ProgressLine(card.progress)
         }

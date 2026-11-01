@@ -68,6 +68,7 @@ object ArcIcons {
     val ListOrdered = icon("list-ordered", "M10 12h11", "M10 18h11", "M10 6h11", "M4 10h2", "M4 6h1v4", "M6 18H4c0-1 2-2 2-3s-1-1.5-2-1")
     val Gauge = icon("gauge", "m12 14 4-4", "M3.34 19a10 10 0 1 1 17.32 0")
     val ListStart = icon("list-start", "M16 12H3", "M16 18H3", "M10 6H3", "M21 18V8a2 2 0 0 0-2-2h-5", "m16 8-2-2 2-2")
+    val Folder = icon("folder", "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z")
     val ListVideo = icon("list-video", "M12 12H3", "M16 6H3", "M12 18H3", "m16 12 5 3-5 3v-6Z")
     val Shuffle = icon(
         "shuffle", "m18 14 4 4-4 4", "m18 2 4 4-4 4", "M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22",
