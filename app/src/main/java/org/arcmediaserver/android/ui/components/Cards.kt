@@ -184,6 +184,7 @@ fun BoxScope.WatchBadge(item: Item) {
 fun cardSubtitle(card: MediaCard): String? {
     val item = card.item
     return when {
+        card.sub != null -> card.sub
         card.seasonNumber != null -> stringResource(R.string.season_number, card.seasonNumber) + " · " +
             pluralStringResource(R.plurals.new_episodes, card.newEpisodes, card.newEpisodes)
         item.isEpisode -> episodeCode(item)
@@ -200,6 +201,18 @@ fun episodeCode(item: Item): String? {
 
 /** A card's title: the show's for an episode or a season, as Plex labels them on Home. */
 fun cardTitle(card: MediaCard): String = if (card.item.isEpisode) card.item.seriesTitle ?: card.item.title else card.item.title
+
+/** Four posters two by two (a playlist's picture, as the web's PlaylistCover). */
+@Composable
+private fun Mosaic(urls: List<String>, modifier: Modifier) {
+    Column(modifier) {
+        for (row in 0..1) {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().weight(1f)) {
+                for (col in 0..1) Artwork(urls[row * 2 + col], label = "", modifier = Modifier.weight(1f).fillMaxHeight())
+            }
+        }
+    }
+}
 
 @Composable
 fun MediaCardView(
@@ -235,6 +248,8 @@ fun MediaCardView(
         ) {
             if (backdrop) {
                 BackdropArt(card)
+            } else if (!landscape && card.mosaic.size >= 4) {
+                Mosaic(card.mosaic, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
             } else {
                 Artwork(
                     url = if (landscape) card.thumb else if (seasonPoster) card.seasonPoster ?: card.poster else card.poster,

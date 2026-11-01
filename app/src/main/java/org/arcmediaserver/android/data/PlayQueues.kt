@@ -48,15 +48,29 @@ class PlayQueues(private val api: () -> ArcApi?, private val log: ArcLog = ArcLo
     /** Reads the queue Arc has for this TV and profile (none: null). */
     suspend fun refresh(): PlayQueue? = locked("reading the queue") { api -> api.currentPlayQueue() }
 
-    /** A new queue of [itemIds] (a show adds its episodes), replacing this TV's last one. */
-    suspend fun start(itemIds: List<String>): PlayQueue? = locked("starting a queue") { api ->
+    /**
+     * A new queue of [itemIds] (a show adds its episodes), or of a playlist's titles when
+     * [playlistId] is given (Arc snapshots it), replacing this TV's last one.
+     */
+    suspend fun start(itemIds: List<String>, playlistId: String? = null): PlayQueue? = locked("starting a queue") { api ->
         try {
-            api.createPlayQueue(itemIds, _queue.value).also { log.debug("queue started: ${it.entries.size} entries") }
+            api.createPlayQueue(itemIds, _queue.value, playlistId).also { log.debug("queue started: ${it.entries.size} entries") }
         } catch (e: ApiException) {
             // The queue this app knew changed or expired, or there's one it hasn't read yet.
             if (e.status != 409) throw e
-            api.createPlayQueue(itemIds, api.currentPlayQueue())
+            api.createPlayQueue(itemIds, api.currentPlayQueue(), playlistId)
         }
+    }
+
+    /**
+     * Play or Shuffle for a list of titles (a collection, a playlist): starts a queue, shuffled
+     * after the first when [shuffle] (a show's episodes go in in order, so they need mixing too),
+     * and returns the entry to play, or null when it couldn't start.
+     */
+    suspend fun playAll(itemIds: List<String>, shuffle: Boolean, playlistId: String? = null): PlayQueueEntry? {
+        var q = start(if (shuffle) itemIds.shuffled() else itemIds, playlistId.takeUnless { shuffle })
+        if (q != null && shuffle) q = shuffle() ?: q
+        return q?.entries?.firstOrNull { it.id == q.currentEntryId && it.playable }
     }
 
     /** Play Next ([next]) or Add to Queue; with no queue yet, these titles start one. */

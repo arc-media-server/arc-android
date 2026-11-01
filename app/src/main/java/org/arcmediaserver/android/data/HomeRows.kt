@@ -122,6 +122,10 @@ data class MediaCard(
     val logo: String? = null,
     /** How far through, 0–1, or null when not started. */
     val progress: Float?,
+    /** A playlist's picture: up to four of its titles' posters, two by two. */
+    val mosaic: List<String> = emptyList(),
+    /** The line under the title, when it isn't the title's own (a playlist's count). */
+    val sub: String? = null,
 )
 
 /** Turns an item into a card, choosing artwork as the web's PosterCard and EpisodeCard do. */

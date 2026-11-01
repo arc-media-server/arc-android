@@ -40,6 +40,9 @@ private fun detailsFor(item: Item) =
 /** A collection's page. */
 @Serializable data class CollectionDest(val id: String)
 
+/** A playlist's page. */
+@Serializable data class PlaylistDest(val id: String)
+
 /** A trailer or other extra, played from its file. */
 @Serializable data class ExtraDest(val url: String)
 
@@ -75,6 +78,7 @@ fun ArcNavHost() {
                         onSwitchProfile = { nav.navigate(ProfilesDest) },
                         onSignedOut = { nav.startAt(SignInDest) },
                         onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
+                        onOpenPlaylist = { p -> nav.navigate(PlaylistDest(p.id)) },
                         onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
                         onSwitchServer = { nav.startAt(ServerDest) },
                         onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
@@ -85,6 +89,13 @@ fun ArcNavHost() {
                         entry.toRoute<CollectionDest>().id,
                         onOpen = { item -> nav.navigate(detailsFor(item)) },
                         onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, 0, entryId = entry)) },
+                    )
+                }
+                composable<PlaylistDest> { entry ->
+                    org.arcmediaserver.android.ui.browse.PlaylistRoute(
+                        entry.toRoute<PlaylistDest>().id,
+                        onOpen = { item -> nav.navigate(detailsFor(item)) },
+                        onPlayQueued = { item, e -> nav.navigate(PlayerDest(item.id, 0, entryId = e)) },
                     )
                 }
                 composable<DetailsDest> { entry ->
