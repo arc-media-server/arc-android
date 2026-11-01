@@ -62,12 +62,17 @@ interface CardMenu {
     /** The title as it is now, with changes made in the app. */
     fun current(item: Item): Item
     /** Opens [item]'s menu beside [anchor] (the card, in root coordinates); [onClose] puts the focus back on the card. */
-    fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null)
+    fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null, inContinue: Boolean = false)
+    /** Whether [id] was taken out of Continue Watching in this session (Home leaves it off that row). */
+    fun offContinue(id: String): Boolean = false
     /** Play Next ([next]) or Add to Queue, with a note of what happened; null when the server keeps no queue. */
     val queue: ((item: Item, next: Boolean) -> Unit)? get() = null
 }
 
 val LocalCardMenu = compositionLocalOf<CardMenu?> { null }
+
+/** Set around Home's Continue Watching row, so its cards' menus offer Remove from Continue Watching. */
+val LocalInContinueRow = compositionLocalOf { false }
 
 val CardShape = RoundedCornerShape(10.dp)
 val PosterWidth = 116.dp
@@ -212,6 +217,7 @@ fun MediaCardView(
     var focused by remember { mutableStateOf(false) }
     // Changes made in the app (the card menu, a title's page) show straight away.
     val menu = LocalCardMenu.current
+    val inContinue = LocalInContinueRow.current
     val changed = menu?.current(card.item)
     @Suppress("NAME_SHADOWING")
     val card = if (changed == null || changed === card.item) card else card.copy(item = changed, progress = cardFor(changed).progress)
@@ -224,7 +230,7 @@ fun MediaCardView(
             onClick = onClick,
             modifier = Modifier.focusRequester(self).onGloballyPositioned { bounds[0] = it.boundsInRoot() },
             onFocused = { focused = it },
-            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item, { runCatching { self.requestFocus() } }, bounds[0]) } },
+            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item, { runCatching { self.requestFocus() } }, bounds[0], inContinue) } },
         ) {
             if (backdrop) {
                 BackdropArt(card)
