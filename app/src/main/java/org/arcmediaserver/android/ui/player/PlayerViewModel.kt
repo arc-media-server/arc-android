@@ -153,6 +153,8 @@ class PlayerViewModel(
     private val entryId: String? = null,
     /** Auto-Play's next episode: it joins the end of the queue rather than starting a new one. */
     private val carryOn: Boolean = false,
+    /** The version (file) chosen with Play Version… on the title's page, or null for Arc's choice. */
+    private val fileId: Long? = null,
 ) : ViewModel() {
     private val api: ArcApi = container.api() ?: error("no server")
     private val log = ArcLog.Android
@@ -253,7 +255,7 @@ class PlayerViewModel(
         viewModelScope.launch {
             prefs = loadedPrefs.await()
             _state.update { it.copy(subtitleStyle = prefs.subtitleStyle, autoSkip = prefs.autoSkip) }
-            load(startMs)
+            load(startMs, fileId = fileId)
         }
         viewModelScope.launch { tick() }
         viewModelScope.launch { drawCues() }

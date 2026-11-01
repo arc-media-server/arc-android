@@ -28,6 +28,7 @@ import org.arcmediaserver.android.ui.components.LoadState
 import org.arcmediaserver.android.ui.components.UiError
 import org.arcmediaserver.android.ui.details.Details
 import org.arcmediaserver.android.ui.details.DetailsPanel
+import org.arcmediaserver.android.ui.details.TitleActions
 import org.arcmediaserver.android.ui.details.DetailsScreen
 import org.arcmediaserver.android.ui.player.UpNextCard
 import org.arcmediaserver.android.ui.search.SearchScreen
@@ -433,6 +434,20 @@ class ScreenshotTest {
     @Test
     fun movieActions() = shot("movie-actions") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    private val twoVersions = Fixtures.movieWithFile.copy(
+        files = Fixtures.movieWithFile.files + Fixtures.movieWithFile.files.first().copy(id = 99, edition = "Director's Cut", size = 31_400_000_000),
+    )
+
+    @Test
+    fun moreMenuVersions() = shot("movie-more-menu-versions") {
+        DetailsScreen(Details(twoVersions), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More, actions = TitleActions(onPlayVersion = { _, _, _ -> }))
+    }
+
+    @Test
+    fun playVersion() = shot("movie-play-version") {
+        DetailsScreen(Details(twoVersions), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.Version, actions = TitleActions(onPlayVersion = { _, _, _ -> }))
     }
 
     @Test
