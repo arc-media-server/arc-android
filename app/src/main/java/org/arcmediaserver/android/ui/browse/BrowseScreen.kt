@@ -832,7 +832,7 @@ fun LibraryContent(
 
 /** A small rounded button in a screen's header (a library's Sort and Filters). */
 @Composable
-private fun HeaderButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun HeaderButton(label: String, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     // A glass pill, white when focused, as the Apple TV app's.
     androidx.tv.material3.Button(
         onClick = onClick,
@@ -843,7 +843,13 @@ private fun HeaderButton(label: String, modifier: Modifier = Modifier, onClick: 
             containerColor = Color.White.copy(alpha = 0.1f), contentColor = ArcColors.Foreground,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black,
         ),
-    ) { Text(label, style = MaterialTheme.typography.labelLarge) }
+    ) {
+        if (icon != null) {
+            androidx.tv.material3.Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
 }
 
 /**

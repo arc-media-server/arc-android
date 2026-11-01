@@ -77,6 +77,18 @@ class PlayQueuesTest {
     }
 
     @Test
+    fun `shuffle mixes up the started queue with its revision`() = runTest {
+        supported()
+        answer(201, queue(1, "e1", "e1" to "m1", "e2" to "m2"))
+        queues.start(listOf("m1", "m2"))
+        answer(200, queue(2, "e1", "e1" to "m1", "e2" to "m2"))
+        assertEquals(2, queues.shuffle()!!.revision)
+        server.takeRequest() // capabilities
+        server.takeRequest() // create
+        assertEquals("""{"revision":1,"operation":"shuffle"}""", server.takeRequest().body?.utf8())
+    }
+
+    @Test
     fun `a queue changed elsewhere is read again and the edit made on it`() = runTest {
         supported()
         answer(201, queue(1, "e1", "e1" to "m1"))
