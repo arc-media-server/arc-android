@@ -32,7 +32,7 @@ class SearchTest {
         val out = searchOutcomes(typed, 300, ArcLog.Print) { q -> calls += q; results }.toList()
         assertEquals(listOf("fir"), calls)
         assertEquals(SearchOutcome.Started("fir"), out[0])
-        assertEquals(listOf(SearchGroup.Movies, SearchGroup.People, SearchGroup.Episodes), (out[1] as SearchOutcome.Found).sections.map { it.group })
+        assertEquals(listOf(SearchGroup.Top, SearchGroup.People, SearchGroup.Episodes), (out[1] as SearchOutcome.Found).sections.map { it.group })
         assertEquals(SearchOutcome.Cleared, out[2])
     }
 
@@ -53,10 +53,11 @@ class SearchTest {
     }
 
     @Test
-    fun `groups follow the web's order and empty groups are left out`() {
+    fun `movies and shows share Top Results and empty groups are left out`() {
         val sections = searchSections(results.copy(shows = listOf(item("s", "series"))))
-        assertEquals(listOf(SearchGroup.Movies, SearchGroup.Shows, SearchGroup.People, SearchGroup.Episodes), sections.map { it.group })
-        assertEquals("s", sections[1].cards.single().item.id)
+        assertEquals(listOf(SearchGroup.Top, SearchGroup.People, SearchGroup.Episodes), sections.map { it.group })
+        // Movies and shows alternate in Top Results, each in Arc's order.
+        assertEquals(listOf("m", "s"), sections[0].cards.map { it.item.id })
         assertEquals(emptyList<SearchSection>(), searchSections(SearchResults()))
     }
 }

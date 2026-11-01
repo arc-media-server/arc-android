@@ -122,6 +122,10 @@ data class Item(
     val tagline: String? = null,
     @SerialName("runtime_min") val runtimeMin: Int? = null,
     @SerialName("content_rating") val contentRating: String? = null,
+    /** YYYY-MM-DD, when known. */
+    @SerialName("release_date") val releaseDate: String? = null,
+    val studio: String? = null,
+    @SerialName("original_language") val originalLanguage: String? = null,
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
     @SerialName("series_title") val seriesTitle: String? = null,
@@ -230,6 +234,8 @@ data class Prefs(
     @SerialName("audio_language") val audioLanguage: String = "",
     /** Play the next episode by itself (the Up Next countdown); absent means on. */
     @SerialName("auto_play") val autoPlay: Boolean = true,
+    /** Skip each intro and recap by itself, as the web player does. */
+    @SerialName("auto_skip") val autoSkip: Boolean = false,
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
     @SerialName("subtitle_style") val subtitleStyle: SubtitleStyle = SubtitleStyle(),
 )

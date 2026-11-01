@@ -88,6 +88,8 @@ data class PlayerUiState(
      * for the play queue's next title (it was queued on purpose).
      */
     val autoPlay: Boolean = true,
+    /** The profile's Skip Intros Automatically. */
+    val autoSkip: Boolean = false,
     /** The profile's subtitle look, for text subtitles. */
     val subtitleStyle: org.arcmediaserver.android.data.SubtitleStyle = org.arcmediaserver.android.data.SubtitleStyle(),
     /** The playing file's timeline thumbnails, or null when it has none. */
@@ -250,7 +252,7 @@ class PlayerViewModel(
         }
         viewModelScope.launch {
             prefs = loadedPrefs.await()
-            _state.update { it.copy(subtitleStyle = prefs.subtitleStyle) }
+            _state.update { it.copy(subtitleStyle = prefs.subtitleStyle, autoSkip = prefs.autoSkip) }
             load(startMs)
         }
         viewModelScope.launch { tick() }

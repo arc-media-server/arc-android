@@ -1,8 +1,6 @@
 package org.arcmediaserver.android.ui.search
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +35,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -84,7 +84,11 @@ fun SearchScreen(state: SearchUiState, onType: (String) -> Unit, onOpen: (Item) 
         when {
             state.error != null -> Message(stringResource(R.string.search_failed) + " " + state.error.text())
             state.query.isNotEmpty() && state.sections.isEmpty() && !state.searching -> Message(stringResource(R.string.search_empty, state.query))
-            state.text.isBlank() -> Message(stringResource(R.string.search_hint))
+            state.text.isBlank() -> Column(Modifier.fillMaxWidth().padding(top = 90.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(ArcIcons.Search, contentDescription = null, tint = ArcColors.Muted.copy(alpha = 0.6f), modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.search_hint), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted)
+            }
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 items(state.sections, key = { it.group }) { section -> SectionRow(section, onOpen, onPerson) }
             }
@@ -102,27 +106,27 @@ private fun SearchField(state: SearchUiState, onType: (String) -> Unit, modifier
         value = state.text,
         onValueChange = onType,
         singleLine = true,
-        textStyle = MaterialTheme.typography.titleLarge.copy(color = ArcColors.Foreground),
-        cursorBrush = SolidColor(ArcColors.Accent),
+        textStyle = MaterialTheme.typography.titleLarge.copy(color = if (focused) Color.Black else ArcColors.Foreground),
+        cursorBrush = SolidColor(ArcColors.AccentStrong),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = {
             keyboard?.hide()
             focusManager.moveFocus(FocusDirection.Down)
         }),
-        modifier = modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+        modifier = modifier.widthIn(max = 600.dp).fillMaxWidth().onFocusChanged { focused = it.isFocused },
         decorationBox = { inner ->
             Row(
+                // The Apple TV app's glass pill, white when focused (owner, 1 November).
                 Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ArcColors.Surface2)
-                    .border(BorderStroke(2.dp, if (focused) ArcColors.Foreground else ArcColors.Surface3), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    .clip(RoundedCornerShape(50))
+                    .background(if (focused) Color.White else Color.White.copy(alpha = 0.1f))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(ArcIcons.Search, contentDescription = null, tint = ArcColors.Muted, modifier = Modifier.size(24.dp))
+                Icon(ArcIcons.Search, contentDescription = null, tint = if (focused) Color(0xFF444444) else ArcColors.Muted, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(14.dp))
                 Box(Modifier.weight(1f)) {
-                    if (state.text.isEmpty()) Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.titleLarge, color = ArcColors.Subtle)
+                    if (state.text.isEmpty()) Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.titleLarge, color = if (focused) Color(0xFF777777) else ArcColors.Subtle)
                     inner()
                 }
                 if (state.searching) Spinner(size = 22.dp)
@@ -143,7 +147,9 @@ private fun SectionRow(section: SearchSection, onOpen: (Item) -> Unit, onPerson:
             items(section.people, key = { it.id }) { PersonCard(it) { onPerson(it) } }
         } else {
             items(section.cards, key = { it.key }) { card ->
-                MediaCardView(card, landscape = section.group == SearchGroup.Episodes, onClick = { onOpen(card.item) })
+                // Top Results: wide artwork cards with the title's logo, as the Apple TV app's.
+                val top = section.group == SearchGroup.Top
+                MediaCardView(card, landscape = top || section.group == SearchGroup.Episodes, backdrop = top, width = if (top) 200.dp else null, onClick = { onOpen(card.item) })
             }
         }
     }
@@ -152,8 +158,7 @@ private fun SectionRow(section: SearchSection, onOpen: (Item) -> Unit, onPerson:
 @Composable
 private fun groupTitle(group: SearchGroup): String = stringResource(
     when (group) {
-        SearchGroup.Movies -> R.string.search_movies
-        SearchGroup.Shows -> R.string.search_shows
+        SearchGroup.Top -> R.string.search_top
         SearchGroup.People -> R.string.search_people
         SearchGroup.Episodes -> R.string.search_episodes
     },
