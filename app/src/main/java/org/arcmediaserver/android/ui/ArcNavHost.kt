@@ -34,7 +34,7 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 private fun detailsFor(item: Item) =
     if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
 /** The player: [entryId] plays on through the queue from that entry; [carryOn] adds Auto-Play's episode to it. */
-@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false)
+@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false, val fileId: Long? = null)
 @Serializable data class PersonDest(val personId: Long)
 
 /** A collection's page. */
@@ -93,6 +93,7 @@ fun ArcNavHost() {
                         onPerson = { id -> nav.navigate(PersonDest(id)) },
                         onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
                         onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
+                        onPlayVersion = { item, start, file -> nav.navigate(PlayerDest(item.id, start, fileId = file)) },
                     )
                 }
                 composable<ExtraDest> { entry ->
@@ -108,6 +109,7 @@ fun ArcNavHost() {
                         dest.startMs,
                         dest.entryId,
                         dest.carryOn,
+                        dest.fileId,
                         onClose = { nav.popBackStack() },
                         // The next title replaces this one, so Back still returns to where play began.
                         onPlayNextEntry = { next, entry ->
