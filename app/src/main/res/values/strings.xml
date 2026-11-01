@@ -185,6 +185,8 @@
     <string name="search_empty">Nothing in your libraries matches “%1$s”.</string>
     <string name="search_failed">Search didn\'t work.</string>
     <string name="search_top">Top Results</string>
+    <string name="search_collections">Collections</string>
+    <string name="search_genres">Genres</string>
     <string name="search_people">People</string>
     <string name="search_episodes">Episodes</string>
     <plurals name="person_titles">
@@ -232,6 +234,8 @@
     <string name="details_unplaced">Not in this order</string>
     <string name="details_play_version">Play Version…</string>
     <string name="details_choose_version">Play Version</string>
+    <string name="details_episode_n">Episode %1$d</string>
+    <string name="details_more">More</string>
     <string name="details_missing">Not on disk</string>
     <string name="details_cast">Cast</string>
     <string name="details_more_like_this">More Like This</string>
@@ -265,6 +269,12 @@
     <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
 
     <!-- Media Info (as the web\'s "About This File") -->
+    <string name="queue_move_earlier">Move Earlier</string>
+    <string name="queue_move_later">Move Later</string>
+    <string name="queue_remove">Remove from Queue</string>
+    <string name="queue_edit_failed">Couldn\'t change the queue.</string>
+    <string name="action_remove_continue">Remove from Continue Watching</string>
+    <string name="action_remove_continue_failed">Couldn\'t remove it from Continue Watching.</string>
     <string name="media_info">Media Info</string>
     <string name="media_video">Video</string>
     <string name="media_file">File</string>

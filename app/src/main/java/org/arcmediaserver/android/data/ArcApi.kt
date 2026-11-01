@@ -140,6 +140,12 @@ class ArcApi(
     suspend fun setPlayed(itemId: String, played: Boolean) =
         put("items/${enc(itemId)}/played", JsonObject(mapOf("played" to JsonPrimitive(played))).toString(), "items/{id}/played")
 
+    /** Takes a title out of Continue Watching (and Up Next) without marking it watched. */
+    suspend fun removeFromContinue(itemId: String) {
+        val (status, body) = raw("DELETE", "home/continue/${enc(itemId)}", null, route = "home/continue/{id}")
+        if (status !in 200..299) throw failure(status, body, "home/continue/{id}")
+    }
+
     /** Puts a movie or show on the profile's watchlist, or takes it off. */
     suspend fun setWatchlist(itemId: String, on: Boolean) =
         put("items/${enc(itemId)}/watchlist", JsonObject(mapOf("on" to JsonPrimitive(on))).toString(), "items/{id}/watchlist")

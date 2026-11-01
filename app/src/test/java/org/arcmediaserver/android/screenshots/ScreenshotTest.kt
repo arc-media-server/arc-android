@@ -138,7 +138,7 @@ class ScreenshotTest {
         // On a server that keeps play queues: Play Next and Add to Queue.
         val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
             override fun current(item: Item) = item
-            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?) = Unit
+            override fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect?, inContinue: Boolean, queueEntry: String?) = Unit
             override val queue: ((Item, Boolean) -> Unit)? = { _, _ -> }
         }
         androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
@@ -196,6 +196,42 @@ class ScreenshotTest {
     @Test
     fun home() = shot("home") {
         browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+    }
+
+    @Test
+    fun cardMenuOnContinue() = shot("card-menu-continue") {
+        // A card on Home's Continue Watching row: its menu offers Remove from Continue Watching.
+        Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {
+            org.arcmediaserver.android.ui.details.MoreMenu(
+                Fixtures.movieWithFile, onWatched = {}, onWatchlist = {}, onMediaInfo = {}, onClose = {}, onRemoveContinue = {},
+            )
+        }
+    }
+
+    @Test
+    fun cardMenuOnQueue() = shot("card-menu-queue") {
+        // A card on Home's Queue row (not the one playing): arrange the queue.
+        Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {
+            org.arcmediaserver.android.ui.details.MoreMenu(
+                Fixtures.movieWithFile, onWatched = {}, onWatchlist = {}, onMediaInfo = {}, onClose = {},
+                queueMoves = org.arcmediaserver.android.ui.details.QueueMoves(earlier = {}, later = {}, remove = {}),
+            )
+        }
+    }
+
+    @Test
+    fun homeContinueRemoved() = shot("home-continue-removed") {
+        // The first Continue Watching title was just removed: the row goes on without it.
+        val continueRow = Fixtures.homeRows.first { it.spec.source is org.arcmediaserver.android.data.RowSource.Continue }
+        val gone = (continueRow.cards as LoadState.Ready).value.first().item.id
+        val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
+            override fun current(item: Item) = item
+            override fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect?, inContinue: Boolean, queueEntry: String?) = Unit
+            override fun offContinue(id: String) = id == gone
+        }
+        androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
+            browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+        }
     }
 
     @Test
@@ -419,6 +455,30 @@ class ScreenshotTest {
     }
 
     @Test
+    fun searchCollectionsGenres() = shot("search-collections-genres") {
+        browse(
+            BrowseUiState(frame = LoadState.Ready(Fixtures.frame), section = Section.Search),
+            search = {
+                SearchScreen(
+                    SearchUiState(
+                        text = "drama", query = "drama",
+                        sections = searchSections(
+                            org.arcmediaserver.android.data.SearchResults(
+                                collections = listOf(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3)),
+                                genres = listOf(
+                                    org.arcmediaserver.android.data.GenreMatch("Drama", 1, "Movies", 12),
+                                    org.arcmediaserver.android.data.GenreMatch("Drama", 2, "TV", 4),
+                                ),
+                            ),
+                        ),
+                    ),
+                    onType = {}, onOpen = {}, onPerson = {}, focusField = false,
+                )
+            },
+        )
+    }
+
+    @Test
     fun movieRelated() = shot("movie-related") {
         // The rows under a title's page, as they appear once the page is scrolled down.
         androidx.compose.foundation.layout.Column(Modifier.padding(top = 24.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp)) {
@@ -448,6 +508,12 @@ class ScreenshotTest {
     @Test
     fun playVersion() = shot("movie-play-version") {
         DetailsScreen(Details(twoVersions), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.Version, actions = TitleActions(onPlayVersion = { _, _, _ -> }))
+    }
+
+    @Test
+    fun aboutPanel() = shot("movie-about") {
+        val long = Fixtures.movieWithFile.copy(overview = List(4) { Fixtures.movieWithFile.overview }.joinToString(" "))
+        DetailsScreen(Details(long), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.About)
     }
 
     @Test
