@@ -33,13 +33,26 @@ internal val audioMimes = linkedMapOf(
     "truehd" to "audio/true-hd",
 )
 
-/** Formats the TV can send on to a receiver or soundbar as they are (HDMI passthrough). */
-internal val passthroughEncodings = mapOf(
-    "ac3" to C.ENCODING_AC3,
-    "eac3" to C.ENCODING_E_AC3,
-    "dts" to C.ENCODING_DTS,
-    "truehd" to C.ENCODING_DOLBY_TRUEHD,
+/**
+ * Formats the TV can send on to a receiver or soundbar as they are (HDMI passthrough), each with
+ * the output encodings that carry it. Arc calls every DTS stream "dts" (its profile says DTS-HD MA
+ * or DTS:X), so "dts" counts when the receiver takes any DTS: one that takes DTS-HD or DTS:X takes
+ * plain DTS too, and Media3 sends it the stream (or its DTS core) itself. "dts_hd" (DTS-HD MA,
+ * and DTS:X on Blu-ray, which rides inside it) and "dts_uhd" (DTS:X profile 2, used by streaming)
+ * say how much more the receiver takes whole, for Arc to show and decide with.
+ */
+internal val passthroughEncodings = linkedMapOf(
+    "ac3" to listOf(C.ENCODING_AC3),
+    "eac3" to listOf(C.ENCODING_E_AC3),
+    "dts" to listOf(C.ENCODING_DTS, C.ENCODING_DTS_HD, C.ENCODING_DTS_UHD_P2),
+    "dts_hd" to listOf(C.ENCODING_DTS_HD),
+    "dts_uhd" to listOf(C.ENCODING_DTS_UHD_P2),
+    "truehd" to listOf(C.ENCODING_DOLBY_TRUEHD),
 )
+
+/** The passthrough names (as [passthroughEncodings]) for the encodings the audio output takes. */
+internal fun passthroughNames(supports: (Int) -> Boolean): Set<String> =
+    passthroughEncodings.filterValues { encodings -> encodings.any(supports) }.keys
 
 /**
  * What this device can play, worked out from what it has rather than a list per model:
@@ -64,7 +77,7 @@ fun capsFrom(
         // as playable; TrueHD and DTS by passthrough only for files played as they are.
         audio = audioMimes.filter { (name, mime) -> mime in decoders || name in passthrough && (name == "ac3" || name == "eac3") }.keys.toList(),
         maxHeight = maxHeight,
-        audioPassthrough = audioMimes.keys.filter { it in passthrough },
+        audioPassthrough = passthroughEncodings.keys.filter { it in passthrough },
         hdrFormats = hdrFormats(hdrTypes, dolbyVisionDecoder = "video/dolby-vision" in decoders && dvProfiles.isNotEmpty()),
         dolbyVisionProfiles = dvProfiles.takeIf { it.isNotEmpty() },
     )
@@ -106,7 +119,7 @@ fun deviceCaps(context: Context): PlayerCaps {
     // still the way to ask, before playing, what the TV or receiver takes by passthrough.
     @Suppress("DEPRECATION")
     val audio = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
-    val passthrough = passthroughEncodings.filterValues { audio.supportsEncoding(it) }.keys
+    val passthrough = passthroughNames(audio::supportsEncoding)
     val dvBits = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
         .filter { !it.isEncoder && "video/dolby-vision" in it.supportedTypes.map(String::lowercase) }
         .flatMap { info -> runCatching { info.getCapabilitiesForType("video/dolby-vision").profileLevels.map { it.profile } }.getOrDefault(emptyList()) }
