@@ -436,6 +436,15 @@ class ScreenshotTest {
     }
 
     @Test
+    fun collectionPlay() = shot("collection-play") {
+        // A collection's page on a server with play queues: Play (focused) and Shuffle.
+        org.arcmediaserver.android.ui.browse.CollectionScreen(
+            LoadState.Ready(org.arcmediaserver.android.data.CollectionPage(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3), Fixtures.movies.take(3))),
+            onOpen = {}, onRetry = {}, onPlay = {},
+        )
+    }
+
+    @Test
     fun moreMenu() = shot("movie-more-menu") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
     }

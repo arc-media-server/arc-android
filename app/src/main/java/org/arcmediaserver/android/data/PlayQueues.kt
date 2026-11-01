@@ -79,6 +79,12 @@ class PlayQueues(private val api: () -> ArcApi?, private val log: ArcLog = ArcLo
         }
     }
 
+    /** Mixes up what's still to come; the current entry stays where it is. */
+    suspend fun shuffle(): PlayQueue? = locked("shuffling the queue") { api ->
+        val q = _queue.value ?: return@locked null
+        edit(api, q, "shuffle")
+    }
+
     /** Adds [itemId] at the end and moves the queue to it (Auto-Play's next episode). */
     suspend fun carryOnWith(itemId: String): String? {
         val q = add(listOf(itemId), next = false) ?: return null
