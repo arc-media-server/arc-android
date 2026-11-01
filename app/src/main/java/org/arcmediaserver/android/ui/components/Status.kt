@@ -92,7 +92,7 @@ suspend fun FocusRequester.requestWhenReady(): Boolean {
     return false
 }
 
-/** A spinner in Arc's accent, for the moments something is on its way. */
+/** A white spinner, for the moments something is on its way. */
 @Composable
 fun Spinner(modifier: Modifier = Modifier, size: Dp = 40.dp) {
     val transition = rememberInfiniteTransition(label = "spinner")
@@ -100,7 +100,7 @@ fun Spinner(modifier: Modifier = Modifier, size: Dp = 40.dp) {
     Canvas(modifier.size(size)) {
         val stroke = Stroke(width = this.size.minDimension / 10, cap = StrokeCap.Round)
         drawArc(ArcColors.Surface3, 0f, 360f, false, style = stroke)
-        drawArc(ArcColors.AccentGradient, angle, 100f, false, style = stroke)
+        drawArc(ArcColors.Accent, angle, 100f, false, style = stroke)
     }
 }
 

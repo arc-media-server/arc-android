@@ -29,10 +29,10 @@ wider context; decisions waiting for the owner are on arc-media-server#80.
   tested); unknown fields are ignored. If the app needs something v1 lacks, make an additive
   server PR in arc-media-server and link the two PRs.
 - **Feel:** native Google TV first (Compose for TV components, standard focus, Back always works),
-  Arc identity through the teal accent, logo and type. Dark only; artwork-led, immersive Home
+  Arc identity through the logo and type; no UI colour (owner, 1 November): highlights are white
+  on black, and the teal is the logo's alone. Dark only; artwork-led, immersive Home
   (no banner). The player's controls match the web player's set and order; the profile picker
-  matches the web's. Brand colours live only in `ui/theme/Theme.kt` (accent #2bb3a3,
-  accent-strong #0b7d72, logo #7fdccd -> #0b7d72).
+  matches the web's. Colours live only in `ui/theme/Theme.kt` (logo #7fdccd -> #0b7d72).
 - **Plex first:** match how Plex for Android TV behaves unless there's a clear reason not to;
   log differences on arc-media-server#80. Reuse existing screens and components before adding
   new ones.
