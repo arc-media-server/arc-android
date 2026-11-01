@@ -263,6 +263,8 @@
     <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
 
     <!-- Media Info (as the web\'s "About This File") -->
+    <string name="action_remove_continue">Remove from Continue Watching</string>
+    <string name="action_remove_continue_failed">Couldn\'t remove it from Continue Watching.</string>
     <string name="media_info">Media Info</string>
     <string name="media_video">Video</string>
     <string name="media_file">File</string>
