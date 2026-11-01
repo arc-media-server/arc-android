@@ -55,7 +55,7 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 import java.util.Locale
 
 /** What's open over a title's page: nothing, the ⋯ menu, or Media Info. */
-enum class DetailsPanel { None, More, MediaInfo }
+enum class DetailsPanel { None, More, MediaInfo, About }
 
 /**
  * A panel over the page with a dimmed backdrop; the focus stays inside it until Back (or a choice)

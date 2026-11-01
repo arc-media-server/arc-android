@@ -436,6 +436,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun aboutPanel() = shot("movie-about") {
+        val long = Fixtures.movieWithFile.copy(overview = List(4) { Fixtures.movieWithFile.overview }.joinToString(" "))
+        DetailsScreen(Details(long), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.About)
+    }
+
+    @Test
     fun moreMenu() = shot("movie-more-menu") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
     }
