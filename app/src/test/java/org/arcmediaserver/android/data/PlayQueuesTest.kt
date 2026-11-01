@@ -89,6 +89,17 @@ class PlayQueuesTest {
     }
 
     @Test
+    fun `playing a playlist in order starts its queue from the playlist`() = runTest {
+        supported()
+        answer(201, queue(1, "e1", "e1" to "m1", "e2" to "m2"))
+        val first = queues.playAll(listOf("m1", "m2"), shuffle = false, playlistId = "p1")!!
+        assertEquals("e1", first.id)
+        server.takeRequest() // capabilities
+        assertEquals("""{"playlist_id":"p1"}""", server.takeRequest().body?.utf8())
+        assertEquals(2, server.requestCount) // no shuffle
+    }
+
+    @Test
     fun `a queue changed elsewhere is read again and the edit made on it`() = runTest {
         supported()
         answer(201, queue(1, "e1", "e1" to "m1"))

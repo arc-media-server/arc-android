@@ -445,6 +445,34 @@ class ScreenshotTest {
     }
 
     @Test
+    fun playlists() = shot("playlists") {
+        // The sidebar's Playlists: a mosaic of four posters, and one with fewer titles (its first poster).
+        val posters = Fixtures.movies.take(4).mapNotNull { it.images?.primary }
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Playlists,
+                playlists = LoadState.Ready(
+                    listOf(
+                        org.arcmediaserver.android.data.PlaylistInfo("p1", "Movie Night", count = 6, durationMs = 46_140_000, images = posters),
+                        org.arcmediaserver.android.data.PlaylistInfo("p2", "Short List", count = 1, images = posters.take(1)),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun playlistPage() = shot("playlist-page") {
+        // A playlist's page: its count and length, Play (focused) and Shuffle, then its titles in order.
+        val entries = (Fixtures.movies.take(4) + Fixtures.seasons[0].episodes[1]).mapIndexed { i, it -> org.arcmediaserver.android.data.PlaylistEntry(i.toLong() + 1, it) }
+        org.arcmediaserver.android.ui.browse.PlaylistScreen(
+            LoadState.Ready(org.arcmediaserver.android.data.PlaylistPage(org.arcmediaserver.android.data.PlaylistInfo("p1", "Movie Night", count = 5, durationMs = 36_000_000), entries)),
+            onOpen = {}, onRetry = {}, onPlay = {},
+        )
+    }
+
+    @Test
     fun moreMenu() = shot("movie-more-menu") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
     }
