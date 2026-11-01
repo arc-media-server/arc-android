@@ -23,14 +23,17 @@ import org.arcmediaserver.android.ui.components.UiError
 import org.arcmediaserver.android.ui.components.toUiError
 
 /** The groups of results, in the web's order (web/src/pages/Search.tsx). */
-enum class SearchGroup { Movies, Shows, People, Episodes }
+/** Top: movies and shows together, as the Apple TV app's Top Results (owner, 1 November). */
+enum class SearchGroup { Top, People, Episodes }
 
 data class SearchSection(val group: SearchGroup, val cards: List<MediaCard> = emptyList(), val people: List<Person> = emptyList())
 
-/** Arc's results as the screen shows them: one row per group that found something. */
+/**
+ * Arc's results as the screen shows them: one row per group that found something. Movies and shows
+ * come together as Top Results, alternating, each keeping Arc's best-first order.
+ */
 fun searchSections(r: SearchResults): List<SearchSection> = listOf(
-    SearchSection(SearchGroup.Movies, cards = r.movies.map { cardFor(it) }),
-    SearchSection(SearchGroup.Shows, cards = r.shows.map { cardFor(it) }),
+    SearchSection(SearchGroup.Top, cards = (0 until maxOf(r.movies.size, r.shows.size)).flatMap { i -> listOfNotNull(r.movies.getOrNull(i), r.shows.getOrNull(i)) }.map { cardFor(it) }),
     SearchSection(SearchGroup.People, people = r.people),
     SearchSection(SearchGroup.Episodes, cards = r.episodes.map { cardFor(it) }),
 ).filter { it.cards.isNotEmpty() || it.people.isNotEmpty() }

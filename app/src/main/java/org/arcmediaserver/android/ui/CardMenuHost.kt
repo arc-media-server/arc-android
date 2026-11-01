@@ -29,6 +29,7 @@ import org.arcmediaserver.android.ui.details.MoreMenu
 @Composable
 fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     var open by remember { mutableStateOf<Pair<Item, () -> Unit>?>(null) }
+    var anchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var info by remember { mutableStateOf(false) }
     // Whether this server keeps a play queue (Play Next, Add to Queue), and what was just queued.
     var queueable by remember { mutableStateOf(false) }
@@ -60,8 +61,9 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
         object : CardMenu {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
             override fun current(item: Item) = container.withChanges(item)
-            override fun open(item: Item, onClose: () -> Unit) {
+            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?) {
                 info = false
+                anchor = at
                 open = item to onClose
             }
         }
@@ -98,6 +100,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onMediaInfo = { info = true },
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
+                anchor = anchor,
             )
         }
     }

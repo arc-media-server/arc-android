@@ -50,6 +50,48 @@
     <string name="nav_home">Home</string>
     <string name="nav_switch_profile">Switch Profile</string>
     <string name="nav_sign_out">Sign Out</string>
+    <string name="nav_settings">Settings</string>
+    <!-- Home hero: a show opens its page; More Info opens the title page. -->
+    <string name="home_hero_view">View</string>
+    <string name="home_hero_info">More Info</string>
+    <!-- Settings: the profile's playback and subtitle choices (shared with every app), and this TV. -->
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_none">None</string>
+    <string name="settings_file_default">The file\'s default</string>
+    <string name="settings_playback">Playback</string>
+    <string name="settings_auto_play">Auto-Play Next Episode</string>
+    <string name="settings_auto_skip">Skip Intros Automatically</string>
+    <string name="settings_audio_language">Preferred Audio Language</string>
+    <string name="settings_subtitles">Subtitles</string>
+    <string name="settings_subtitle_mode">Show Subtitles</string>
+    <string name="settings_subtitle_language">Subtitle Language</string>
+    <string name="settings_subtitle_size">Size</string>
+    <string name="settings_subtitle_color">Colour</string>
+    <string name="settings_subtitle_background">Background</string>
+    <string name="settings_subtitle_position">Position</string>
+    <string name="settings_mode_last">In the language I last chose</string>
+    <string name="settings_mode_foreign">When the audio is in another language</string>
+    <string name="settings_mode_always">Always</string>
+    <string name="settings_mode_manual">Only when I choose them</string>
+    <string name="settings_size_small">Small</string>
+    <string name="settings_size_medium">Medium</string>
+    <string name="settings_size_large">Large</string>
+    <string name="settings_size_huge">Huge</string>
+    <string name="settings_color_white">White</string>
+    <string name="settings_color_yellow">Yellow</string>
+    <string name="settings_background_box">Shaded box</string>
+    <string name="settings_background_solid">Solid black</string>
+    <string name="settings_background_none">Outline only</string>
+    <string name="settings_position_bottom">Bottom</string>
+    <string name="settings_position_top">Top</string>
+    <string name="settings_profile_note">These follow your profile, on every device. Choosing a track in the player updates them too.</string>
+    <string name="settings_this_tv">This TV</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_version">App Version</string>
+    <string name="settings_sign_out">Sign Out of This TV</string>
+    <string name="settings_server_note">Choose Server to connect this TV to a different Arc.</string>
+    <string name="settings_save_failed">Couldn\'t save that setting. Try again.</string>
 
     <!-- Home -->
     <string name="row_continue">Continue Watching</string>
@@ -139,11 +181,10 @@
 
     <!-- Search -->
     <string name="search_placeholder">Search movies, shows and people</string>
-    <string name="search_hint">Type or say what you\'re looking for.</string>
+    <string name="search_hint">Find movies, shows and people in your libraries.</string>
     <string name="search_empty">Nothing in your libraries matches “%1$s”.</string>
     <string name="search_failed">Search didn\'t work.</string>
-    <string name="search_movies">Movies</string>
-    <string name="search_shows">Shows</string>
+    <string name="search_top">Top Results</string>
     <string name="search_people">People</string>
     <string name="search_episodes">Episodes</string>
     <plurals name="person_titles">
@@ -193,6 +234,17 @@
     <string name="details_cast">Cast</string>
     <string name="details_more_like_this">More Like This</string>
     <string name="details_extras">Extras</string>
+    <!-- The Apple TV app's Information block at the foot of a title's page. -->
+    <string name="details_info">Information</string>
+    <string name="details_info_genre">Genre</string>
+    <string name="details_info_released">Released</string>
+    <string name="details_info_runtime">Run Time</string>
+    <string name="details_info_rated">Rated</string>
+    <string name="details_info_studio">Studio</string>
+    <string name="details_info_language">Original Language</string>
+    <string name="details_info_starring">Starring</string>
+    <string name="details_info_directors">Directed By</string>
+    <string name="details_info_writers">Written By</string>
     <string name="extras_trailer">Trailer</string>
     <string name="extras_featurette">Featurette</string>
     <string name="extras_behind_the_scenes">Behind the Scenes</string>
