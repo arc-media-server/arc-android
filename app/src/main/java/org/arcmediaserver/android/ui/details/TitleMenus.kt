@@ -55,6 +55,9 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 import java.util.Locale
 
 /** What's open over a title's page: nothing, the ⋯ menu, or Media Info. */
+/** What a queue entry's menu can do: move it earlier or later, or take it out (null where it can't). */
+data class QueueMoves(val earlier: (() -> Unit)? = null, val later: (() -> Unit)? = null, val remove: (() -> Unit)? = null)
+
 enum class DetailsPanel { None, More, MediaInfo, About }
 
 /**
@@ -96,6 +99,8 @@ fun MoreMenu(
     anchor: androidx.compose.ui.geometry.Rect? = null,
     /** Remove from Continue Watching; given only for a card on Home's Continue Watching row. */
     onRemoveContinue: (() -> Unit)? = null,
+    /** Move Earlier, Move Later, Remove from Queue; given only for a card on Home's Queue row. */
+    queueMoves: QueueMoves? = null,
 ) {
     val first = remember { FocusRequester() }
     // The Apple TV app's floating menu beside the opener (owner, 31 October).
@@ -115,6 +120,9 @@ fun MoreMenu(
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
         }
+        queueMoves?.earlier?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_move_earlier), ArcIcons.ArrowLeft) { f(); onClose() } }
+        queueMoves?.later?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_move_later), ArcIcons.ArrowRight) { f(); onClose() } }
+        queueMoves?.remove?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_remove), ArcIcons.Close) { f(); onClose() } }
         if (onRemoveContinue != null) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_remove_continue), ArcIcons.Close) { onRemoveContinue(); onClose() }
         }
