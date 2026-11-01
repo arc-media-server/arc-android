@@ -185,6 +185,8 @@
     <string name="search_empty">Nothing in your libraries matches “%1$s”.</string>
     <string name="search_failed">Search didn\'t work.</string>
     <string name="search_top">Top Results</string>
+    <string name="search_collections">Collections</string>
+    <string name="search_genres">Genres</string>
     <string name="search_people">People</string>
     <string name="search_episodes">Episodes</string>
     <plurals name="person_titles">

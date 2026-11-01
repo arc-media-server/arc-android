@@ -24,9 +24,20 @@ import org.arcmediaserver.android.ui.components.toUiError
 
 /** The groups of results, in the web's order (web/src/pages/Search.tsx). */
 /** Top: movies and shows together, as the Apple TV app's Top Results (owner, 1 November). */
-enum class SearchGroup { Top, People, Episodes }
+enum class SearchGroup { Top, People, Collections, Episodes, Genres }
 
-data class SearchSection(val group: SearchGroup, val cards: List<MediaCard> = emptyList(), val people: List<Person> = emptyList())
+data class SearchSection(
+    val group: SearchGroup,
+    val cards: List<MediaCard> = emptyList(),
+    val people: List<Person> = emptyList(),
+    val genres: List<org.arcmediaserver.android.data.GenreMatch> = emptyList(),
+)
+
+/** A collection as a poster card (its item's kind is "collection"). */
+fun collectionCard(c: org.arcmediaserver.android.data.CollectionRef) = MediaCard(
+    key = c.id, item = org.arcmediaserver.android.data.Item(id = c.id, kind = "collection", title = c.title, images = c.images),
+    poster = c.images?.primary, thumb = c.images?.backdrop ?: c.images?.primary, progress = null,
+)
 
 /**
  * Arc's results as the screen shows them: one row per group that found something. Movies and shows
@@ -35,8 +46,10 @@ data class SearchSection(val group: SearchGroup, val cards: List<MediaCard> = em
 fun searchSections(r: SearchResults): List<SearchSection> = listOf(
     SearchSection(SearchGroup.Top, cards = (0 until maxOf(r.movies.size, r.shows.size)).flatMap { i -> listOfNotNull(r.movies.getOrNull(i), r.shows.getOrNull(i)) }.map { cardFor(it) }),
     SearchSection(SearchGroup.People, people = r.people),
+    SearchSection(SearchGroup.Collections, cards = r.collections.map { collectionCard(it) }),
     SearchSection(SearchGroup.Episodes, cards = r.episodes.map { cardFor(it) }),
-).filter { it.cards.isNotEmpty() || it.people.isNotEmpty() }
+    SearchSection(SearchGroup.Genres, genres = r.genres),
+).filter { it.cards.isNotEmpty() || it.people.isNotEmpty() || it.genres.isNotEmpty() }
 
 /** What happened to the words typed so far. */
 sealed interface SearchOutcome {
