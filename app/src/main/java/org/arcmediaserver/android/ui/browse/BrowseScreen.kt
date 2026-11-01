@@ -400,6 +400,13 @@ fun HomeContent(
     onScrolled: (Boolean) -> Unit = {},
     onPlay: (Item, Long) -> Unit = { _, _ -> },
 ) {
+    // Titles taken out of Continue Watching leave that row at once, without reloading it.
+    val menu = org.arcmediaserver.android.ui.components.LocalCardMenu.current
+    @Suppress("NAME_SHADOWING")
+    val rows = rows.map { r ->
+        val cards = r.cards
+        if (menu != null && r.spec.source is RowSource.Continue && cards is LoadState.Ready) r.copy(cards = LoadState.Ready(cards.value.filterNot { menu.offContinue(it.item.id) })) else r
+    }
     val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
         EmptyHome()
@@ -736,7 +743,10 @@ private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (
                 androidx.tv.material3.OutlinedButton(onClick = onRetry, modifier = Modifier.focusRequester(rowFocus)) { Text(stringResource(R.string.action_retry)) }
             }
             // Vertical padding leaves room for the focused card to grow without being clipped.
-            is LoadState.Ready -> CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) { LazyRow(
+            is LoadState.Ready -> CompositionLocalProvider(
+                LocalBringIntoViewSpec provides minimalBringIntoView(),
+                org.arcmediaserver.android.ui.components.LocalInContinueRow provides (row.spec.source is RowSource.Continue),
+            ) { LazyRow(
                 // Focusing the row returns to the card last focused in it (or its first).
                 modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
