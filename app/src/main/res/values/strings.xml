@@ -232,6 +232,8 @@
     <string name="action_go_to_show">Go to Show</string>
     <string name="time_left">%1$s left</string>
     <string name="details_unplaced">Not in this order</string>
+    <string name="details_play_version">Play Version…</string>
+    <string name="details_choose_version">Play Version</string>
     <string name="details_episode_n">Episode %1$d</string>
     <string name="details_more">More</string>
     <string name="details_missing">Not on disk</string>

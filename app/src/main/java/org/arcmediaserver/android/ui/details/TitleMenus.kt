@@ -58,7 +58,7 @@ import java.util.Locale
 /** What a queue entry's menu can do: move it earlier or later, or take it out (null where it can't). */
 data class QueueMoves(val earlier: (() -> Unit)? = null, val later: (() -> Unit)? = null, val remove: (() -> Unit)? = null)
 
-enum class DetailsPanel { None, More, MediaInfo, About }
+enum class DetailsPanel { None, More, MediaInfo, About, Version }
 
 /**
  * A panel over the page with a dimmed backdrop; the focus stays inside it until Back (or a choice)
@@ -97,6 +97,8 @@ fun MoreMenu(
     onQueue: ((next: Boolean) -> Unit)? = null,
     /** The opener (a card or the ⋯ button), in root coordinates: the menu opens beside it. */
     anchor: androidx.compose.ui.geometry.Rect? = null,
+    /** Play Version…, for a title with more than one version on disk (as Plex). */
+    onPlayVersion: (() -> Unit)? = null,
     /** Remove from Continue Watching; given only for a card on Home's Continue Watching row. */
     onRemoveContinue: (() -> Unit)? = null,
     /** Move Earlier, Move Later, Remove from Queue; given only for a card on Home's Queue row. */
@@ -125,6 +127,9 @@ fun MoreMenu(
         queueMoves?.remove?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_remove), ArcIcons.Close) { f(); onClose() } }
         if (onRemoveContinue != null) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_remove_continue), ArcIcons.Close) { onRemoveContinue(); onClose() }
+        }
+        if (onPlayVersion != null) {
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.details_play_version), ArcIcons.Film) { onPlayVersion() }
         }
         if (item.files.isNotEmpty()) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.media_info), ArcIcons.Info) { onMediaInfo() }
@@ -191,6 +196,28 @@ private fun aspect(r: Double): String? = when {
     kotlin.math.abs(r - 4.0 / 3) < 0.02 -> "4:3"
     kotlin.math.abs(r - 16.0 / 9) < 0.02 -> "16:9"
     else -> String.format(Locale.US, "%.2f:1", r)
+}
+
+/** A title's versions to choose from: its files on disk (a multi-part file counts once). */
+fun versionsOf(item: Item): List<MediaFile> = item.files.filter { !it.missing && it.part <= 1 }
+
+/**
+ * Plex's Play Version…: each version by its edition (else resolution) with its HDR, codec and
+ * size, as the player's Version list; choosing one plays it.
+ */
+@Composable
+fun VersionMenu(item: Item, onClose: () -> Unit, onPlay: (fileId: Long) -> Unit) {
+    val first = remember { FocusRequester() }
+    org.arcmediaserver.android.ui.components.Popover(anchor = null, onClose = onClose, place = org.arcmediaserver.android.ui.components.PopoverPlace.Center, title = stringResource(R.string.details_choose_version), width = 360.dp) {
+        versionsOf(item).forEachIndexed { i, f ->
+            val video = f.streams.firstOrNull { it.kind == "video" }
+            val res = video?.let { resolutionName(it.width, it.height) }
+            val rest = listOfNotNull(*(video?.let { hdrLabels(it).toTypedArray() } ?: emptyArray()), video?.let { codecName(it.codec) }, fileSize(f.size))
+            val (name, detail) = if (!f.edition.isNullOrBlank()) f.edition to listOfNotNull(res, *rest.toTypedArray()) else (res ?: f.container?.uppercase() ?: "?") to rest
+            org.arcmediaserver.android.ui.components.PopoverItem(name, ArcIcons.Play, detail = detail.joinToString(" · ").ifBlank { null }, focus = if (i == 0) first else null) { onPlay(f.id) }
+        }
+    }
+    org.arcmediaserver.android.ui.components.FocusOnOpen(first)
 }
 
 @Composable

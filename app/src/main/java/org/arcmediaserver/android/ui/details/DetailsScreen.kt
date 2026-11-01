@@ -94,6 +94,7 @@ fun DetailsRoute(
     onPerson: (Long) -> Unit = {},
     onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
+    onPlayVersion: (Item, Long, Long) -> Unit = { _, _, _ -> },
 ) {
     val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -113,6 +114,7 @@ fun DetailsRoute(
                 actions = TitleActions(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
+                    onPlayVersion = onPlayVersion,
                 ),
                 onPerson = onPerson,
                 onExtra = onExtra,
@@ -129,6 +131,8 @@ data class TitleActions(
     val onProblemShown: () -> Unit = {},
     /** A show's Shuffle; null where it can't be shuffled. */
     val onShuffle: (() -> Unit)? = null,
+    /** Play Version…: plays the title from a point with a chosen file. */
+    val onPlayVersion: ((Item, Long, Long) -> Unit)? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -223,9 +227,11 @@ fun DetailsScreen(
                     item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel,
                     onQueue = queue?.let { q -> { next: Boolean -> q(item, next) } },
                     anchor = moreAnchor,
+                    onPlayVersion = if (!item.isSeries && actions.onPlayVersion != null && versionsOf(item).size > 1) { { panel = DetailsPanel.Version } } else null,
                 )
             }
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
+            DetailsPanel.Version -> VersionMenu(item, onClose = closePanel) { file -> panel = DetailsPanel.None; actions.onPlayVersion?.invoke(item, item.resumeMs, file) }
             DetailsPanel.About -> AboutPanel(item, onClose = { panel = DetailsPanel.None; about.requestFocus() })
         }
     }
