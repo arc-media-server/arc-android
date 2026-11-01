@@ -181,11 +181,10 @@
 
     <!-- Search -->
     <string name="search_placeholder">Search movies, shows and people</string>
-    <string name="search_hint">Type or say what you\'re looking for.</string>
+    <string name="search_hint">Find movies, shows and people in your libraries.</string>
     <string name="search_empty">Nothing in your libraries matches “%1$s”.</string>
     <string name="search_failed">Search didn\'t work.</string>
-    <string name="search_movies">Movies</string>
-    <string name="search_shows">Shows</string>
+    <string name="search_top">Top Results</string>
     <string name="search_people">People</string>
     <string name="search_episodes">Episodes</string>
     <plurals name="person_titles">

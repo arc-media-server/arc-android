@@ -23,6 +23,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -33,6 +36,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -46,8 +51,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import org.arcmediaserver.android.ui.theme.ArcColors
 
-/** Where a [Popover] opens: beside its opener (a card's menu) or above it (the player's lists). */
-enum class PopoverPlace { Side, Above, Center }
+/** Where a [Popover] opens: beside its opener (a card's menu), above it (the player's lists) or below it (a library's Sort and Filters). */
+enum class PopoverPlace { Side, Above, Below, Center }
 
 /** The floating list's colour: a near-opaque grey over the page, as the Apple TV app's menus. */
 val PopoverColor = Color(0xF52C2C34)
@@ -72,7 +77,13 @@ fun Popover(
     val density = LocalDensity.current
     val margin = with(density) { 24.dp.roundToPx() }
     val gap = with(density) { 18.dp.roundToPx() }
-    Box(Modifier.fillMaxSize().then(if (shade) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier)) {
+    // The anchor is in root coordinates; this layer may not start at the root's corner.
+    var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    Box(
+        Modifier.fillMaxSize()
+            .onGloballyPositioned { origin = it.positionInRoot() }
+            .then(if (shade) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier),
+    ) {
         Layout(
             content = {
                 Column(
@@ -104,10 +115,15 @@ fun Popover(
             val screenH = constraints.maxHeight
             var x: Int
             var y: Int
+            val anchor = anchor?.translate(-origin.x, -origin.y)
             when {
                 anchor == null || place == PopoverPlace.Center -> {
                     x = (screenW - panel.width) / 2
                     y = (screenH - panel.height) / 2
+                }
+                place == PopoverPlace.Below -> {
+                    x = anchor.right.toInt() - panel.width
+                    y = anchor.bottom.toInt() + gap
                 }
                 place == PopoverPlace.Above -> {
                     x = anchor.right.toInt() - panel.width
@@ -143,11 +159,12 @@ fun PopoverItem(
     icon: ImageVector? = null,
     detail: String? = null,
     focus: FocusRequester? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(if (detail != null) 46.dp else 38.dp).then(if (focus != null) Modifier.focusRequester(focus) else Modifier),
+        modifier = modifier.fillMaxWidth().height(if (detail != null) 46.dp else 38.dp).then(if (focus != null) Modifier.focusRequester(focus) else Modifier),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(11.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(

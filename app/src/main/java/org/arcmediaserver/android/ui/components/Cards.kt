@@ -306,15 +306,18 @@ private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.
  */
 @Composable
 fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    // The Apple TV app's segmented control: a glass pill holding the tabs, the current one lighter
+    // and the focused one white (owner, 1 November).
     androidx.tv.material3.TabRow(
         selectedTabIndex = selected,
-        modifier = modifier,
+        modifier = modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.08f)).padding(3.dp),
+        containerColor = Color.Transparent,
         indicator = { tabPositions, doesTabRowHaveFocus ->
             androidx.tv.material3.TabRowDefaults.PillIndicator(
                 currentTabPosition = tabPositions[selected],
                 doesTabRowHaveFocus = doesTabRowHaveFocus,
                 activeColor = ArcColors.Foreground,
-                inactiveColor = ArcColors.Surface3,
+                inactiveColor = Color.White.copy(alpha = 0.18f),
             )
         },
     ) {
@@ -323,13 +326,13 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
                 selected = i == selected,
                 onFocus = { onSelect(i) },
                 colors = androidx.tv.material3.TabDefaults.pillIndicatorTabColors(
-                    contentColor = ArcColors.Muted,
+                    contentColor = ArcColors.Foreground.copy(alpha = 0.65f),
                     selectedContentColor = ArcColors.Foreground,
                     focusedContentColor = ArcColors.Background,
                     focusedSelectedContentColor = ArcColors.Background,
                 ),
             ) {
-                Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 15.dp, vertical = 6.dp))
             }
         }
     }
