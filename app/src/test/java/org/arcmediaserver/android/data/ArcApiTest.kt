@@ -42,6 +42,18 @@ class ArcApiTest {
     }
 
     @Test
+    fun `home video folders by path, the top without one`() = runTest {
+        answer(200, """{"path":"0","trail":[],"folders":[{"name":"Holidays 2024","path":"0/Holidays 2024","count":3,"cover_id":"v1","cover":"/api/items/v1/images/primary"}],"items":[]}""")
+        val top = api.libraryFolders(3, "")
+        assertEquals("0/Holidays 2024", top.folders.single().path)
+        assertEquals(3, top.folders.single().count)
+        assertEquals("/api/v1/libraries/3/folders", server.takeRequest().url.toString().substringAfter(server.url("/").toString().removeSuffix("/")))
+        answer(200, """{"path":"0/Holidays 2024","trail":[{"name":"Holidays 2024","path":"0/Holidays 2024"}],"folders":[],"items":[]}""")
+        assertEquals("Holidays 2024", api.libraryFolders(3, "0/Holidays 2024").trail.single().name)
+        assertEquals("/api/v1/libraries/3/folders?path=0%2FHolidays%202024", server.takeRequest().url.toString().substringAfter(server.url("/").toString().removeSuffix("/")))
+    }
+
+    @Test
     fun `no token, no Authorization header`() = runTest {
         token = null
         answer(200, """{"api_version":1}""")
