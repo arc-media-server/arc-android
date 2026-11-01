@@ -32,6 +32,19 @@ class PlaybackTest {
     }
 
     @Test
+    fun `a receiver taking DTS-HD or DTS-X takes DTS too, and says how much more`() {
+        val hd = passthroughNames { it == androidx.media3.common.C.ENCODING_DTS_HD || it == androidx.media3.common.C.ENCODING_AC3 }
+        assertEquals(setOf("ac3", "dts", "dts_hd"), hd)
+        val uhd = passthroughNames { it == androidx.media3.common.C.ENCODING_DTS_UHD_P2 }
+        assertEquals(setOf("dts", "dts_uhd"), uhd)
+        assertEquals(setOf("dts"), passthroughNames { it == androidx.media3.common.C.ENCODING_DTS })
+        // DTS plays only by passthrough; the profiles are listed in a fixed order for Arc.
+        val caps = capsFrom(setOf("video/avc"), passthrough = setOf("truehd", "dts_hd", "dts", "eac3"), maxHeight = 1080)
+        assertEquals(listOf("eac3", "dts", "dts_hd", "truehd"), caps.audioPassthrough)
+        assertEquals(listOf("eac3"), caps.audio)
+    }
+
+    @Test
     fun `caps come from decoders, passthrough and the display`() {
         val caps = capsFrom(setOf("video/avc", "video/hevc", "audio/mp4a-latm", "audio/opus", "audio/flac", "audio/mpeg"), setOf("ac3", "eac3"), 2160)
         assertEquals(listOf("h264", "hevc"), caps.video)
