@@ -260,6 +260,17 @@ data class SearchResults(
     val shows: List<Item> = emptyList(),
     val episodes: List<Item> = emptyList(),
     val people: List<Person> = emptyList(),
+    val collections: List<CollectionRef> = emptyList(),
+    val genres: List<GenreMatch> = emptyList(),
+)
+
+/** A genre whose name matched a search, in one library, with how many titles it has there. */
+@Serializable
+data class GenreMatch(
+    val name: String,
+    @SerialName("library_id") val libraryId: Long,
+    @SerialName("library_name") val libraryName: String = "",
+    val count: Int = 0,
 )
 
 @Serializable

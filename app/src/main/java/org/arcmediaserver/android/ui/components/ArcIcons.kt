@@ -93,5 +93,7 @@ object ArcIcons {
     )
     val Lock = icon("lock", rect(3f, 11f, 18f, 11f, 2f), "M7 11V7a5 5 0 0 1 10 0v4")
     val ChevronLeft = icon("chevron-left", "m15 18-6-6 6-6")
+    val ArrowLeft = icon("arrow-left", "M19 12H5", "m12 19-7-7 7-7")
+    val ArrowRight = icon("arrow-right", "M5 12h14", "m12 5 7 7-7 7")
     val Delete = icon("delete", "M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z", "m12 9 6 6", "m18 9-6 6")
 }
