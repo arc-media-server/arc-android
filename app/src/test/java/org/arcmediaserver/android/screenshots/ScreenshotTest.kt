@@ -137,7 +137,7 @@ class ScreenshotTest {
         // On a server that keeps play queues: Play Next and Add to Queue.
         val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
             override fun current(item: Item) = item
-            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?) = Unit
+            override fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect?, inContinue: Boolean) = Unit
             override val queue: ((Item, Boolean) -> Unit)? = { _, _ -> }
         }
         androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
@@ -195,6 +195,31 @@ class ScreenshotTest {
     @Test
     fun home() = shot("home") {
         browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+    }
+
+    @Test
+    fun cardMenuOnContinue() = shot("card-menu-continue") {
+        // A card on Home's Continue Watching row: its menu offers Remove from Continue Watching.
+        Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {
+            org.arcmediaserver.android.ui.details.MoreMenu(
+                Fixtures.movieWithFile, onWatched = {}, onWatchlist = {}, onMediaInfo = {}, onClose = {}, onRemoveContinue = {},
+            )
+        }
+    }
+
+    @Test
+    fun homeContinueRemoved() = shot("home-continue-removed") {
+        // The first Continue Watching title was just removed: the row goes on without it.
+        val continueRow = Fixtures.homeRows.first { it.spec.source is org.arcmediaserver.android.data.RowSource.Continue }
+        val gone = (continueRow.cards as LoadState.Ready).value.first().item.id
+        val menu = object : org.arcmediaserver.android.ui.components.CardMenu {
+            override fun current(item: Item) = item
+            override fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect?, inContinue: Boolean) = Unit
+            override fun offContinue(id: String) = id == gone
+        }
+        androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
+            browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+        }
     }
 
     @Test

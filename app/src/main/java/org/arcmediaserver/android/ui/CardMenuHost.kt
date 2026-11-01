@@ -31,6 +31,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     var open by remember { mutableStateOf<Pair<Item, () -> Unit>?>(null) }
     var anchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var info by remember { mutableStateOf(false) }
+    var inContinue by remember { mutableStateOf(false) }
     // Whether this server keeps a play queue (Play Next, Add to Queue), and what was just queued.
     var queueable by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -61,8 +62,10 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
         object : CardMenu {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
             override fun current(item: Item) = container.withChanges(item)
-            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?) {
+            override fun offContinue(id: String) = container.offContinue[id] == true
+            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?, continueRow: Boolean) {
                 info = false
+                inContinue = continueRow
                 anchor = at
                 open = item to onClose
             }
@@ -101,6 +104,21 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
                 anchor = anchor,
+                // Only on Home's Continue Watching row, as the web's card menu.
+                onRemoveContinue = if (!inContinue) null else { ->
+                    container.offContinue[item.id] = true
+                    container.appScope.launch {
+                        try {
+                            api.removeFromContinue(item.id)
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            ArcLog.Android.warn("removing from Continue Watching failed: ${e.javaClass.simpleName}")
+                            container.offContinue.remove(item.id)
+                            val text = context.getString(org.arcmediaserver.android.R.string.action_remove_continue_failed)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
+                        }
+                    }
+                },
             )
         }
     }

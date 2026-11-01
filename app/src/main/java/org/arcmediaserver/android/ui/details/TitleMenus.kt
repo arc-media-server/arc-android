@@ -94,6 +94,8 @@ fun MoreMenu(
     onQueue: ((next: Boolean) -> Unit)? = null,
     /** The opener (a card or the ⋯ button), in root coordinates: the menu opens beside it. */
     anchor: androidx.compose.ui.geometry.Rect? = null,
+    /** Remove from Continue Watching; given only for a card on Home's Continue Watching row. */
+    onRemoveContinue: (() -> Unit)? = null,
 ) {
     val first = remember { FocusRequester() }
     // The Apple TV app's floating menu beside the opener (owner, 31 October).
@@ -112,6 +114,9 @@ fun MoreMenu(
         if (onQueue != null && item.queueable) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
+        }
+        if (onRemoveContinue != null) {
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_remove_continue), ArcIcons.Close) { onRemoveContinue(); onClose() }
         }
         if (item.files.isNotEmpty()) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.media_info), ArcIcons.Info) { onMediaInfo() }
