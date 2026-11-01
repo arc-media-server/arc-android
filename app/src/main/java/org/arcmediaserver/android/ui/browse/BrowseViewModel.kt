@@ -113,7 +113,8 @@ fun libraryTabs(library: Library, extras: LibraryExtras): List<LibraryTab> = bui
 sealed interface Section {
     data object Home : Section
     data object Search : Section
-    data class Library(val id: Long) : Section
+    /** A library; [genre] opens its titles filtered to that genre (from Search, which Back returns to). */
+    data class Library(val id: Long, val genre: String? = null) : Section
     data object Watchlist : Section
     data object Playlists : Section
     data object Settings : Section
@@ -232,7 +233,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
     fun show(section: Section) {
         if (section == _state.value.section && section !is Section.Library) return
         _state.update { it.copy(section = section) }
-        if (section is Section.Library) loadLibrary(section.id)
+        if (section is Section.Library) loadLibrary(section.id, section.genre)
         if (section == Section.Watchlist) loadWatchlist()
         if (section == Section.Playlists) loadPlaylists()
     }
@@ -271,14 +272,16 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
     private val libraryQueries = mutableMapOf<Long, LibraryQuery>()
     private val pagesLoading = mutableSetOf<Int>()
 
-    fun loadLibrary(id: Long) {
+    fun loadLibrary(id: Long, genre: String? = null) {
         val api = container.api() ?: return
         val lib = (state.value.frame as? LoadState.Ready)?.value?.libraries?.find { it.id == id } ?: return
         // A library opens on Recommended, as Plex's TV app; home videos on their videos.
-        val tab = if (lib.kind == "videos") LibraryTab.Titles else LibraryTab.Recommended
+        // Opened on a genre (from Search): its titles filtered to it, as the web's genre links; the
+        // sort and filters remembered for the library stay as they were.
+        val tab = if (lib.kind == "videos" || genre != null) LibraryTab.Titles else LibraryTab.Recommended
         _state.update { it.copy(library = LoadState.Loading, libraryTab = tab, libraryExtras = LibraryExtras()) }
         loadLibraryExtras(api, lib)
-        loadTitles(api, lib, libraryQueries[lib.id] ?: LibraryQuery())
+        loadTitles(api, lib, if (genre != null) LibraryQuery(genre = genre) else libraryQueries[lib.id] ?: LibraryQuery())
     }
 
     /** Sorts or filters the library's titles another way, and remembers it for this library. */
