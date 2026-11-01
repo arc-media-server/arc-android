@@ -89,6 +89,24 @@ class PlayQueuesTest {
     }
 
     @Test
+    fun `moving and removing send the whole new order and the entry, never past the one playing`() = runTest {
+        supported()
+        answer(201, queue(1, "e1", "e1" to "m1", "e2" to "m2", "e3" to "m3"))
+        queues.start(listOf("m1", "m2", "m3"))
+        server.takeRequest() // capabilities
+        server.takeRequest() // create
+        // e2 can't go in front of e1, which is playing: nothing is sent.
+        assertEquals(1, queues.move("e2", -1)!!.revision)
+        answer(200, queue(2, "e1", "e1" to "m1", "e3" to "m3", "e2" to "m2"))
+        queues.move("e2", 1)
+        assertEquals("""{"revision":1,"operation":"reorder","entry_ids":["e1","e3","e2"]}""", server.takeRequest().body?.utf8())
+        answer(200, queue(3, "e1", "e1" to "m1", "e2" to "m2"))
+        queues.remove("e3")
+        assertEquals("""{"revision":2,"operation":"remove","entry_ids":["e3"]}""", server.takeRequest().body?.utf8())
+        assertEquals(4, server.requestCount)
+    }
+
+    @Test
     fun `a queue changed elsewhere is read again and the edit made on it`() = runTest {
         supported()
         answer(201, queue(1, "e1", "e1" to "m1"))

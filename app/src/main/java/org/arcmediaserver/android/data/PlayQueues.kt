@@ -85,6 +85,24 @@ class PlayQueues(private val api: () -> ArcApi?, private val log: ArcLog = ArcLo
         edit(api, q, "shuffle")
     }
 
+    /** Takes [entryId] out of the queue (not the entry playing now, which Arc refuses). */
+    suspend fun remove(entryId: String): PlayQueue? = locked("removing from the queue") { api ->
+        val q = _queue.value ?: return@locked null
+        edit(api, q, "remove", mapOf("entry_ids" to JsonArray(listOf(JsonPrimitive(entryId)))))
+    }
+
+    /** Moves [entryId] one place earlier ([by] -1) or later (+1), always staying after the entry playing now. */
+    suspend fun move(entryId: String, by: Int): PlayQueue? = locked("rearranging the queue") { api ->
+        val q = _queue.value ?: return@locked null
+        val ids = q.entries.map { it.id }.toMutableList()
+        val at = ids.indexOf(entryId)
+        val to = at + by
+        if (at < 0 || to <= q.currentIndex || to >= ids.size) return@locked q
+        ids[at] = ids[to]
+        ids[to] = entryId
+        edit(api, q, "reorder", mapOf("entry_ids" to JsonArray(ids.map { JsonPrimitive(it) })))
+    }
+
     /** Adds [itemId] at the end and moves the queue to it (Auto-Play's next episode). */
     suspend fun carryOnWith(itemId: String): String? {
         val q = add(listOf(itemId), next = false) ?: return null
