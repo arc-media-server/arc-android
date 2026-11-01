@@ -52,6 +52,7 @@ import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.MediaCard
 import org.arcmediaserver.android.data.cardFor
+import org.arcmediaserver.android.data.queueEntryId
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 /** Turns an address Arc gave for artwork into one to load (the server's, under /api/v1). */
@@ -62,7 +63,7 @@ interface CardMenu {
     /** The title as it is now, with changes made in the app. */
     fun current(item: Item): Item
     /** Opens [item]'s menu beside [anchor] (the card, in root coordinates); [onClose] puts the focus back on the card. */
-    fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null, inContinue: Boolean = false)
+    fun open(item: Item, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null, inContinue: Boolean = false, queueEntry: String? = null)
     /** Whether [id] was taken out of Continue Watching in this session (Home leaves it off that row). */
     fun offContinue(id: String): Boolean = false
     /** Play Next ([next]) or Add to Queue, with a note of what happened; null when the server keeps no queue. */
@@ -230,7 +231,7 @@ fun MediaCardView(
             onClick = onClick,
             modifier = Modifier.focusRequester(self).onGloballyPositioned { bounds[0] = it.boundsInRoot() },
             onFocused = { focused = it },
-            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item, { runCatching { self.requestFocus() } }, bounds[0], inContinue) } },
+            onLongClick = menu?.takeIf { card.item.kind == "movie" || card.item.kind == "series" || card.item.kind == "episode" }?.let { m -> { m.open(card.item, { runCatching { self.requestFocus() } }, bounds[0], inContinue, card.queueEntryId()) } },
         ) {
             if (backdrop) {
                 BackdropArt(card)
