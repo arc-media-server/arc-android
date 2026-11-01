@@ -14,8 +14,8 @@ import androidx.tv.material3.darkColorScheme
 
 /**
  * Arc's colours: the web app's dark tokens (web/src/index.css). Arc is dark only, as the owner
- * chose. The brand accent is defined here and nowhere else in code: change Accent, AccentStrong and
- * AccentLight to re-colour the app (the logo drawables and TV banner carry the same teal).
+ * chose. The UI has no accent colour (white on black); the logo's teal is defined here and nowhere
+ * else in code (the logo drawables and TV banner carry the same teal).
  */
 object ArcColors {
     val Background = Color(0xFF0B0B10)
@@ -25,16 +25,20 @@ object ArcColors {
     val Foreground = Color(0xFFF5F5F7)
     val Muted = Color(0xFFA1A1AD)
     val Subtle = Color(0xFF6B6B78)
-    // Brand: deep teal (owner, 29 October). Accent for focus rings, highlights and text on dark;
-    // AccentStrong for filled buttons, progress and toggles (with white text); AccentLight is the
-    // light end of the logo's gradient (#7fdccd → #0b7d72).
-    val Accent = Color(0xFF2BB3A3)
-    val AccentStrong = Color(0xFF0B7D72)
-    val AccentLight = Color(0xFF7FDCCD)
+    // No UI colour (owner, 1 November): Accent (focus rings, highlights, progress) and
+    // AccentStrong (filled badges and buttons, with OnAccent text) are white; Arc's teal is the
+    // logo's alone (LogoLight → LogoStrong, the drawables and TV banner).
+    val Accent = Color(0xFFF5F5F7)
+    val AccentStrong = Color(0xFFF5F5F7)
+    val OnAccent = Color(0xFF0B0B10)
+    val LogoLight = Color(0xFF7FDCCD)
+    val LogoStrong = Color(0xFF0B7D72)
+    val AccentLight = Color(0xFFF5F5F7)
     val Warning = Color(0xFFFFB547)
     val Error = Color(0xFFFF6B6B)
 
-    val AccentGradient = Brush.linearGradient(listOf(AccentLight, AccentStrong))
+    /** The logo's teal gradient: for Arc's wordmark and mark only. */
+    val AccentGradient = Brush.linearGradient(listOf(LogoLight, LogoStrong))
 
     /** A profile's colour (web/src/components/Avatar.tsx), as a gradient's two ends. */
     fun profile(color: String): List<Color> = when (color) {
@@ -51,9 +55,9 @@ object ArcColors {
 
 private val scheme = darkColorScheme(
     primary = ArcColors.Accent,
-    onPrimary = Color.White,
+    onPrimary = ArcColors.OnAccent,
     primaryContainer = ArcColors.AccentStrong,
-    onPrimaryContainer = Color.White,
+    onPrimaryContainer = ArcColors.OnAccent,
     secondary = ArcColors.AccentLight,
     background = ArcColors.Background,
     onBackground = ArcColors.Foreground,
