@@ -1,5 +1,9 @@
 package org.arcmediaserver.android.ui.browse
 
+import androidx.compose.ui.layout.boundsInRoot
+
+import androidx.compose.ui.layout.onGloballyPositioned
+
 import androidx.compose.ui.draw.clip
 
 import androidx.compose.ui.draw.shadow
@@ -779,6 +783,9 @@ fun LibraryContent(
         val shown = tab.takeIf { it in tabs } ?: LibraryTab.Titles
         val first = remember { FocusRequester() }
         var panel by remember { mutableStateOf<LibraryPanel?>(null) }
+        // Where Sort and Filters are, so their lists open under them.
+        var sortAt by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+        var filterAt by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
         val sortButton = remember { FocusRequester() }
         val filterButton = remember { FocusRequester() }
         Box(Modifier.fillMaxSize()) {
@@ -797,10 +804,10 @@ fun LibraryContent(
                         Spacer(Modifier.weight(1f))
                         Text(pluralStringResource(R.plurals.library_count, page.total, page.total), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
                         Spacer(Modifier.width(16.dp))
-                        HeaderButton(sortLabel(page.query.sort), Modifier.focusRequester(sortButton)) { panel = LibraryPanel.Sort }
+                        HeaderButton(sortLabel(page.query.sort), Modifier.focusRequester(sortButton).onGloballyPositioned { sortAt = it.boundsInRoot() }) { panel = LibraryPanel.Sort }
                         Spacer(Modifier.width(10.dp))
                         val n = page.query.filterCount
-                        HeaderButton(if (n > 0) pluralStringResource(R.plurals.library_filters_on, n, n) else stringResource(R.string.library_filters), Modifier.focusRequester(filterButton)) { panel = LibraryPanel.Filters }
+                        HeaderButton(if (n > 0) pluralStringResource(R.plurals.library_filters_on, n, n) else stringResource(R.string.library_filters), Modifier.focusRequester(filterButton).onGloballyPositioned { filterAt = it.boundsInRoot() }) { panel = LibraryPanel.Filters }
                     }
                 }
                 when (shown) {
@@ -814,8 +821,8 @@ fun LibraryContent(
                 }
             }
             when (panel) {
-                LibraryPanel.Sort -> SortPanel(page.query, onChoose = onQuery, onClose = { panel = null; runCatching { sortButton.requestFocus() } })
-                LibraryPanel.Filters -> FilterPanel(page.query, extras.facets, onChoose = onQuery, onClose = { panel = null; runCatching { filterButton.requestFocus() } })
+                LibraryPanel.Sort -> SortPanel(page.query, onChoose = onQuery, onClose = { panel = null; runCatching { sortButton.requestFocus() } }, anchor = sortAt)
+                LibraryPanel.Filters -> FilterPanel(page.query, extras.facets, onChoose = onQuery, onClose = { panel = null; runCatching { filterButton.requestFocus() } }, anchor = filterAt)
                 null -> Unit
             }
         }
@@ -826,10 +833,16 @@ fun LibraryContent(
 /** A small rounded button in a screen's header (a library's Sort and Filters). */
 @Composable
 private fun HeaderButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    androidx.tv.material3.OutlinedButton(
+    // A glass pill, white when focused, as the Apple TV app's.
+    androidx.tv.material3.Button(
         onClick = onClick,
         modifier = modifier.height(36.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.04f),
+        colors = androidx.tv.material3.ButtonDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.1f), contentColor = ArcColors.Foreground,
+            focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+        ),
     ) { Text(label, style = MaterialTheme.typography.labelLarge) }
 }
 

@@ -56,3 +56,16 @@ instead, as the owner asked (logged on arc-media-server#80).
 No blur behind panels (they're near-opaque instead). The player's lists open above the buttons
 at the right rather than over the exact button that opened them. Checked with Robolectric
 screenshots only; not yet on a real TV.
+
+## Search and libraries (1 November)
+
+- Search's field is the Apple TV app's glass pill (white with dark text when focused). Movies and
+  shows now come together as Top Results, alternating and each in Arc's best-first order, as wide
+  artwork cards with the title's logo; People and Episodes follow. Before typing, a large search icon
+  and a one-line hint sit in the middle. The TV web app has the same layout.
+- A library's Recommended/Library/Collections tabs are a glass segmented pill, and Sort and Filters
+  are glass buttons. Their choices open as floating lists under the button (`PopoverPlace.Below`),
+  instead of panels sliding in from the side. The popover corrects for its layer not starting at the
+  screen's corner, so it lines up under the button inside the padded library page.
+- Logging: no new logs; these are layout changes over existing loads, whose failures are already
+  logged where they happen.

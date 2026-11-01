@@ -22,8 +22,9 @@ import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Facets
 import org.arcmediaserver.android.ui.components.ArcIcons
 import org.arcmediaserver.android.ui.components.requestWhenReady
-import org.arcmediaserver.android.ui.details.MenuItem
-import org.arcmediaserver.android.ui.details.Overlay
+import org.arcmediaserver.android.ui.components.Popover
+import org.arcmediaserver.android.ui.components.PopoverItem
+import org.arcmediaserver.android.ui.components.PopoverPlace
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 /** The sorts a library offers, in the web's order (Rotten Tomatoes waits while rating sources are paused). */
@@ -59,9 +60,10 @@ private fun directions(sort: String): Pair<String, String> {
 
 /** Sort by, then which way (none for Shuffle). Choosing applies it; the panel stays open. */
 @Composable
-fun SortPanel(query: LibraryQuery, onChoose: (LibraryQuery) -> Unit, onClose: () -> Unit) {
+fun SortPanel(query: LibraryQuery, onChoose: (LibraryQuery) -> Unit, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null) {
     val first = remember { FocusRequester() }
-    Overlay(420.dp, onBack = onClose) {
+    // The Apple TV app's floating list, under the Sort button (owner, 1 November).
+    Popover(anchor, onClose = onClose, place = PopoverPlace.Below, width = 300.dp) {
         LazyColumn {
             item { Heading(stringResource(R.string.library_sort_by)) }
             items(LibrarySorts, key = { it }) { sort ->
@@ -90,11 +92,11 @@ private enum class FilterPage { Main, Genre, Decade, Quality }
  * (from what the library has). Each choice applies at once; Clear Filters turns them all off.
  */
 @Composable
-fun FilterPanel(query: LibraryQuery, facets: Facets, onChoose: (LibraryQuery) -> Unit, onClose: () -> Unit) {
+fun FilterPanel(query: LibraryQuery, facets: Facets, onChoose: (LibraryQuery) -> Unit, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null) {
     var page by remember { mutableStateOf(FilterPage.Main) }
     val first = remember(page) { FocusRequester() }
     val back = { if (page == FilterPage.Main) onClose() else page = FilterPage.Main }
-    Overlay(460.dp, onBack = back) {
+    Popover(anchor, onClose = back, place = PopoverPlace.Below, width = 320.dp) {
         LazyColumn {
             when (page) {
                 FilterPage.Main -> {
@@ -147,7 +149,12 @@ private fun qualityName(value: String) = when (value) {
 
 @Composable
 private fun Heading(text: String) =
-    Text(text, style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 6.dp))
+    Text(text, style = MaterialTheme.typography.labelLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 11.dp, top = 5.dp, bottom = 6.dp))
+
+/** A choice in the list: its name on the left, a tick (or its icon) on the right. */
+@Composable
+private fun MenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector?, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) =
+    PopoverItem(label, icon, modifier = modifier, onClick = onClick)
 
 /** A filter that opens its own list, showing what it's set to. */
 @Composable
