@@ -57,17 +57,13 @@ class CollectionViewModel(private val container: AppContainer, private val id: S
      */
     fun play(shuffle: Boolean, onPlay: (Item, String) -> Unit) {
         val page = (_state.value as? LoadState.Ready)?.value ?: return
-        val ids = page.items.map { it.id }.let { if (shuffle) it.shuffled() else it }
-        if (ids.isEmpty()) return
+        if (page.items.isEmpty()) return
         viewModelScope.launch {
-            var queue = container.queues.start(ids)
-            if (queue != null && shuffle) queue = container.queues.shuffle() ?: queue
-            val first = queue?.entries?.firstOrNull { it.id == queue.currentEntryId && it.playable }
+            val first = container.queues.playAll(page.items.map { it.id }, shuffle)
             if (first?.item == null) {
                 ArcLog.Android.warn("playing a collection failed (shuffle=$shuffle)")
                 return@launch
             }
-            ArcLog.Android.debug("collection queued: ${queue.entries.size} entries, shuffle=$shuffle")
             onPlay(first.item, first.id)
         }
     }
@@ -104,25 +100,56 @@ fun CollectionRoute(id: String, onOpen: (Item) -> Unit, onPlayQueued: (Item, Str
 fun CollectionScreen(state: LoadState<CollectionPage>, onOpen: (Item) -> Unit, onRetry: () -> Unit, onPlay: ((shuffle: Boolean) -> Unit)? = null) {
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         Loaded(state, onRetry) { page ->
-            val first = remember { FocusRequester() }
-            val play = remember { FocusRequester() }
-            Column(Modifier.fillMaxSize()) {
-                Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
-                    Text(page.collection.title, style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.width(14.dp))
-                    Text(pluralStringResource(R.plurals.library_count, page.items.size, page.items.size), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
-                    if (onPlay != null && page.items.isNotEmpty()) {
-                        Spacer(Modifier.width(24.dp))
-                        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
-                            HeaderButton(androidx.compose.ui.res.stringResource(R.string.action_play), Modifier.focusRequester(play), icon = org.arcmediaserver.android.ui.components.ArcIcons.Play) { onPlay(false) }
-                            HeaderButton(androidx.compose.ui.res.stringResource(R.string.action_shuffle), icon = org.arcmediaserver.android.ui.components.ArcIcons.Shuffle) { onPlay(true) }
-                        }
-                    }
-                }
-                TitleGrid(page.items, landscape = page.collection.kind == "folder", first, onOpen)
-            }
-            // The focus starts on Play when there is one, as Plex's collection page.
-            LaunchedEffect(page.collection.id, onPlay != null) { if (onPlay == null || page.items.isEmpty() || !play.requestWhenReady()) first.requestWhenReady() }
+            TitlesPage(
+                key = page.collection.id,
+                title = page.collection.title,
+                line = pluralStringResource(R.plurals.library_count, page.items.size, page.items.size),
+                items = page.items,
+                landscape = page.collection.kind == "folder",
+                empty = null,
+                onOpen = onOpen,
+                onPlay = onPlay,
+            )
         }
     }
+}
+
+/**
+ * A page of titles (a collection's, a playlist's): its name and a line beside it, Play and
+ * Shuffle when it can play through a queue, then the titles in the library's grid.
+ */
+@Composable
+fun TitlesPage(
+    key: String,
+    title: String,
+    line: String,
+    items: List<Item>,
+    landscape: Boolean,
+    empty: String?,
+    onOpen: (Item) -> Unit,
+    onPlay: ((shuffle: Boolean) -> Unit)?,
+) {
+    val first = remember { FocusRequester() }
+    val play = remember { FocusRequester() }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
+            Text(title, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.width(14.dp))
+            Text(line, style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, modifier = Modifier.padding(bottom = 6.dp))
+            if (onPlay != null && items.isNotEmpty()) {
+                Spacer(Modifier.width(24.dp))
+                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                    HeaderButton(androidx.compose.ui.res.stringResource(R.string.action_play), Modifier.focusRequester(play), icon = org.arcmediaserver.android.ui.components.ArcIcons.Play) { onPlay(false) }
+                    HeaderButton(androidx.compose.ui.res.stringResource(R.string.action_shuffle), icon = org.arcmediaserver.android.ui.components.ArcIcons.Shuffle) { onPlay(true) }
+                }
+            }
+        }
+        if (items.isEmpty() && empty != null) {
+            Text(empty, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
+        } else {
+            TitleGrid(items, landscape = landscape, first, onOpen)
+        }
+    }
+    // The focus starts on Play when there is one, as Plex's collection page.
+    LaunchedEffect(key, onPlay != null) { if (items.isNotEmpty() && (onPlay == null || !play.requestWhenReady())) first.requestWhenReady() }
 }

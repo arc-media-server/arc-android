@@ -105,6 +105,7 @@ sealed interface Section {
     data object Search : Section
     data class Library(val id: Long) : Section
     data object Watchlist : Section
+    data object Playlists : Section
     data object Settings : Section
 }
 
@@ -115,6 +116,8 @@ data class BrowseUiState(
     val library: LoadState<LibraryPage> = LoadState.Loading,
     val libraryTab: LibraryTab = LibraryTab.Recommended,
     val libraryExtras: LibraryExtras = LibraryExtras(),
+    /** The profile's playlists, while they're shown from the sidebar. */
+    val playlists: LoadState<List<org.arcmediaserver.android.data.PlaylistInfo>> = LoadState.Loading,
     /** The profile's watchlist, while it's shown from the sidebar. */
     val watchlist: LoadState<List<Item>> = LoadState.Loading,
 )
@@ -221,6 +224,22 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(section = section) }
         if (section is Section.Library) loadLibrary(section.id)
         if (section == Section.Watchlist) loadWatchlist()
+        if (section == Section.Playlists) loadPlaylists()
+    }
+
+    fun loadPlaylists() {
+        val api = container.api() ?: return
+        if (_state.value.playlists !is LoadState.Ready) _state.update { it.copy(playlists = LoadState.Loading) }
+        viewModelScope.launch {
+            val result = try {
+                LoadState.Ready(api.playlists())
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("playlists failed to load: ${e.javaClass.simpleName}")
+                LoadState.Failed(e.toUiError())
+            }
+            _state.update { it.copy(playlists = result) }
+        }
     }
 
     fun loadWatchlist() {

@@ -122,6 +122,7 @@ fun BrowseRoute(
     onSwitchProfile: () -> Unit,
     onSignedOut: () -> Unit,
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+    onOpenPlaylist: (org.arcmediaserver.android.data.PlaylistInfo) -> Unit = {},
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     onSwitchServer: () -> Unit = onSignedOut,
     onPlay: (Item, Long) -> Unit = { _, _ -> },
@@ -148,6 +149,8 @@ fun BrowseRoute(
         onOpenCollection = onOpenCollection,
         onRetryLibraryExtras = vm::retryLibraryExtras,
         onRetryWatchlist = vm::loadWatchlist,
+        onOpenPlaylist = onOpenPlaylist,
+        onRetryPlaylists = vm::loadPlaylists,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
@@ -172,6 +175,8 @@ fun BrowseScreen(
     onOpenCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
     onRetryLibraryExtras: () -> Unit = {},
     onRetryWatchlist: () -> Unit = {},
+    onOpenPlaylist: (org.arcmediaserver.android.data.PlaylistInfo) -> Unit = {},
+    onRetryPlaylists: () -> Unit = {},
     onLibraryQuery: (LibraryQuery) -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
@@ -201,6 +206,7 @@ fun BrowseScreen(
                             Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued, onScrolled = { homeScrolled = it }, onPlay = onPlay)
                             Section.Search -> searchContent()
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
+                            Section.Playlists -> PlaylistsContent(state.playlists, onOpenPlaylist, onRetryPlaylists)
                             Section.Settings -> settingsContent()
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
                         }
@@ -271,6 +277,8 @@ private fun NavigationDrawerScope.Sidebar(
                 SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
             }
             if (frame.watchlistAt >= frame.libraries.size) watchlist()
+            // Playlists after the libraries, as Plex and the web list them.
+            SidebarItem(ArcIcons.ListVideo, stringResource(R.string.nav_playlists), section == Section.Playlists) { onSection(Section.Playlists) }
             Spacer(Modifier.weight(1f))
             SidebarItem(ArcIcons.Settings, stringResource(R.string.nav_settings), section == Section.Settings) { onSection(Section.Settings) }
         }
@@ -968,7 +976,7 @@ private enum class LibraryPanel { Sort, Filters }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CardGrid(
+internal fun CardGrid(
     count: Int,
     landscape: Boolean,
     key: (Int) -> Any,
