@@ -58,7 +58,7 @@ import java.util.Locale
 /** What a queue entry's menu can do: move it earlier or later, or take it out (null where it can't). */
 data class QueueMoves(val earlier: (() -> Unit)? = null, val later: (() -> Unit)? = null, val remove: (() -> Unit)? = null)
 
-enum class DetailsPanel { None, More, MediaInfo }
+enum class DetailsPanel { None, More, MediaInfo, About }
 
 /**
  * A panel over the page with a dimmed backdrop; the focus stays inside it until Back (or a choice)

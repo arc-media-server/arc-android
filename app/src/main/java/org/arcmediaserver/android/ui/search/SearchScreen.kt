@@ -65,10 +65,15 @@ import org.arcmediaserver.android.ui.components.text
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
-fun SearchRoute(onOpen: (Item) -> Unit, onPerson: (Person) -> Unit) {
+fun SearchRoute(
+    onOpen: (Item) -> Unit,
+    onPerson: (Person) -> Unit,
+    onCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+    onGenre: (org.arcmediaserver.android.data.GenreMatch) -> Unit = {},
+) {
     val vm = arcViewModel { SearchViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
-    SearchScreen(state, onType = vm::type, onOpen = onOpen, onPerson = onPerson)
+    SearchScreen(state, onType = vm::type, onOpen = onOpen, onPerson = onPerson, onCollection = onCollection, onGenre = onGenre)
 }
 
 /**
@@ -76,7 +81,15 @@ fun SearchRoute(onOpen: (Item) -> Unit, onPerson: (Person) -> Unit) {
  * with it) and results that follow the typing, grouped as on the web.
  */
 @Composable
-fun SearchScreen(state: SearchUiState, onType: (String) -> Unit, onOpen: (Item) -> Unit, onPerson: (Person) -> Unit, focusField: Boolean = true) {
+fun SearchScreen(
+    state: SearchUiState,
+    onType: (String) -> Unit,
+    onOpen: (Item) -> Unit,
+    onPerson: (Person) -> Unit,
+    focusField: Boolean = true,
+    onCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit = {},
+    onGenre: (org.arcmediaserver.android.data.GenreMatch) -> Unit = {},
+) {
     val field = remember { FocusRequester() }
     Column(Modifier.fillMaxSize().padding(top = 36.dp)) {
         SearchField(state, onType, Modifier.padding(horizontal = 48.dp).focusRequester(field))
@@ -90,7 +103,7 @@ fun SearchScreen(state: SearchUiState, onType: (String) -> Unit, onOpen: (Item) 
                 Text(stringResource(R.string.search_hint), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted)
             }
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                items(state.sections, key = { it.group }) { section -> SectionRow(section, onOpen, onPerson) }
+                items(state.sections, key = { it.group }) { section -> SectionRow(section, onOpen, onPerson, onCollection, onGenre) }
             }
         }
     }
@@ -141,10 +154,23 @@ private fun Message(text: String) {
 }
 
 @Composable
-private fun SectionRow(section: SearchSection, onOpen: (Item) -> Unit, onPerson: (Person) -> Unit) {
+private fun SectionRow(
+    section: SearchSection,
+    onOpen: (Item) -> Unit,
+    onPerson: (Person) -> Unit,
+    onCollection: (org.arcmediaserver.android.data.CollectionRef) -> Unit,
+    onGenre: (org.arcmediaserver.android.data.GenreMatch) -> Unit,
+) {
     org.arcmediaserver.android.ui.components.Shelf(groupTitle(section.group)) {
         if (section.group == SearchGroup.People) {
             items(section.people, key = { it.id }) { PersonCard(it) { onPerson(it) } }
+        } else if (section.group == SearchGroup.Genres) {
+            // As the web: a genre opens its library's titles filtered to it.
+            items(section.genres, key = { "${it.libraryId}:${it.name}" }) { g -> GenrePill(g) { onGenre(g) } }
+        } else if (section.group == SearchGroup.Collections) {
+            items(section.cards, key = { it.key }) { card ->
+                MediaCardView(card, landscape = false, onClick = { onCollection(org.arcmediaserver.android.data.CollectionRef(card.item.id, card.item.title, images = card.item.images)) })
+            }
         } else {
             items(section.cards, key = { it.key }) { card ->
                 // Top Results: wide artwork cards with the title's logo, as the Apple TV app's.
@@ -160,9 +186,35 @@ private fun groupTitle(group: SearchGroup): String = stringResource(
     when (group) {
         SearchGroup.Top -> R.string.search_top
         SearchGroup.People -> R.string.search_people
+        SearchGroup.Collections -> R.string.search_collections
         SearchGroup.Episodes -> R.string.search_episodes
+        SearchGroup.Genres -> R.string.search_genres
     },
 )
+
+/** A genre result: a glass pill with its name, then its library and how many titles. */
+@Composable
+private fun GenrePill(g: org.arcmediaserver.android.data.GenreMatch, onClick: () -> Unit) {
+    androidx.tv.material3.Surface(
+        onClick = onClick,
+        modifier = Modifier.padding(vertical = 6.dp),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(50)),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.1f), contentColor = ArcColors.Foreground,
+            focusedContainerColor = Color.White, focusedContentColor = Color(0xFF111111),
+        ),
+    ) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(g.name, style = MaterialTheme.typography.titleSmall)
+            val where = listOfNotNull(g.libraryName.ifBlank { null }, g.count.takeIf { it > 0 }?.toString()).joinToString(" · ")
+            if (where.isNotEmpty()) {
+                Spacer(Modifier.width(8.dp))
+                Text(where, style = MaterialTheme.typography.bodySmall, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.65f))
+            }
+        }
+    }
+}
 
 /** Someone in the libraries: a round photo, their name and how many titles they're in. */
 @Composable

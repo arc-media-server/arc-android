@@ -58,6 +58,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.focusProperties
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
@@ -142,6 +146,7 @@ fun DetailsScreen(
     val primary = remember { FocusRequester() }
     val more = remember { FocusRequester() }
     val episodeFocus = remember { FocusRequester() }
+    val about = remember { FocusRequester() }
     val page = rememberLazyListState()
     var panel by remember { mutableStateOf(initialPanel) }
     // The Apple TV app's page: the artwork fills the screen and dims once the page scrolls.
@@ -160,7 +165,7 @@ fun DetailsScreen(
                         Modifier.fillParentMaxHeight(0.88f).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
                         contentAlignment = Alignment.BottomStart,
                     ) {
-                        Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More })
+                        Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More }, about = about, onAbout = { panel = DetailsPanel.About })
                     }
                 }
                 if (item.isSeries) {
@@ -221,6 +226,7 @@ fun DetailsScreen(
                 )
             }
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
+            DetailsPanel.About -> AboutPanel(item, onClose = { panel = DetailsPanel.None; about.requestFocus() })
         }
     }
     LaunchedEffect(item.id) {
@@ -243,6 +249,8 @@ private fun Header(
     actions: TitleActions,
     more: FocusRequester,
     onMore: (androidx.compose.ui.geometry.Rect?) -> Unit,
+    about: FocusRequester = remember { FocusRequester() },
+    onAbout: () -> Unit = {},
 ) {
     val item = details.item
     // As the Apple TV app: the logo low on the artwork, then the Play button and round buttons on
@@ -327,10 +335,28 @@ private fun Header(
                 }
             }
             Spacer(Modifier.width(24.dp))
-            Column(Modifier.weight(1f).padding(top = 2.dp)) {
+            // The description: three lines, and when that cuts it short, MORE under it and the
+            // whole thing focusable to open the full text, as the Apple TV app (owner, 1 November).
+            var cut by remember { mutableStateOf(false) }
+            androidx.tv.material3.Surface(
+                onClick = onAbout,
+                // Only focusable when there's more to read (a disabled Surface would dim the text).
+                modifier = Modifier.weight(1f).offset(x = (-10).dp, y = (-8).dp).focusProperties { canFocus = cut }.focusRequester(about),
+                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent, contentColor = ArcColors.Foreground,
+                    focusedContainerColor = Color.White.copy(alpha = 0.14f), focusedContentColor = ArcColors.Foreground,
+                ),
+            ) {
+              Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 item.overview?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { layout -> cut = layout.hasVisualOverflow },
+                    )
                 }
+                if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
                 val unwatched = item.unwatchedCount ?: 0
                 val meta = listOfNotNull(
                     item.genres.firstOrNull(),
@@ -347,9 +373,28 @@ private fun Header(
                     }
                     org.arcmediaserver.android.ui.components.FormatBadges(org.arcmediaserver.android.ui.components.formatLabels(item))
                 }
+              }
             }
         }
     }
+}
+
+/** A title's whole description, opened from MORE beside its buttons. */
+@Composable
+private fun AboutPanel(item: Item, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    org.arcmediaserver.android.ui.components.Popover(null, onClose = onClose, place = org.arcmediaserver.android.ui.components.PopoverPlace.Center, title = item.title, width = 560.dp) {
+        androidx.tv.material3.Surface(
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth().focusRequester(first),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(11.dp)),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent, contentColor = ArcColors.Foreground, focusedContentColor = ArcColors.Foreground),
+        ) {
+            Text(item.overview.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp))
+        }
+    }
+    org.arcmediaserver.android.ui.components.FocusOnOpen(first)
 }
 
 /** The Play button: a white pill, as the Apple TV app's. */
@@ -474,39 +519,51 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
 fun seasonName(season: Season): String = season.name.takeIf { it.isNotBlank() }
     ?: if (season.seasonNumber == 0) stringResource(R.string.specials) else stringResource(R.string.season_number, season.seasonNumber)
 
-/** An episode: its picture with progress and a tick, its number and name, and how long it is. */
+/**
+ * An episode as the Apple TV app shows one: its picture with progress and a tick, then its number,
+ * its name, a few lines of its description, and its length (or what's left of it).
+ */
 @Composable
 private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
-    Column(Modifier.width(ThumbWidth)) {
+    Column(Modifier.width(EpisodeWidth)) {
         FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
             Artwork(card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
             WatchBadge(ep)
             ProgressLine(card.progress)
         }
         Spacer(Modifier.height(10.dp))
+        ep.episodeNumber?.let {
+            Text(
+                stringResource(R.string.details_episode_n, it).uppercase(), maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = 0.5.sp), color = ArcColors.Muted,
+            )
+        }
         Text(
-            listOfNotNull(ep.episodeNumber?.let { "$it." }, ep.title).joinToString(" "),
+            ep.title,
             style = MaterialTheme.typography.titleSmall,
             color = if (focused) ArcColors.Foreground else ArcColors.Foreground.copy(alpha = 0.85f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (!ep.overview.isNullOrBlank()) {
+            Text(
+                ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.65f), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(vertical = 3.dp),
+            )
+        }
+        val left = ep.resumeMs.takeIf { it > 0 }?.let { pos -> ep.runtimeMin?.let { maxOf(1, (it - pos / 60_000).toInt()) } }
         val sub = listOfNotNull(
-            ep.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
+            if (left != null) stringResource(R.string.time_left, runtimeText(left)) else ep.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
             if (!ep.available) stringResource(R.string.details_missing) else null,
         ).joinToString(" · ")
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted)
-        // The focused episode's description has its room kept, so showing it doesn't push the
-        // cast and everything under the episodes down.
-        Box(Modifier.height(40.dp)) {
-            if (focused && !ep.overview.isNullOrBlank()) {
-                Text(ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
     }
 }
+
+/** Episode cards are a little wider than other thumbnails, to fit three lines of description. */
+private val EpisodeWidth = 200.dp
 
 /** An extra: a wide card with its name, and what kind of extra it is and how long under it. */
 @Composable
