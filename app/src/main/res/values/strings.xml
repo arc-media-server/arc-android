@@ -51,6 +51,7 @@
     <string name="nav_switch_profile">Switch Profile</string>
     <string name="nav_sign_out">Sign Out</string>
     <string name="nav_settings">Settings</string>
+    <string name="nav_playlists">Playlists</string>
     <!-- Home hero: a show opens its page; More Info opens the title page. -->
     <string name="home_hero_view">View</string>
     <string name="home_hero_info">More Info</string>
@@ -208,6 +209,12 @@
         <item quantity="other">%1$d titles</item>
     </plurals>
     <string name="library_empty">This library is empty.</string>
+    <plurals name="playlists_count">
+        <item quantity="one">%1$d playlist</item>
+        <item quantity="other">%1$d playlists</item>
+    </plurals>
+    <string name="playlists_empty">No playlists yet. Make one in Arc on the web, and it shows here.</string>
+    <string name="playlist_empty">This playlist is empty.</string>
     <string name="watchlist_empty">Nothing on your Watchlist yet. Add a movie or show from its page.</string>
 
     <!-- Details -->

@@ -85,9 +85,10 @@ class ArcApi(
     suspend fun capabilities(): Capabilities = get("capabilities", Capabilities.serializer())
 
     /** Starts this TV's queue with [itemIds] (a show adds its episodes), replacing [replace]. */
-    suspend fun createPlayQueue(itemIds: List<String>, replace: PlayQueue? = null): PlayQueue {
+    suspend fun createPlayQueue(itemIds: List<String>, replace: PlayQueue? = null, playlistId: String? = null): PlayQueue {
         val body = buildMap {
-            put("item_ids", kotlinx.serialization.json.JsonArray(itemIds.map { JsonPrimitive(it) }))
+            if (playlistId != null) put("playlist_id", JsonPrimitive(playlistId))
+            else put("item_ids", kotlinx.serialization.json.JsonArray(itemIds.map { JsonPrimitive(it) }))
             if (replace != null) {
                 put("replace_id", JsonPrimitive(replace.id))
                 put("revision", JsonPrimitive(replace.revision))
@@ -205,6 +206,9 @@ class ArcApi(
 
     /** Titles like this one in the same library (More Like This). */
     suspend fun similar(id: String): List<Item> = get("items/${enc(id)}/similar", ItemList, route = "items/{id}/similar")
+
+    /** The profile's playlists (made on the web). */
+    suspend fun playlists(): List<PlaylistInfo> = get("playlists", kotlinx.serialization.builtins.ListSerializer(PlaylistInfo.serializer()))
 
     suspend fun playlist(id: String): PlaylistPage = get("playlists/${enc(id)}", PlaylistPage.serializer(), route = "playlists/{id}")
 

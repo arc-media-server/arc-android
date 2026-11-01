@@ -359,8 +359,15 @@ data class PaletteColors(
 @Serializable
 data class PlaylistPage(val playlist: PlaylistInfo, val entries: List<PlaylistEntry> = emptyList())
 
+/** A playlist: its picture is a mosaic of up to four of its titles' posters ([images]). */
 @Serializable
-data class PlaylistInfo(val id: String, val title: String)
+data class PlaylistInfo(
+    val id: String,
+    val title: String,
+    val count: Int = 0,
+    @SerialName("duration_ms") val durationMs: Long = 0,
+    val images: List<String> = emptyList(),
+)
 
 @Serializable
 data class PlaylistEntry(@SerialName("entry_id") val entryId: Long, val item: Item)
