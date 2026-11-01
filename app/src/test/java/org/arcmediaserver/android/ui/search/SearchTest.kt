@@ -59,5 +59,8 @@ class SearchTest {
         // Movies and shows alternate in Top Results, each in Arc's order.
         assertEquals(listOf("m", "s"), sections[0].cards.map { it.item.id })
         assertEquals(emptyList<SearchSection>(), searchSections(SearchResults()))
+        // Collections come after People, and genres last, as the web's.
+        val more = searchSections(results.copy(collections = listOf(org.arcmediaserver.android.data.CollectionRef("c", "C")), genres = listOf(org.arcmediaserver.android.data.GenreMatch("Drama", 1))))
+        assertEquals(listOf(SearchGroup.Top, SearchGroup.People, SearchGroup.Collections, SearchGroup.Episodes, SearchGroup.Genres), more.map { it.group })
     }
 }

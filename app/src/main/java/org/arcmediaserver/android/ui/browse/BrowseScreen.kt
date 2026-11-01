@@ -128,6 +128,8 @@ fun BrowseRoute(
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    // A genre opened from Search: Back returns to the results.
+    androidx.activity.compose.BackHandler(enabled = (state.section as? Section.Library)?.genre != null) { vm.show(Section.Search) }
     // Coming back (from playing, or a title's page): Home's rows show what changed.
     var resumed by remember { mutableStateOf(false) }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
@@ -141,7 +143,7 @@ fun BrowseRoute(
         onOpen = onOpen,
         onRetry = vm::load,
         onRetryRow = vm::retryRow,
-        onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id) } },
+        onRetryLibrary = { (state.section as? Section.Library)?.let { vm.loadLibrary(it.id, it.genre) } },
         onNeedTitles = vm::needTitles,
         onLibraryQuery = vm::setLibraryQuery,
         onLibraryTab = vm::showLibraryTab,
@@ -150,7 +152,7 @@ fun BrowseRoute(
         onRetryWatchlist = vm::loadWatchlist,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
-        searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
+        searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson, onOpenCollection, onGenre = { g -> vm.show(Section.Library(g.libraryId, g.name)) }) },
         onPlayQueued = onPlayQueued,
         settingsContent = { org.arcmediaserver.android.ui.settings.SettingsRoute(onSignedOut = onSignedOut, onSwitchServer = onSwitchServer) },
         onPlay = onPlay,
@@ -268,7 +270,7 @@ private fun NavigationDrawerScope.Sidebar(
             }
             frame.libraries.forEachIndexed { i, lib ->
                 if (i == frame.watchlistAt) watchlist()
-                SidebarItem(libraryIcon(lib), lib.name, section == Section.Library(lib.id)) { onSection(Section.Library(lib.id)) }
+                SidebarItem(libraryIcon(lib), lib.name, (section as? Section.Library)?.id == lib.id) { onSection(Section.Library(lib.id)) }
             }
             if (frame.watchlistAt >= frame.libraries.size) watchlist()
             Spacer(Modifier.weight(1f))
