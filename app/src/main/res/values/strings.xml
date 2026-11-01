@@ -267,6 +267,10 @@
     <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
 
     <!-- Media Info (as the web\'s "About This File") -->
+    <string name="queue_move_earlier">Move Earlier</string>
+    <string name="queue_move_later">Move Later</string>
+    <string name="queue_remove">Remove from Queue</string>
+    <string name="queue_edit_failed">Couldn\'t change the queue.</string>
     <string name="action_remove_continue">Remove from Continue Watching</string>
     <string name="action_remove_continue_failed">Couldn\'t remove it from Continue Watching.</string>
     <string name="media_info">Media Info</string>

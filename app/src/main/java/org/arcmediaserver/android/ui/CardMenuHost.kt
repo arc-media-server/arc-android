@@ -32,6 +32,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     var anchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var info by remember { mutableStateOf(false) }
     var inContinue by remember { mutableStateOf(false) }
+    var queueEntry by remember { mutableStateOf<String?>(null) }
     // Whether this server keeps a play queue (Play Next, Add to Queue), and what was just queued.
     var queueable by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -63,11 +64,21 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
             override fun current(item: Item) = container.withChanges(item)
             override fun offContinue(id: String) = container.offContinue[id] == true
-            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?, continueRow: Boolean) {
+            override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?, continueRow: Boolean, entry: String?) {
                 info = false
                 inContinue = continueRow
+                queueEntry = entry
                 anchor = at
                 open = item to onClose
+            }
+        }
+    }
+    // A card on Home's Queue row: arrange the queue, as the web player's queue list.
+    fun queueEdit(edit: suspend () -> org.arcmediaserver.android.data.PlayQueue?) {
+        container.appScope.launch {
+            if (edit() == null) {
+                val text = context.getString(org.arcmediaserver.android.R.string.queue_edit_failed)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
             }
         }
     }
@@ -104,6 +115,16 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
                 anchor = anchor,
+                queueMoves = queueEntry?.let { entry ->
+                    val q = container.queues.queue.value ?: return@let null
+                    val at = q.entries.indexOfFirst { it.id == entry }
+                    val current = q.currentIndex
+                    org.arcmediaserver.android.ui.details.QueueMoves(
+                        earlier = if (at > current + 1) { { queueEdit { container.queues.move(entry, -1) } } } else null,
+                        later = if (at > current && at < q.entries.size - 1) { { queueEdit { container.queues.move(entry, 1) } } } else null,
+                        remove = if (at > current) { { queueEdit { container.queues.remove(entry) } } } else null,
+                    )
+                },
                 // Only on Home's Continue Watching row, as the web's card menu.
                 onRemoveContinue = if (!inContinue) null else { ->
                     container.offContinue[item.id] = true
