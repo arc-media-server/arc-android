@@ -81,7 +81,11 @@ fun ArcNavHost() {
                     )
                 }
                 composable<CollectionDest> { entry ->
-                    org.arcmediaserver.android.ui.browse.CollectionRoute(entry.toRoute<CollectionDest>().id, onOpen = { item -> nav.navigate(detailsFor(item)) })
+                    org.arcmediaserver.android.ui.browse.CollectionRoute(
+                        entry.toRoute<CollectionDest>().id,
+                        onOpen = { item -> nav.navigate(detailsFor(item)) },
+                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, 0, entryId = entry)) },
+                    )
                 }
                 composable<DetailsDest> { entry ->
                     val dest = entry.toRoute<DetailsDest>()

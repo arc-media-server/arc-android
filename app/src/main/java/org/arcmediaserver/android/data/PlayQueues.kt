@@ -79,6 +79,12 @@ class PlayQueues(private val api: () -> ArcApi?, private val log: ArcLog = ArcLo
         }
     }
 
+    /** Mixes up what's still to come; the current entry stays where it is. */
+    suspend fun shuffle(): PlayQueue? = locked("shuffling the queue") { api ->
+        val q = _queue.value ?: return@locked null
+        edit(api, q, "shuffle")
+    }
+
     /** Takes [entryId] out of the queue (not the entry playing now, which Arc refuses). */
     suspend fun remove(entryId: String): PlayQueue? = locked("removing from the queue") { api ->
         val q = _queue.value ?: return@locked null
