@@ -176,6 +176,10 @@ class ArcApi(
     suspend fun recommended(libraryId: Long): List<RecommendedRow> =
         get("libraries/$libraryId/recommended", RecommendedPage.serializer(), route = "libraries/{id}/recommended").rows
 
+    /** A home videos library folder by folder: [path] "" is the top. */
+    suspend fun libraryFolders(libraryId: Long, path: String): FolderPage =
+        get("libraries/$libraryId/folders" + (if (path.isEmpty()) "" else "?path=${enc(path)}"), FolderPage.serializer(), route = "libraries/{id}/folders")
+
     suspend fun libraryCollections(libraryId: Long): List<CollectionRef> =
         get("libraries/$libraryId/collections", kotlinx.serialization.builtins.ListSerializer(CollectionRef.serializer()), route = "libraries/{id}/collections")
 

@@ -83,7 +83,7 @@ data class LibraryPage(
 }
 
 /** A library's tabs, as Plex's and the web's: Recommended, its titles, and its collections. */
-enum class LibraryTab { Recommended, Titles, Collections }
+enum class LibraryTab { Recommended, Titles, Folders, Collections }
 
 /** What a library shows besides its titles; loaded alongside them. */
 data class LibraryExtras(
@@ -91,12 +91,22 @@ data class LibraryExtras(
     val collections: LoadState<List<org.arcmediaserver.android.data.CollectionRef>> = LoadState.Loading,
     /** What the library's filters can be set to; empty until loaded (or if it fails). */
     val facets: org.arcmediaserver.android.data.Facets = org.arcmediaserver.android.data.Facets(),
+    /** A home videos library's Folders tab: the folder shown ("" the top) and what's in it. */
+    val folderPath: String = "",
+    val folders: LoadState<org.arcmediaserver.android.data.FolderPage> = LoadState.Loading,
+    /**
+     * Where the focus goes once the folder shows: null stays where it is (the tab was just
+     * chosen), "" the first card (a folder was opened), else the folder it came back out of.
+     */
+    val folderFocus: String? = null,
 )
 
 /** The tabs a library has: no Recommended for home videos, no Collections tab when it has none. */
 fun libraryTabs(library: Library, extras: LibraryExtras): List<LibraryTab> = buildList {
     if (library.kind != "videos") add(LibraryTab.Recommended)
     add(LibraryTab.Titles)
+    // Home videos can be browsed folder by folder too, as on the web.
+    if (library.kind == "videos") add(LibraryTab.Folders)
     if ((extras.collections as? LoadState.Ready)?.value?.isNotEmpty() == true) add(LibraryTab.Collections)
 }
 
@@ -339,10 +349,39 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         }
         if (lib.kind != "videos") load("recommended", { api.recommended(lib.id) }) { x, r -> x.copy(recommended = r) }
         load("collections", { api.libraryCollections(lib.id) }) { x, r -> x.copy(collections = r) }
+        if (lib.kind == "videos") load("folders", { api.libraryFolders(lib.id, "") }) { x, r -> x.copy(folders = r) }
         viewModelScope.launch {
             val facets = runCatching { api.facets(lib.id) }.getOrNull() ?: return@launch
             _state.update { s -> if ((s.section as? Section.Library)?.id != lib.id) s else s.copy(libraryExtras = s.libraryExtras.copy(facets = facets)) }
         }
+    }
+
+    /** Opens a folder of a home videos library ([path] "" the top); [focus] as [LibraryExtras.folderFocus]. */
+    fun openFolder(path: String, focus: String? = "") {
+        val api = container.api() ?: return
+        val lib = (state.value.library as? LoadState.Ready)?.value?.library ?: return
+        _state.update { it.copy(libraryExtras = it.libraryExtras.copy(folderPath = path, folders = LoadState.Loading, folderFocus = focus)) }
+        viewModelScope.launch {
+            val result = try {
+                LoadState.Ready(api.libraryFolders(lib.id, path))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("library ${lib.id} folder failed: ${e.javaClass.simpleName}")
+                LoadState.Failed(e.toUiError())
+            }
+            _state.update { s ->
+                if ((s.section as? Section.Library)?.id != lib.id || s.libraryExtras.folderPath != path) s
+                else s.copy(libraryExtras = s.libraryExtras.copy(folders = result))
+            }
+        }
+    }
+
+    /** Back in a folder: up to the one above, the focus on the folder it came out of. */
+    fun folderUp() {
+        val extras = state.value.libraryExtras
+        val page = (extras.folders as? LoadState.Ready)?.value
+        val up = page?.trail?.dropLast(1)?.lastOrNull()?.path ?: ""
+        openFolder(up, focus = extras.folderPath)
     }
 
     fun retryLibraryExtras() {

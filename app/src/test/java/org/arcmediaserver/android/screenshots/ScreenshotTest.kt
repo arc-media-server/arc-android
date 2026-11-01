@@ -273,6 +273,31 @@ class ScreenshotTest {
     }
 
     @Test
+    fun libraryFolders() = shot("library-folders") {
+        // A home videos library's Folders tab, two folders deep: the way down above, two folders
+        // (cover, Folder tag, count) and a video of its own.
+        val video = Fixtures.movies[0].copy(id = "v1", kind = "movie", title = "Arrival day", year = 2024)
+        val page = org.arcmediaserver.android.data.FolderPage(
+            path = "0/Holidays 2024",
+            trail = listOf(org.arcmediaserver.android.data.FolderCrumb("Holidays 2024", "0/Holidays 2024")),
+            folders = listOf(
+                org.arcmediaserver.android.data.VideoFolder("Cornwall", "0/Holidays 2024/Cornwall", 1, cover = "art:still:Cornwall"),
+                org.arcmediaserver.android.data.VideoFolder("Spain", "0/Holidays 2024/Spain", 12, cover = "art:still:Spain"),
+            ),
+            items = listOf(video),
+        )
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(3),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[2], listOf(video))),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Folders,
+                libraryExtras = libraryExtras.copy(folderPath = page.path, folders = LoadState.Ready(page), folderFocus = ""),
+            ),
+        )
+    }
+
+    @Test
     fun libraryCollections() = shot("library-collections") {
         browse(
             BrowseUiState(

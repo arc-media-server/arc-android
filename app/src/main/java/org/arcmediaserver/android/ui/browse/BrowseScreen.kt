@@ -151,6 +151,8 @@ fun BrowseRoute(
         onRetryWatchlist = vm::loadWatchlist,
         onOpenPlaylist = onOpenPlaylist,
         onRetryPlaylists = vm::loadPlaylists,
+        onFolder = vm::openFolder,
+        onFolderUp = vm::folderUp,
         onSwitchProfile = onSwitchProfile,
         onSignOut = { vm.signOut(onSignedOut) },
         searchContent = { org.arcmediaserver.android.ui.search.SearchRoute(onOpen, onPerson) },
@@ -177,6 +179,8 @@ fun BrowseScreen(
     onRetryWatchlist: () -> Unit = {},
     onOpenPlaylist: (org.arcmediaserver.android.data.PlaylistInfo) -> Unit = {},
     onRetryPlaylists: () -> Unit = {},
+    onFolder: (path: String, focus: String?) -> Unit = { _, _ -> },
+    onFolderUp: () -> Unit = {},
     onLibraryQuery: (LibraryQuery) -> Unit = {},
     drawerValue: DrawerValue = DrawerValue.Closed,
     searchContent: @Composable () -> Unit = {},
@@ -208,7 +212,7 @@ fun BrowseScreen(
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
                             Section.Playlists -> PlaylistsContent(state.playlists, onOpenPlaylist, onRetryPlaylists)
                             Section.Settings -> settingsContent()
-                            is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery)
+                            is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery, onFolder, onFolderUp)
                         }
                     }
                 }
@@ -785,6 +789,8 @@ fun LibraryContent(
     onRetryExtras: () -> Unit,
     onNeed: (Int) -> Unit,
     onQuery: (LibraryQuery) -> Unit = {},
+    onFolder: (path: String, focus: String?) -> Unit = { _, _ -> },
+    onFolderUp: () -> Unit = {},
 ) {
     Loaded(state, onRetry) { page ->
         val tabs = libraryTabs(page.library, extras)
@@ -805,7 +811,7 @@ fun LibraryContent(
                     Spacer(Modifier.width(24.dp))
                     if (tabs.size > 1) {
                         // Recommended, Library, Collections: Plex's names for a library's tabs.
-                        val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> R.string.library_tab_library; LibraryTab.Collections -> R.string.library_tab_collections }) }
+                        val labels = tabs.map { stringResource(when (it) { LibraryTab.Recommended -> R.string.library_tab_recommended; LibraryTab.Titles -> R.string.library_tab_library; LibraryTab.Folders -> R.string.library_tab_folders; LibraryTab.Collections -> R.string.library_tab_collections }) }
                         PillTabs(labels, tabs.indexOf(shown), onSelect = { onTab(tabs[it]) })
                     }
                     if (shown == LibraryTab.Titles) {
@@ -825,6 +831,10 @@ fun LibraryContent(
                         TitlesWithLetters(page, first, onOpen, onNeed)
                     }
                     LibraryTab.Recommended -> Loaded(extras.recommended, onRetryExtras) { rows -> RecommendedView(rows, page.library, first, onOpen) }
+                    LibraryTab.Folders -> FoldersView(
+                        page.library, extras.folderPath, extras.folders, extras.folderFocus, first,
+                        onOpenFolder = { onFolder(it, "") }, onUp = onFolderUp, onOpen = onOpen, onRetry = { onFolder(extras.folderPath, extras.folderFocus) },
+                    )
                     LibraryTab.Collections -> Loaded(extras.collections, onRetryExtras) { collections -> CollectionGrid(collections, first, onOpenCollection) }
                 }
             }
