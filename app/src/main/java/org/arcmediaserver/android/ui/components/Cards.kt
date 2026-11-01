@@ -171,11 +171,11 @@ fun BoxScope.WatchBadge(item: Item) {
     when {
         item.isSeries && unwatched > 0 -> Box(
             Modifier.align(Alignment.TopEnd).padding(6.dp).clip(RoundedCornerShape(6.dp)).background(ArcColors.AccentStrong).padding(horizontal = 7.dp, vertical = 2.dp),
-        ) { Text(unwatched.toString(), style = MaterialTheme.typography.labelMedium, color = Color.White) }
+        ) { Text(unwatched.toString(), style = MaterialTheme.typography.labelMedium, color = ArcColors.OnAccent) }
         item.userData?.played == true -> Box(
             Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(ArcColors.AccentStrong),
             contentAlignment = Alignment.Center,
-        ) { Icon(ArcIcons.Check, contentDescription = stringResource(R.string.watched), modifier = Modifier.size(15.dp), tint = Color.White) }
+        ) { Icon(ArcIcons.Check, contentDescription = stringResource(R.string.watched), modifier = Modifier.size(15.dp), tint = ArcColors.OnAccent) }
     }
 }
 

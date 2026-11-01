@@ -452,7 +452,7 @@ fun PlayerControls(
                 onClick = { if (skip.kind == "credits" && state.next != null) onNext() else onSkip(skip) },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = if (visible) 150.dp else 48.dp).focusRequester(skipFocus),
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                colors = ButtonDefaults.colors(containerColor = ArcColors.AccentStrong, contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+                colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.2f), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
             ) {
                 Text(label)
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
