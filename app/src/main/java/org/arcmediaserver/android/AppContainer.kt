@@ -59,6 +59,9 @@ class AppContainer(private val context: Context) {
      */
     val itemChanges = androidx.compose.runtime.mutableStateMapOf<String, org.arcmediaserver.android.data.Item>()
 
+    /** Titles taken out of Continue Watching this session, left off Home's row at once. */
+    val offContinue = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+
     /**
      * Ultra Blur colours Arc gave for titles this session, by title id (null: Arc had none). Kept
      * for the signed-in profile only: cleared when the profile changes or the TV signs out.
@@ -72,6 +75,7 @@ class AppContainer(private val context: Context) {
     fun profileChanged() {
         palettes.clear()
         itemChanges.clear()
+        offContinue.clear()
         queues.reset()
     }
 

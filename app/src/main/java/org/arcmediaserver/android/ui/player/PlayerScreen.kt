@@ -139,10 +139,10 @@ fun skippable(markers: List<Marker>, positionMs: Long): Marker? =
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
+fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, fileId: Long? = null, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
     val context = LocalContext.current
     val container = (context.applicationContext as ArcApplication).container
-    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn) } })
+    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn, fileId) } })
     val state by vm.state.collectAsStateWithLifecycle()
     // The next title goes with its queue entry, when it's the queue's.
     val onPlayNext: (Item) -> Unit = { next -> onPlayNextEntry(next, state.nextEntryId) }
