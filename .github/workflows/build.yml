@@ -23,9 +23,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - name: SDK packages
-        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+        # GitHub's Ubuntu image has the Android SDK (ANDROID_HOME); add the platform this app needs.
+        run: |
+          sdkmanager=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
       - uses: gradle/actions/setup-gradle@v4
       - name: Arc's signing key
         env:

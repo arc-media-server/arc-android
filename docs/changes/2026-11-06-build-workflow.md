@@ -6,7 +6,7 @@ agent session.
 - **When it runs:** only when asked, from the Actions tab (Run workflow, on any branch) or for a
   push whose commit message contains `[build]`. Other pushes start nothing, to save Actions
   minutes. Apple's workflow (arc-apple) works the same way.
-- **Steps:** JDK 21 and the Android SDK (platform 37, build-tools 36), the unit tests, then
+- **Steps:** JDK 21 and the runner's Android SDK, plus platform 37 and build-tools 36, the unit tests, then
   `assembleRelease`. The APK is attached to the run as `arc-android-<run>` for 30 days.
 - **Version code:** the run number (`-ParcVersionCode`), so each build is newer than the last.
   Local builds stay at 1.
