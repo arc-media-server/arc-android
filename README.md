@@ -19,8 +19,30 @@ You need JDK 21 and the Android SDK (platform 37, platform-tools). Then:
 ./gradlew recordRoborazziDebug   # renders every screen at 1920x1080 into app/screenshots/
 ```
 
-Release builds (`assembleRelease`) are signed with the debug key for now: there are no signing
-keys in git. The server is a separate repository; this app only needs a running Arc to talk to.
+Release builds (`assembleRelease`) are signed with Arc's own key when `ARC_KEYSTORE_FILE`,
+`ARC_KEYSTORE_PASSWORD`, `ARC_KEY_ALIAS` and `ARC_KEY_PASSWORD` are set, and with this machine's
+debug key otherwise: there are no signing keys in git. The server is a separate repository; this
+app only needs a running Arc to talk to.
+
+### Builds on GitHub
+
+GitHub builds the APK without a computer: Actions > Build > Run workflow (any branch), or push a
+commit whose message contains `[build]`. It never runs otherwise, to save Actions minutes. It runs
+the unit tests, builds the release APK with the run number as its version code, and attaches
+`arc-android-<run>` to the run (Summary > Artifacts, a zip holding the APK).
+
+An app only installs over an earlier one signed with the same key. Builds from GitHub are signed
+with Arc's key once the repository has these secrets (Settings > Secrets and variables > Actions):
+
+- `ARC_KEYSTORE_BASE64`: the keystore file, base64-encoded
+  (`keytool -genkeypair -keystore arc.keystore -alias arc -keyalg RSA -keysize 2048 -validity 10000`,
+  then `base64 -w0 arc.keystore`, or `[Convert]::ToBase64String([IO.File]::ReadAllBytes("arc.keystore"))`
+  in PowerShell);
+- `ARC_KEYSTORE_PASSWORD`, `ARC_KEY_ALIAS` (`arc` above) and `ARC_KEY_PASSWORD`.
+
+Keep the keystore and passwords somewhere safe outside git. Without the secrets, each GitHub
+build is signed with a throwaway key: uninstall the app before installing a new build (sign in
+again afterwards).
 
 ### Setting up the SDK on a new machine
 
