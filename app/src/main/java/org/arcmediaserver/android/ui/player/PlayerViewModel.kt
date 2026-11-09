@@ -94,6 +94,12 @@ data class PlayerUiState(
     val subtitleStyle: org.arcmediaserver.android.data.SubtitleStyle = org.arcmediaserver.android.data.SubtitleStyle(),
     /** The playing file's timeline thumbnails, or null when it has none. */
     val trickplay: Trickplay? = null,
+    /** The controls' Cast tab: the episode's own actors, else the show's. */
+    val cast: List<org.arcmediaserver.android.data.Credit> = emptyList(),
+    /** The controls' Episodes tab: the playing episode's season. */
+    val episodes: List<Item> = emptyList(),
+    /** Zoom Mode: the picture fills the screen, cropping its edges. */
+    val zoom: Boolean = false,
 )
 
 /**
@@ -236,6 +242,7 @@ class PlayerViewModel(
             // web player, which then neither offers nor counts down to one).
             val item = runCatching { api.item(itemId) }.getOrNull()
             _state.update { it.copy(item = item) }
+            if (item != null) launch { loadCastAndEpisodes(item) }
             val autoPlay = loadedPrefs.await().autoPlay
             // The play queue follows what's playing: this title's entry, or a new queue of it.
             val queues = container.queues
@@ -261,6 +268,30 @@ class PlayerViewModel(
         viewModelScope.launch { drawCues() }
         viewModelScope.launch { keepAlive() }
     }
+
+    /**
+     * The controls' Cast and Episodes tabs: the episode's actors, else the show's; and the season
+     * the episode is in. Either missing just leaves its tab out.
+     */
+    private suspend fun loadCastAndEpisodes(item: Item) {
+        val actors = { credits: List<org.arcmediaserver.android.data.Credit> -> credits.filter { it.role == "actor" } }
+        var cast = actors(item.credits)
+        val seriesId = item.parentId
+        if (item.isEpisode && seriesId != null) {
+            if (cast.isEmpty()) {
+                cast = runCatching { actors(api.item(seriesId).credits) }
+                    .onFailure { log.debug("player: the show's cast didn't load: ${it.javaClass.simpleName}") }
+                    .getOrDefault(emptyList())
+            }
+            val episodes = runCatching { api.seasons(seriesId).seasons.firstOrNull { it.seasonNumber == item.seasonNumber }?.episodes.orEmpty() }
+                .onFailure { log.debug("player: the season's episodes didn't load: ${it.javaClass.simpleName}") }
+                .getOrDefault(emptyList())
+            _state.update { it.copy(episodes = episodes) }
+        }
+        _state.update { it.copy(cast = cast) }
+    }
+
+    fun toggleZoom() = _state.update { it.copy(zoom = !it.zoom) }
 
     /** Where in the file the player is now. */
     private fun position(): Long = plan?.let { PlaybackClock.filePosition(it, player.currentPosition.coerceAtLeast(0)) } ?: startMs
