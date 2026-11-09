@@ -18,8 +18,25 @@ android {
         // adaptive icons, which the app relies on, and Media3 and Compose support it.
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        // GitHub's Build workflow passes its run number (-ParcVersionCode=N), so each build
+        // installs over the one before; local builds stay at 1.
+        versionCode = (project.findProperty("arcVersionCode") as String?)?.toIntOrNull() ?: 1
         versionName = "0.1.0"
+    }
+
+    // Arc's own key, when one is provided (ARC_KEYSTORE_FILE plus its passwords and alias, from
+    // the Build workflow's repository secrets): builds signed with it install over each other on
+    // every machine. Without it, release builds use this machine's debug key, as before.
+    val arcKeystore = System.getenv("ARC_KEYSTORE_FILE")?.let(::file)?.takeIf { it.isFile }
+    signingConfigs {
+        if (arcKeystore != null) {
+            create("arc") {
+                storeFile = arcKeystore
+                storePassword = System.getenv("ARC_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ARC_KEY_ALIAS")
+                keyPassword = System.getenv("ARC_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -29,9 +46,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // No release keys in git: release builds are signed with the debug key until the
-            // project has a signing setup of its own.
-            signingConfig = signingConfigs.getByName("debug")
+            // No keys in git: Arc's key from the environment when there is one, else the debug key.
+            signingConfig = signingConfigs.findByName("arc") ?: signingConfigs.getByName("debug")
         }
     }
 
