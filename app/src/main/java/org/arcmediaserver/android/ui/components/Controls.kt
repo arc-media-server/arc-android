@@ -12,6 +12,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -143,6 +147,41 @@ fun FormatBadges(labels: List<String>, modifier: Modifier = Modifier) {
                     .border(1.dp, ArcColors.Foreground.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 1.dp),
             )
+        }
+    }
+}
+
+/**
+ * A title's badges, as the Apple TV app's: the age rating in an outlined box, then the file's quality
+ * as capsules: the resolution filled white, then outlined capsules split by a line ("DV | HDR10",
+ * "DD+ | 5.1", "Atmos"). A title with several versions says how many instead.
+ */
+@Composable
+fun TitleBadges(item: org.arcmediaserver.android.data.Item, modifier: Modifier = Modifier) {
+    val files = item.files.filter { !it.missing }
+    androidx.compose.foundation.layout.Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        item.contentRating?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                it, style = MaterialTheme.typography.labelMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 1,
+                modifier = Modifier.border(1.dp, ArcColors.Foreground.copy(alpha = 0.5f), RoundedCornerShape(3.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+            )
+        }
+        if (files.size > 1) {
+            Capsule(listOf(androidx.compose.ui.res.pluralStringResource(org.arcmediaserver.android.R.plurals.media_versions, files.size, files.size)), filled = false)
+            return@Row
+        }
+        org.arcmediaserver.android.playback.Quality.capsules(files.firstOrNull()).forEach { Capsule(it.parts, it.filled) }
+    }
+}
+
+@Composable
+private fun Capsule(parts: List<String>, filled: Boolean) {
+    val shape = RoundedCornerShape(50)
+    val base = if (filled) Modifier.background(ArcColors.Foreground, shape) else Modifier.border(1.dp, ArcColors.Foreground.copy(alpha = 0.55f), shape)
+    androidx.compose.foundation.layout.Row(base.height(androidx.compose.foundation.layout.IntrinsicSize.Min).padding(horizontal = 8.dp, vertical = 1.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        parts.forEachIndexed { i, p ->
+            if (i > 0) androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 6.dp).width(1.dp).fillMaxHeight().background(ArcColors.Foreground.copy(alpha = 0.45f)))
+            Text(p, style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = if (filled) ArcColors.Background else ArcColors.Foreground.copy(alpha = 0.9f), maxLines = 1)
         }
     }
 }

@@ -65,6 +65,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -199,6 +200,8 @@ fun BrowseScreen(
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
                 drawerState = drawer,
+                // The Apple TV app doesn't dim the page, but its glass blurs what's behind; Compose for TV's
+                // drawer has no blur and draws the page over the panel's edge, so the shade stays.
                 scrimBrush = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Black.copy(alpha = 0.25f))),
                 drawerContent = { value ->
                     Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut)
@@ -1095,27 +1098,76 @@ private fun recommendedTitle(row: org.arcmediaserver.android.data.RecommendedRow
 }
 
 /** Home's single row of cards: about seven posters across, with room for the heading and focus. */
-private val HomePosterWidth = 118.dp
+private val HomePosterWidth = 132.dp
 private val HomeThumbWidth = 236.dp
 private val HomeBackdropWidth = 200.dp
 // Heading, card padding, the poster and its two-line caption.
 private val HomeBandHeight = 32.dp + 28.dp + HomePosterWidth * 1.5f + 50.dp
 
-/** The Watchlist from the sidebar: its name and count, then the titles in the library's grid. */
+/**
+ * The Watchlist from the sidebar: its name, then pills at the right of it as the Apple TV app's
+ * (All, Movies or TV Shows; Date Added, Title or Release Date), then the titles in the library's grid.
+ */
 @Composable
 fun WatchlistContent(state: LoadState<List<Item>>, onOpen: (Item) -> Unit, onRetry: () -> Unit) {
     Loaded(state, onRetry) { items ->
         val first = remember { FocusRequester() }
+        var show by remember { mutableStateOf(org.arcmediaserver.android.data.WatchlistView.Show.All) }
+        var sort by remember { mutableStateOf(org.arcmediaserver.android.data.WatchlistView.Sort.DateAdded) }
+        var open by remember { mutableStateOf<String?>(null) }
+        var showAt by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+        var sortAt by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+        val showButton = remember { FocusRequester() }
+        val sortButton = remember { FocusRequester() }
+        val shown = remember(items, show, sort) { org.arcmediaserver.android.data.WatchlistView.shown(items, show, sort) }
+        val showNames = mapOf(
+            org.arcmediaserver.android.data.WatchlistView.Show.All to stringResource(R.string.watchlist_show_all),
+            org.arcmediaserver.android.data.WatchlistView.Show.Movies to stringResource(R.string.watchlist_show_movies),
+            org.arcmediaserver.android.data.WatchlistView.Show.Shows to stringResource(R.string.watchlist_show_shows),
+        )
+        val sortNames = mapOf(
+            org.arcmediaserver.android.data.WatchlistView.Sort.DateAdded to stringResource(R.string.watchlist_sort_added),
+            org.arcmediaserver.android.data.WatchlistView.Sort.Title to stringResource(R.string.watchlist_sort_title),
+            org.arcmediaserver.android.data.WatchlistView.Sort.ReleaseDate to stringResource(R.string.watchlist_sort_released),
+        )
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 48.dp, top = 28.dp, bottom = 4.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 48.dp, end = 48.dp, top = 28.dp, bottom = 4.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.row_watchlist), style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.width(14.dp))
-                Text(pluralStringResource(R.plurals.library_count, items.size, items.size), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+                Spacer(Modifier.weight(1f))
+                if (items.isNotEmpty()) {
+                    HeaderButton(showNames.getValue(show), Modifier.focusRequester(showButton).onGloballyPositioned { showAt = it.boundsInRoot() }) { open = "show" }
+                    Spacer(Modifier.width(10.dp))
+                    HeaderButton(sortNames.getValue(sort), Modifier.focusRequester(sortButton).onGloballyPositioned { sortAt = it.boundsInRoot() }) { open = "sort" }
+                }
             }
             if (items.isEmpty()) {
                 Text(stringResource(R.string.watchlist_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
             } else {
-                TitleGrid(items, landscape = false, first, onOpen)
+                key(show, sort) { TitleGrid(shown, landscape = false, first, onOpen) }
+            }
+        }
+        fun close(button: FocusRequester) {
+            open = null
+            button.requestFocus()
+        }
+        when (open) {
+            "show" -> org.arcmediaserver.android.ui.components.Popover(showAt, onClose = { close(showButton) }, place = org.arcmediaserver.android.ui.components.PopoverPlace.Below, width = 260.dp) {
+                org.arcmediaserver.android.ui.components.PopoverList {
+                    showNames.forEach { (v, name) ->
+                        val focus = remember { FocusRequester() }
+                        org.arcmediaserver.android.ui.components.PopoverItem(name, if (v == show) ArcIcons.Check else null, focus = if (v == show) focus else null) { show = v; close(showButton) }
+                        if (v == show) LaunchedEffect(Unit) { focus.requestWhenReady() }
+                    }
+                }
+            }
+            "sort" -> org.arcmediaserver.android.ui.components.Popover(sortAt, onClose = { close(sortButton) }, place = org.arcmediaserver.android.ui.components.PopoverPlace.Below, width = 260.dp) {
+                org.arcmediaserver.android.ui.components.PopoverList {
+                    sortNames.forEach { (v, name) ->
+                        val focus = remember { FocusRequester() }
+                        org.arcmediaserver.android.ui.components.PopoverItem(name, if (v == sort) ArcIcons.Check else null, focus = if (v == sort) focus else null) { sort = v; close(sortButton) }
+                        if (v == sort) LaunchedEffect(Unit) { focus.requestWhenReady() }
+                    }
+                }
             }
         }
         LaunchedEffect(items.isEmpty()) { if (items.isNotEmpty()) first.requestWhenReady() }
