@@ -76,8 +76,8 @@ val LocalCardMenu = compositionLocalOf<CardMenu?> { null }
 val LocalInContinueRow = compositionLocalOf { false }
 
 val CardShape = RoundedCornerShape(10.dp)
-val PosterWidth = 116.dp
-val ThumbWidth = 172.dp
+val PosterWidth = 132.dp
+val ThumbWidth = 220.dp
 
 /**
  * Artwork with a quiet placeholder underneath: the title on a dark gradient, which is what shows
