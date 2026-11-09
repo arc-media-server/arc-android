@@ -370,6 +370,18 @@ class ScreenshotTest {
     }
 
     @Test
+    fun movieAboutCards() = shot("movie-about-cards", keys = List(4) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        // The foot of a film's page: About across the top, then Details, Crew and Playback.
+        val credits = listOf(
+            org.arcmediaserver.android.data.Credit(1, "Ada Reyes", "actor", "Captain Reyes"),
+            org.arcmediaserver.android.data.Credit(2, "Ines Moreau", "director"),
+            org.arcmediaserver.android.data.Credit(3, "Paul Okoro", "writer"),
+        )
+        val film = Fixtures.movieWithFile.copy(credits = credits, releaseDate = "2019-09-13", studio = "Harbour Light", contentRating = "15", genres = listOf("Science Fiction", "Drama"), runtimeMin = 132)
+        DetailsScreen(Details(film), onPlay = { _: Item, _: Long -> }, onOpen = {}, serverName = "Living Room Arc")
+    }
+
+    @Test
     fun movie() = shot("movie") {
         // With its cast, which should show on arrival under the buttons.
         val cast = listOf("Ada Reyes" to "Captain Reyes", "Tomas Hale" to "Hale", "Mira Okafor" to "Dr. Okafor", "Jun Park" to "Pilot", "Sol Varga" to "Engineer", "Lena Ruiz" to "Navigator")

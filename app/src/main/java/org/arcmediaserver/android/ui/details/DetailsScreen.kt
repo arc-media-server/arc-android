@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -97,6 +98,8 @@ fun DetailsRoute(
     onPlayVersion: (Item, Long, Long) -> Unit = { _, _, _ -> },
 ) {
     val vm = arcViewModel { DetailsViewModel(it, itemId, episodeId) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val serverName = remember { (context.applicationContext as? org.arcmediaserver.android.ArcApplication)?.container?.session?.serverName }
     val state by vm.state.collectAsStateWithLifecycle()
     val canShuffle by vm.canShuffle.collectAsStateWithLifecycle()
     var resumed by remember { mutableStateOf(false) }
@@ -118,6 +121,7 @@ fun DetailsRoute(
                 ),
                 onPerson = onPerson,
                 onExtra = onExtra,
+                serverName = serverName,
             )
         }
     }
@@ -145,6 +149,8 @@ fun DetailsScreen(
     initialPanel: DetailsPanel = DetailsPanel.None,
     onPerson: (Long) -> Unit = {},
     onExtra: (org.arcmediaserver.android.data.Extra) -> Unit = {},
+    /** The server's name, for the About section's Playback card. */
+    serverName: String? = null,
 ) {
     val item = details.item
     val primary = remember { FocusRequester() }
@@ -211,7 +217,7 @@ fun DetailsScreen(
                         }
                     }
                 }
-                item(key = "info") { InfoSection(item) }
+                item(key = "info") { AboutSection(item, serverName) }
             }
         }
         val closePanel = {
@@ -280,14 +286,22 @@ private fun Header(
                     val target = if (item.isSeries) details.next else item
                     if (target != null) {
                         val resume = target.resumeMs
-                        val code = if (item.isSeries) episodeCode(target) else null
+                        val duration = target.durationMs
+                        val s = target.seasonNumber
+                        val e = target.episodeNumber
+                        val numbered = target.isEpisode && s != null && e != null
+                        val left = if (resume > 0 && duration > resume) runtimeText(((duration - resume) / 60_000).toInt().coerceAtLeast(1)) else null
+                        // What will play, as the Apple TV app's labels: part watched shows a bar and
+                        // what's left ("S5 E12 · 43 min" or "1 h 2 min").
                         val label = when {
-                            resume > 0 && code != null -> stringResource(R.string.action_resume_episode, code)
-                            resume > 0 -> stringResource(R.string.action_resume, clock(resume))
-                            code != null -> stringResource(R.string.action_play_episode, code)
+                            resume > 0 && numbered -> stringResource(R.string.action_left_episode, s!!, e!!, left ?: clock(resume))
+                            resume > 0 -> left ?: stringResource(R.string.action_resume, clock(resume))
+                            item.isSeries && numbered && e == 1 -> stringResource(R.string.action_start_watching, s!!, e)
+                            numbered -> stringResource(R.string.action_play_se, s!!, e!!)
                             else -> stringResource(R.string.action_play)
                         }
-                        PlayPill(label, Modifier.focusRequester(primary)) { onPlay(target, resume) }
+                        val progress = if (resume > 0 && duration > 0) (resume.toFloat() / duration).coerceIn(0f, 1f) else null
+                        PlayPill(label, Modifier.focusRequester(primary), progress) { onPlay(target, resume) }
                         if (resume > 0) {
                             val fromStart = stringResource(R.string.action_play_from_start)
                             RoundIconButton(ArcIcons.RotateCcw, fromStart, { onPlay(target, 0) }, size = 44.dp, containerColor = round, modifier = labelled(fromStart))
@@ -372,13 +386,12 @@ private fun Header(
                     item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
                 ).filter { it.isNotBlank() }
                 Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (meta.isNotEmpty()) {
-                        Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.7f), maxLines = 1)
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    org.arcmediaserver.android.ui.components.FormatBadges(org.arcmediaserver.android.ui.components.formatLabels(item))
+                if (meta.isNotEmpty()) {
+                    Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.7f), maxLines = 1)
                 }
+                // The age rating and the quality capsules, on a line of their own so none is squeezed.
+                Spacer(Modifier.height(8.dp))
+                org.arcmediaserver.android.ui.components.TitleBadges(item)
               }
             }
         }
@@ -403,21 +416,31 @@ private fun AboutPanel(item: Item, onClose: () -> Unit) {
     org.arcmediaserver.android.ui.components.FocusOnOpen(first)
 }
 
-/** The Play button: a white pill, as the Apple TV app's. */
+/**
+ * The Play button: a glass pill like the round buttons beside it, white only while it has the focus
+ * (the Apple TV app's). Part watched, a bar of how far through sits before the label, in its colour.
+ */
 @Composable
-private fun PlayPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PlayPill(label: String, modifier: Modifier = Modifier, progress: Float? = null, onClick: () -> Unit) {
     Button(
         onClick = onClick, modifier = modifier.height(44.dp), contentPadding = PaddingValues(start = 18.dp, end = 22.dp),
         scale = ButtonDefaults.scale(focusedScale = 1.06f),
         colors = ButtonDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.9f),
-            contentColor = Color.Black,
+            containerColor = Color.White.copy(alpha = 0.16f),
+            contentColor = Color.White,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black,
         ),
     ) {
         Icon(ArcIcons.Play, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
         Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        if (progress != null) {
+            val tint = androidx.tv.material3.LocalContentColor.current
+            Box(Modifier.width(36.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(tint.copy(alpha = 0.3f))) {
+                Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(tint))
+            }
+            Spacer(Modifier.width(10.dp))
+        }
         Text(label, style = MaterialTheme.typography.titleSmall)
     }
 }
@@ -439,46 +462,76 @@ internal fun HeroBackdrop(item: Item, dim: Boolean) {
     }
 }
 
-/** The Apple TV app's Information block at the foot of a title's page. */
+/**
+ * The About section at the foot of a title's page, as the Apple TV app's: an About card across the
+ * top (the title in bold, then the overview), then Details, Crew and Playback side by side.
+ */
 @Composable
-private fun InfoSection(item: Item) {
+private fun AboutSection(item: Item, serverName: String?) {
     fun names(role: String, n: Int = 4) = item.credits.filter { it.role == role }.take(n).joinToString(", ") { it.name }
     val released = item.releaseDate?.let { d ->
         runCatching {
-            java.time.LocalDate.parse(d).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))
+            java.time.LocalDate.parse(d.take(10)).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))
         }.getOrNull()
     } ?: item.year?.toString()
-    val rows = listOf(
-        R.string.details_info_genre to item.genres.joinToString(", "),
-        R.string.details_info_released to released.orEmpty(),
-        R.string.details_info_runtime to (item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) } ?: ""),
-        R.string.details_info_rated to item.contentRating.orEmpty(),
-        R.string.details_info_studio to item.studio.orEmpty(),
-        R.string.details_info_language to (org.arcmediaserver.android.playback.languageName(item.originalLanguage) ?: ""),
-        R.string.details_info_starring to names("actor", 5),
-        R.string.details_info_directors to names("director"),
-        R.string.details_info_writers to names("writer"),
+    val details = listOf(
+        stringResource(R.string.details_info_released) to released.orEmpty(),
+        stringResource(R.string.details_info_runtime) to (item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) } ?: ""),
+        stringResource(R.string.details_info_rated) to item.contentRating.orEmpty(),
+        stringResource(R.string.details_info_genre) to item.genres.joinToString(", "),
+        stringResource(R.string.details_info_language) to (org.arcmediaserver.android.playback.languageName(item.originalLanguage) ?: ""),
     ).filter { it.second.isNotBlank() }
-    if (rows.isEmpty()) return
+    val crew = listOf(
+        stringResource(R.string.details_info_directors) to names("director"),
+        stringResource(R.string.details_info_writers) to names("writer"),
+        stringResource(R.string.details_info_studio) to item.studio.orEmpty(),
+    ).filter { it.second.isNotBlank() }
+    val file = item.files.firstOrNull { !it.missing }
+    val playback = listOf(
+        stringResource(R.string.settings_server) to serverName.orEmpty(),
+        stringResource(R.string.player_quality) to org.arcmediaserver.android.playback.Quality.summary(file).orEmpty(),
+        stringResource(R.string.details_bitrate) to (file?.bitrate?.takeIf { it > 0 }?.let { "%.1f Mbps".format(it / 1e6) } ?: ""),
+        stringResource(R.string.details_size) to (file?.size?.takeIf { it > 0 }?.let { "%.1f GB".format(it / 1e9) } ?: ""),
+        stringResource(R.string.details_edition) to file?.edition.orEmpty(),
+        stringResource(R.string.details_file) to (file?.path?.substringAfterLast('/')?.substringAfterLast('\\') ?: ""),
+    ).filter { it.second.isNotBlank() }
+    val overview = item.overview?.takeIf { it.isNotBlank() }
+    if (overview == null && details.isEmpty() && crew.isEmpty() && playback.isEmpty()) return
     Column(Modifier.padding(start = PageStart, end = PageStart, top = 28.dp)) {
-        Text(stringResource(R.string.details_info), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.details_about), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
         // Focusable so the page can scroll down to it; there's nothing to press.
         Column(Modifier.focusable()) {
-            rows.chunked(3).forEach { line ->
-                Row(Modifier.padding(bottom = 14.dp)) {
-                    line.forEach { (key, value) ->
-                        Column(Modifier.weight(1f).padding(end = 16.dp)) {
-                            Text(stringResource(key), style = MaterialTheme.typography.labelMedium, color = ArcColors.Foreground.copy(alpha = 0.6f))
-                            Spacer(Modifier.height(3.dp))
-                            Text(value, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.9f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            if (overview != null) {
+                InfoCard(Modifier.fillMaxWidth()) {
+                    Text(item.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                    Spacer(Modifier.height(6.dp))
+                    Text(overview, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 5, overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.height(14.dp))
+            }
+            Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                val cards = listOf(R.string.details_card_details to details, R.string.details_card_crew to crew, R.string.details_card_playback to playback).filter { it.second.isNotEmpty() }
+                cards.forEach { (title, rows) ->
+                    InfoCard(Modifier.weight(1f).fillMaxHeight()) {
+                        Text(stringResource(title), style = MaterialTheme.typography.titleSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                        Spacer(Modifier.height(10.dp))
+                        rows.forEach { (label, value) ->
+                            Text(label, style = MaterialTheme.typography.labelMedium, color = ArcColors.Foreground.copy(alpha = 0.6f))
+                            Text(value, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.9f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
-                    repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
                 }
+                repeat(3 - cards.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
+}
+
+@Composable
+private fun InfoCard(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)).padding(16.dp), content = content)
 }
 
 /** e.g. 1:02:05 or 12:34. */
