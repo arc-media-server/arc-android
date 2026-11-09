@@ -36,6 +36,8 @@ data class AuthStatus(
     val friend: Boolean = false,
     val profile: Profile? = null,
     val profiles: List<Profile> = emptyList(),
+    /** Whether this device reached Arc from its home network (null: an older Arc that doesn't say). */
+    val local: Boolean? = null,
 )
 
 @Serializable
@@ -308,7 +310,7 @@ data class Extra(
 
 /** A collection: on a title (id, title), in a library's Collections tab (with its poster and size too). */
 @Serializable
-data class CollectionRef(val id: String, val title: String, val kind: String = "", val count: Int = 0, val images: Images? = null)
+data class CollectionRef(val id: String, val title: String, val kind: String = "", val count: Int = 0, val images: Images? = null, val overview: String? = null)
 
 /**
  * A row of a library's Recommended view. [type] says what it is (continue, recently_released,
