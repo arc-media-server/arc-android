@@ -36,6 +36,8 @@ import org.arcmediaserver.android.ui.search.SearchUiState
 import org.arcmediaserver.android.ui.search.searchSections
 import org.arcmediaserver.android.ui.player.PlayerControls
 import org.arcmediaserver.android.ui.player.PlayerUiState
+import org.arcmediaserver.android.ui.player.PlayerMenu
+import org.arcmediaserver.android.ui.player.PlayerMenuPanel
 import org.arcmediaserver.android.ui.profiles.PinPrompt
 import org.arcmediaserver.android.ui.profiles.ProfilesScreen
 import org.arcmediaserver.android.ui.profiles.ProfilesUiState
@@ -618,12 +620,73 @@ class ScreenshotTest {
         playerOver("art:backdrop:Hollow Creek") {
             PlayerControls(
                 state = PlayerUiState(
-                    item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true,
+                    item = Fixtures.seasons[0].episodes[2], plan = osdState().plan, loading = false, playing = true,
                     positionMs = 21 * 60_000L, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L, trickplay = Fixtures.trickplay,
                 ),
                 visible = true,
                 scrubMs = 33 * 60_000L + 20_000,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+        }
+    }
+
+    /** The playing episode, as the player's tabs and cards see it. */
+    private fun osdState(): PlayerUiState {
+        val chapters = listOf(
+            org.arcmediaserver.android.data.Chapter(0, 300_000, "Cold Open"),
+            org.arcmediaserver.android.data.Chapter(300_000, 1_200_000, "The Bridge"),
+            org.arcmediaserver.android.data.Chapter(1_200_000, 2_400_000, "Low Water"),
+            org.arcmediaserver.android.data.Chapter(2_400_000, 3_120_000, "Mill Road"),
+        )
+        val episode = Fixtures.seasons[0].episodes[2].copy(
+            overview = "The river rises overnight and the mill's old gate gives way, forcing Nell to choose between the town and her brother.",
+            runtimeMin = 52, releaseDate = "2024-03-14",
+        )
+        return PlayerUiState(
+            item = episode, plan = Fixtures.plan.copy(chapters = chapters), loading = false, playing = true,
+            positionMs = 21 * 60_000L + 14_000, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L,
+            trickplay = Fixtures.trickplay, episodes = Fixtures.seasons[0].episodes,
+            cast = listOf(
+                org.arcmediaserver.android.data.Credit(1, "Mara Ellison", "actor", "Nell Hart", "art:poster:Mara Ellison"),
+                org.arcmediaserver.android.data.Credit(2, "Theo Lund", "actor", "Sam Hart"),
+                org.arcmediaserver.android.data.Credit(3, "June Okafor", "actor", "Mayor Price", "art:poster:June Okafor"),
+                org.arcmediaserver.android.data.Credit(4, "Ravi Shah", "actor", "Dr. Amin", "art:poster:Ravi Shah"),
+            ),
+        )
+    }
+
+    private fun osdShot(name: String, tab: org.arcmediaserver.android.playback.PlayerOsd.Tab) = shot(name) {
+        playerOver("art:backdrop:Hollow Creek") {
+            PlayerControls(
+                state = osdState(), visible = true, scrubMs = null, initialTab = tab,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerInfoCard() = osdShot("player-card-info", org.arcmediaserver.android.playback.PlayerOsd.Tab.Info)
+
+    @Test
+    fun playerChaptersCard() = osdShot("player-card-chapters", org.arcmediaserver.android.playback.PlayerOsd.Tab.Chapters)
+
+    @Test
+    fun playerCastCard() = osdShot("player-card-cast", org.arcmediaserver.android.playback.PlayerOsd.Tab.Cast)
+
+    @Test
+    fun playerEpisodesCard() = osdShot("player-card-episodes", org.arcmediaserver.android.playback.PlayerOsd.Tab.Episodes)
+
+    @Test
+    fun playerPlaybackMenu() = shot("player-menu-playback") {
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = osdState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Playback,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Playback, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
             )
         }
     }

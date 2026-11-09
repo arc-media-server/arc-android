@@ -115,7 +115,7 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 import java.util.Locale
 
 /** The player's menus, as the web player's: each opens as a panel at the right. */
-enum class PlayerMenu { None, Audio, Subtitles, Version, Quality, Chapters, Speed, Info }
+enum class PlayerMenu { None, Playback, Audio, Subtitles, Version, Quality, Chapters, Speed, Info }
 
 /** Quality limits the player offers (kbit/s), as web/src/lib/playback.ts `qualities`. */
 val qualities = listOf(20000, 12000, 8000, 4000, 3000, 2000, 1500, 720)
@@ -193,9 +193,11 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
     var lastInput by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var scrub by remember { mutableStateOf<Long?>(null) }
     val rootFocus = remember { FocusRequester() }
+    // A tab's card (Info, Chapters, Cast, Episodes) keeps the controls up while it's open.
+    var cardOpen by remember { mutableStateOf(false) }
 
-    LaunchedEffect(lastInput, state.playing, menu) {
-        if (state.playing && menu == PlayerMenu.None) {
+    LaunchedEffect(lastInput, state.playing, menu, cardOpen) {
+        if (state.playing && menu == PlayerMenu.None && !cardOpen) {
             delay(5_000)
             controls = false
         }
@@ -264,6 +266,8 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
             },
             // Text subtitles in the profile's style, not Android's caption settings (a black box).
             update = { view ->
+                // Zoom Mode (Playback menu): fill the screen, cropping the edges, or fit the picture.
+                view.resizeMode = if (state.zoom) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
                 view.subtitleView?.apply {
                     setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
                     setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
@@ -304,6 +308,10 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                     onClose = onClose,
                     upNextShown = upNextIn != null,
                     menu = menu,
+                    onChapter = { vm.seekTo(it) },
+                    onRestart = { vm.seekTo(0) },
+                    onPlayEpisode = { onPlayNextEntry(it, null) },
+                    onCardOpen = { cardOpen = it },
                 )
                 val plan = state.plan
                 if (plan != null) {
@@ -319,7 +327,10 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onVersion = { vm.chooseVersion(it); menu = PlayerMenu.None },
                         onQuality = { vm.chooseQuality(it); menu = PlayerMenu.None },
                         onChapter = { vm.seekTo(it); menu = PlayerMenu.None },
-                        onSpeed = { vm.setSpeed(it); menu = PlayerMenu.None },
+                        // From Playback, Speed steps on in place; the menu stays open.
+                        onSpeed = { vm.setSpeed(it); if (menu != PlayerMenu.Playback) menu = PlayerMenu.None },
+                        onZoom = vm::toggleZoom,
+                        onOpen = { menu = it },
                     )
                 }
                 val next = state.next
@@ -348,186 +359,6 @@ private fun StoppedPane(message: String, onClose: () -> Unit) {
     LaunchedEffect(Unit) { focus.requestWhenReady() }
 }
 
-/**
- * The controls over the picture, as the web player's (web/src/components/Player.tsx): the title
- * and Close at the top; at the bottom the timeline, then play/pause, next, back and forward
- * 10 seconds and the time on the left, and audio, subtitles, version, quality, chapters, speed and
- * playback info on the right. Skip Intro / Skip Credits / Play Next appear at the right when the
- * markers say so, and take the focus even while the controls are hidden.
- */
-@Composable
-fun PlayerControls(
-    state: PlayerUiState,
-    visible: Boolean,
-    scrubMs: Long?,
-    onPlayPause: () -> Unit,
-    onBack10: () -> Unit,
-    onForward10: () -> Unit,
-    onScrub: (Long) -> Unit,
-    onSkip: (Marker) -> Unit,
-    onNext: () -> Unit,
-    onMenu: (PlayerMenu) -> Unit,
-    onClose: () -> Unit,
-    upNextShown: Boolean = false,
-    /** The menu open over the controls; when it closes, its button has the focus again. */
-    menu: PlayerMenu = PlayerMenu.None,
-) {
-    val plan = state.plan
-    val playFocus = remember { FocusRequester() }
-    val menuFocus = remember { mutableMapOf<PlayerMenu, FocusRequester>() }
-    var lastMenu by remember { mutableStateOf<PlayerMenu?>(null) }
-    fun open(m: PlayerMenu) {
-        lastMenu = m
-        onMenu(m)
-    }
-    fun menuButton(m: PlayerMenu) = Modifier.focusRequester(menuFocus.getOrPut(m) { FocusRequester() })
-    val skipFocus = remember { FocusRequester() }
-    var focusedLabel by remember { mutableStateOf<String?>(null) }
-    // While Up Next counts down, its card offers what Play Next would.
-    val skip = plan?.let { skippable(it.markers, state.positionMs) }?.takeUnless { upNextShown && it.kind == "credits" }
-    Box(Modifier.fillMaxSize()) {
-        AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
-            Box(Modifier.fillMaxSize()) {
-                // As the Apple TV app's player (owner, 31 October): what's playing at the bottom
-                // left, the buttons in a row of round glass buttons at the bottom right with the
-                // focused one named above them, then a thin white bar with the time played and left.
-                // Back closes the player.
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.85f)))))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 24.dp)) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        val item = state.item
-                        Column(Modifier.weight(1f).padding(end = 20.dp)) {
-                            if (item != null) {
-                                val sub = if (item.isEpisode) listOfNotNull(item.seriesTitle, episodeCode(item)).joinToString(" · ") else item.year?.toString()
-                                if (!sub.isNullOrEmpty()) Text(sub, style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(item.title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Box(Modifier.height(20.dp)) {
-                                focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1) }
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                val playLabel = stringResource(if (state.playing) R.string.player_pause else R.string.player_play)
-                                ControlButton(if (state.playing) ArcIcons.Pause else ArcIcons.Play, playLabel, onPlayPause, Modifier.focusRequester(playFocus), onLabel = { focusedLabel = it })
-                                state.next?.let { next ->
-                                    ControlButton(ArcIcons.SkipForward, stringResource(R.string.player_next_title, next.title), onNext, onLabel = { focusedLabel = it })
-                                }
-                                ControlButton(ArcIcons.RotateCcw, stringResource(R.string.player_back_10), onBack10, onLabel = { focusedLabel = it })
-                                ControlButton(ArcIcons.RotateCw, stringResource(R.string.player_forward_10), onForward10, onLabel = { focusedLabel = it })
-                                Spacer(Modifier.width(8.dp))
-                                if (plan != null) {
-                                    if (plan.audioTracks.size > 1) ControlButton(ArcIcons.Languages, stringResource(R.string.player_audio), { open(PlayerMenu.Audio) }, menuButton(PlayerMenu.Audio), onLabel = { focusedLabel = it })
-                                    if (plan.subtitleTracks.any { !it.image }) ControlButton(ArcIcons.Captions, stringResource(R.string.player_subtitles), { open(PlayerMenu.Subtitles) }, menuButton(PlayerMenu.Subtitles), onLabel = { focusedLabel = it })
-                                    if (plan.versions.size > 1) ControlButton(ArcIcons.Film, stringResource(R.string.player_version), { open(PlayerMenu.Version) }, menuButton(PlayerMenu.Version), onLabel = { focusedLabel = it })
-                                    ControlButton(ArcIcons.Sliders, stringResource(R.string.player_quality), { open(PlayerMenu.Quality) }, menuButton(PlayerMenu.Quality), onLabel = { focusedLabel = it })
-                                    if (plan.chapters.size > 1) ControlButton(ArcIcons.ListOrdered, stringResource(R.string.player_chapters), { open(PlayerMenu.Chapters) }, menuButton(PlayerMenu.Chapters), onLabel = { focusedLabel = it })
-                                }
-                                ControlButton(ArcIcons.Gauge, stringResource(R.string.player_speed), { open(PlayerMenu.Speed) }, menuButton(PlayerMenu.Speed), onLabel = { focusedLabel = it })
-                                if (plan != null) ControlButton(ArcIcons.Info, stringResource(R.string.player_info), { open(PlayerMenu.Info) }, menuButton(PlayerMenu.Info), onLabel = { focusedLabel = it })
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Timeline(state, scrubMs, onScrub, plan?.chapters.orEmpty())
-                    Row(Modifier.fillMaxWidth()) {
-                        val at = scrubMs ?: state.positionMs
-                        Text(clock(at), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
-                        Spacer(Modifier.weight(1f))
-                        Text(if (state.durationMs > 0) "-" + clock((state.durationMs - at).coerceAtLeast(0)) else "–:––", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
-                    }
-                }
-            }
-        }
-        // Skip Intro / Recap / Credits, or Play Next in the credits when there's a next episode.
-        if (skip != null) {
-            val label = when {
-                skip.kind == "intro" -> stringResource(R.string.player_skip_intro)
-                skip.kind == "recap" -> stringResource(R.string.player_skip_recap)
-                state.next != null -> stringResource(R.string.player_play_next)
-                else -> stringResource(R.string.player_skip_credits)
-            }
-            Button(
-                onClick = { if (skip.kind == "credits" && state.next != null) onNext() else onSkip(skip) },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = if (visible) 150.dp else 48.dp).focusRequester(skipFocus),
-                contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                colors = ButtonDefaults.colors(containerColor = Color.White.copy(alpha = 0.2f), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
-            ) {
-                Text(label)
-                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                Icon(ArcIcons.SkipForward, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            }
-            LaunchedEffect(skip.kind, skip.startMs) { if (!visible) skipFocus.requestWhenReady() }
-        }
-    }
-    LaunchedEffect(visible) { if (visible) playFocus.requestWhenReady() }
-    // A menu closed (a choice made, or Back): back to the button that opened it.
-    LaunchedEffect(menu) {
-        val from = lastMenu ?: return@LaunchedEffect
-        if (menu != PlayerMenu.None) return@LaunchedEffect
-        lastMenu = null
-        if (visible) (menuFocus[from] ?: playFocus).requestWhenReady()
-    }
-}
-
-/** A round glass button; its label shows above the row while it has the focus. */
-@Composable
-private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, onLabel: (String?) -> Unit) =
-    org.arcmediaserver.android.ui.components.RoundIconButton(icon, label, onClick, modifier, size = 34.dp, containerColor = Color.White.copy(alpha = 0.14f), onLabel = onLabel)
-
-/** The chapter at a point, by index. */
-private fun chapterAt(chapters: List<Chapter>, ms: Long): Int = chapters.indexOfLast { it.startMs <= ms }
-
-/** The timeline: focused, left and right move along it in 10-second steps; chapters are marked. */
-@Composable
-private fun Timeline(state: PlayerUiState, scrubMs: Long?, onScrub: (Long) -> Unit, chapters: List<Chapter>) {
-    var focused by remember { mutableStateOf(false) }
-    val duration = state.durationMs.coerceAtLeast(1)
-    val shown = scrubMs ?: state.positionMs
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(24.dp)
-            .onFocusChanged { focused = it.isFocused }
-            .onKeyEvent { e ->
-                if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
-                when (e.nativeKeyEvent.keyCode) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> { onScrub(-10_000); true }
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> { onScrub(10_000); true }
-                    else -> false
-                }
-            }
-            .focusable(),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        val h = if (focused) 8.dp else 4.dp
-        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.25f)))
-        Box(Modifier.fillMaxWidth((state.bufferedMs.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.4f)))
-        Box(Modifier.fillMaxWidth((shown.toFloat() / duration).coerceIn(0f, 1f)).height(h).clip(RoundedCornerShape(4.dp)).background(Color.White))
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            chapters.drop(1).forEach { c ->
-                Box(Modifier.offset(x = maxWidth * (c.startMs.toFloat() / duration).coerceIn(0f, 1f)).width(2.dp).height(h).background(Color.Black.copy(alpha = 0.6f)))
-            }
-            // Scrubbing happens on the focused timeline, so a scrub point also shows its knob.
-            if (focused || scrubMs != null) {
-                val x = maxWidth * (shown.toFloat() / duration).coerceIn(0f, 1f)
-                Box(Modifier.offset(x = x - 7.dp).size(14.dp).shadow(4.dp, CircleShape).clip(CircleShape).background(Color.White))
-                // While scrubbing: the picture at that point, above the timeline (web Player.tsx Thumb).
-                val thumbs = state.trickplay
-                val frame = if (scrubMs != null && thumbs != null) trickplayFrame(thumbs.info, thumbs.sheets, scrubMs) else null
-                if (frame != null && thumbs != null) {
-                    val w = ThumbPreviewWidth
-                    val h = w * (thumbs.info.height.toFloat() / thumbs.info.width)
-                    val left = (x - w / 2).coerceIn(0.dp, (maxWidth - w).coerceAtLeast(0.dp))
-                    TrickplayThumb(frame, thumbs.info, w, Modifier.offset(x = left, y = -(h + 18.dp)))
-                }
-            }
-        }
-    }
-}
-
-private val ThumbPreviewWidth = 240.dp
 
 /** One timeline thumbnail: the sheet drawn at its scale, moved so only this tile shows. */
 @Composable
@@ -653,6 +484,9 @@ internal fun PlayerMenuPanel(
     onQuality: (Int) -> Unit,
     onChapter: (Long) -> Unit,
     onSpeed: (Float) -> Unit,
+    /** Playback's rows: Zoom Mode and Speed change in place; the others open their own list. */
+    onZoom: () -> Unit = {},
+    onOpen: (PlayerMenu) -> Unit = {},
 ) {
     // While it slides away the panel keeps showing the menu that was open: switching to another
     // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
@@ -663,6 +497,27 @@ internal fun PlayerMenuPanel(
         var body: String? = null
         val options: List<Option>
         when (shown) {
+            PlayerMenu.Playback -> {
+                // The Apple TV app's Playback menu: Zoom Mode, Playback Speed, Quality, Version, and
+                // the playback information (stats for nerds).
+                title = stringResource(R.string.player_playback)
+                val speedName = if (state.speed == 1f) stringResource(R.string.player_normal) else "${state.speed.toString().removeSuffix(".0")}×"
+                val qualityNow = when {
+                    state.quality == -1 -> stringResource(R.string.player_automatic)
+                    state.quality > 0 -> qualityName(state.quality)
+                    else -> stringResource(R.string.player_original)
+                }
+                options = buildList {
+                    add(Option(stringResource(R.string.player_zoom), stringResource(if (state.zoom) R.string.player_zoom_fill else R.string.player_normal), false, onZoom))
+                    add(Option(stringResource(R.string.player_speed), speedName, false) { onSpeed(org.arcmediaserver.android.playback.PlayerOsd.nextSpeed(speeds, state.speed)) })
+                    add(Option(stringResource(R.string.player_quality), qualityNow, false) { onOpen(PlayerMenu.Quality) })
+                    if (plan.versions.size > 1) {
+                        val current = plan.versions.firstOrNull { it.fileId == plan.fileId }?.let { versionName(it).first }
+                        add(Option(stringResource(R.string.player_version), current, false) { onOpen(PlayerMenu.Version) })
+                    }
+                    add(Option(stringResource(R.string.player_info), null, false) { onOpen(PlayerMenu.Info) })
+                }
+            }
             PlayerMenu.Audio -> {
                 title = stringResource(R.string.player_audio)
                 options = plan.audioTracks.mapIndexed { i, t -> Option(audioName(t, i), audioDetail(t), t.index == plan.audioStream) { onAudio(t.index) } }
@@ -755,7 +610,7 @@ private fun OptionPanel(title: String, options: List<Option>, body: String?) {
 /** A player menu's floating panel, at the bottom right above the controls' buttons. */
 @Composable
 private fun MenuFloat(width: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Box(Modifier.fillMaxSize().padding(end = 48.dp, bottom = 120.dp), contentAlignment = Alignment.BottomEnd) {
+    Box(Modifier.fillMaxSize().padding(end = 48.dp, bottom = 150.dp), contentAlignment = Alignment.BottomEnd) {
         Column(
             modifier.width(width)
                 .shadow(30.dp, RoundedCornerShape(18.dp))
