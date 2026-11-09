@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -7,7 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -65,16 +68,45 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 data class SettingsUiState(
     val prefs: LoadState<Prefs> = LoadState.Loading,
     val serverName: String? = null,
+    /** Who's watching, shown beside the list as tvOS's Settings shows its icon. */
+    val profile: org.arcmediaserver.android.data.Profile? = null,
+    /** About: the server's name and versions (GET /health). */
+    val health: org.arcmediaserver.android.data.Health? = null,
+    /** About: the server's address (scheme, host and port only). */
+    val address: String? = null,
+    /** About: whether this TV reached Arc from its home network. */
+    val local: Boolean? = null,
     /** A change Arc couldn't save (it was put back). */
     val failed: Boolean = false,
 )
 
 /** The profile's playback and subtitle preferences (GET/PATCH /me/prefs), shared with every Arc app. */
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
-    private val _state = MutableStateFlow(SettingsUiState(serverName = container.session.serverName))
+    private val _state = MutableStateFlow(
+        SettingsUiState(
+            serverName = container.session.serverName,
+            address = container.session.server?.let { "${it.scheme}://${it.host}:${it.port}" },
+        ),
+    )
     val state: StateFlow<SettingsUiState> = _state
 
-    init { load() }
+    init {
+        load()
+        val api = container.api()
+        if (api != null) {
+            // The profile beside the list, and About's server details: either missing leaves its part out.
+            viewModelScope.launch {
+                runCatching { api.authStatus() }
+                    .onSuccess { s -> _state.update { it.copy(profile = s.profile, local = s.local) } }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; ArcLog.Android.debug("settings: sign-in status didn't load: ${it.javaClass.simpleName}") }
+            }
+            viewModelScope.launch {
+                runCatching { api.health() }
+                    .onSuccess { h -> _state.update { it.copy(health = h) } }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; ArcLog.Android.debug("settings: server details didn't load: ${it.javaClass.simpleName}") }
+            }
+        }
+    }
 
     fun load() {
         val api = container.api() ?: return
@@ -129,7 +161,7 @@ private val Languages = listOf(
     "hun", "ell", "tur", "rus", "ukr", "ara", "heb", "hin", "jpn", "kor", "zho", "tha", "vie",
 )
 
-private data class Choice(val value: String, val label: String)
+private data class Choice(val value: String, val label: String, val detail: String? = null)
 
 private class Picking(val title: String, val choices: List<Choice>, val current: String, val pick: (String) -> Unit)
 
@@ -144,11 +176,22 @@ fun SettingsContent(
     onRetry: () -> Unit,
     onSwitchServer: () -> Unit,
     onSignOut: () -> Unit,
+    /** Open on About (screenshots). */
+    initialAbout: Boolean = false,
 ) {
     var picking by remember { mutableStateOf<Picking?>(null) }
+    var about by remember { mutableStateOf(initialAbout) }
+    // Back from About lands on its row again.
+    var cameFromAbout by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
+    val aboutRow = remember { FocusRequester() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
+    BackHandler(enabled = about && picking == null) { about = false; cameFromAbout = true }
     Box(Modifier.fillMaxSize()) {
-        Loaded(state.prefs, onRetry) { p ->
+        if (about) {
+            AboutContent(state, version, onLicences = { list -> picking = Picking(list.first, list.second, "") { picking = null } })
+        } else Loaded(state.prefs, onRetry) { p ->
             val on = stringResource(R.string.settings_on)
             val off = stringResource(R.string.settings_off)
             val style = p.subtitleStyle
@@ -191,9 +234,11 @@ fun SettingsContent(
                 SettingsRow(title, nameOf(list, current), modifier) { picking = Picking(title, list, current) { v -> picking = null; done(v) } }
             }
 
-            LazyColumn(contentPadding = PaddingValues(start = 48.dp, top = 36.dp, bottom = 48.dp)) {
-                item { Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(bottom = 4.dp)) }
-                item { Heading(R.string.settings_playback) }
+            SidePage(
+                title = stringResource(R.string.nav_settings),
+                side = { ProfileSide(state) },
+            ) {
+                item { Heading(R.string.settings_playback, first = true) }
                 item {
                     SettingsRow(stringResource(R.string.settings_auto_play), if (p.autoPlay) on else off, Modifier.focusRequester(first)) {
                         onChange(p, p.copy(autoPlay = !p.autoPlay), buildJsonObject { put("auto_play", !p.autoPlay) })
@@ -216,22 +261,18 @@ fun SettingsContent(
                 item { Heading(R.string.settings_this_tv) }
                 item { SettingsRow(stringResource(R.string.settings_server), state.serverName.orEmpty(), onClick = onSwitchServer) }
                 item { SettingsRow(stringResource(R.string.settings_sign_out), "", onClick = onSignOut) }
-                item {
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
-                    SettingsRow(stringResource(R.string.settings_version), version) {}
-                }
+                item { SettingsRow(stringResource(R.string.settings_about), version, Modifier.focusRequester(aboutRow)) { about = true } }
                 item { Note(stringResource(R.string.settings_server_note)) }
             }
-            LaunchedEffect(Unit) { first.requestWhenReady() }
+            LaunchedEffect(Unit) { if (cameFromAbout) aboutRow.requestWhenReady() else first.requestWhenReady() }
         }
         picking?.let { pk ->
             val current = remember(pk) { FocusRequester() }
-            Popover(anchor = null, onClose = { picking = null }, title = pk.title, width = 340.dp) {
+            Popover(anchor = null, onClose = { picking = null }, title = pk.title, width = 380.dp) {
                 PopoverList {
-                    pk.choices.forEach { c ->
-                        val chosen = c.value == pk.current
-                        PopoverItem(c.label, if (chosen) ArcIcons.Check else null, focus = if (chosen) current else null) { pk.pick(c.value) }
+                    pk.choices.forEachIndexed { i, c ->
+                        val chosen = c.value == pk.current || (pk.current.isEmpty() && pk.choices.none { it.value.isEmpty() } && i == 0)
+                        PopoverItem(c.label, if (c.value == pk.current) ArcIcons.Check else null, c.detail, focus = if (chosen) current else null) { pk.pick(c.value) }
                     }
                 }
             }
@@ -241,11 +282,91 @@ fun SettingsContent(
 }
 
 @Composable
-private fun Heading(@StringRes text: Int) {
+private fun Heading(@StringRes text: Int, first: Boolean = false) {
     Text(
         stringResource(text), style = MaterialTheme.typography.titleSmall, color = ArcColors.Muted,
-        modifier = Modifier.padding(start = 12.dp, top = 18.dp, bottom = 6.dp),
+        modifier = Modifier.padding(start = 12.dp, top = if (first) 0.dp else 18.dp, bottom = 6.dp),
     )
+}
+
+/**
+ * tvOS's Settings layout: the page's name at the top, a picture and a few lines centred in the
+ * left half, and the list in the right half.
+ */
+@Composable
+private fun SidePage(title: String, side: @Composable () -> Unit, list: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().padding(top = 32.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight().padding(start = 48.dp, end = 24.dp, bottom = 48.dp), contentAlignment = Alignment.Center) { side() }
+            LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(top = 28.dp, end = 48.dp, bottom = 48.dp), content = list)
+        }
+    }
+}
+
+/** Who's watching: the profile's circle, its name and the server. */
+@Composable
+private fun ProfileSide(state: SettingsUiState) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        val profile = state.profile
+        if (profile != null) {
+            org.arcmediaserver.android.ui.profiles.Avatar(profile, 180.dp)
+            Spacer(Modifier.height(18.dp))
+            Text(profile.name, style = MaterialTheme.typography.headlineSmall)
+        }
+        state.serverName?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(it, style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+        }
+    }
+}
+
+/**
+ * About, in the same layout: the app's logo, name, version and the TMDB/TheTVDB credit on the left;
+ * this app's version, the server's name, Arc and API versions, address and connection on the right,
+ * then the open source licences.
+ */
+@Composable
+private fun AboutContent(state: SettingsUiState, version: String, onLicences: (Pair<String, List<Choice>>) -> Unit) {
+    val first = remember { FocusRequester() }
+    val licencesTitle = stringResource(R.string.about_licences)
+    val licences = listOf(
+        Choice("app", stringResource(R.string.about_app_name), "AGPL-3.0"),
+        Choice("androidx", stringResource(R.string.about_licence_androidx), "Apache 2.0"),
+        Choice("okhttp", "OkHttp", "Apache 2.0"),
+        Choice("coil", "Coil", "Apache 2.0"),
+        Choice("kotlin", stringResource(R.string.about_licence_kotlin), "Apache 2.0"),
+        Choice("ass-media", "ass-media", "MIT"),
+        Choice("libass", stringResource(R.string.about_licence_libass), stringResource(R.string.about_licence_libass_detail)),
+    )
+    SidePage(
+        title = stringResource(R.string.settings_about),
+        side = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 420.dp)) {
+                androidx.tv.material3.Icon(
+                    androidx.compose.ui.res.painterResource(R.drawable.arc_logo), contentDescription = null,
+                    tint = Color.Unspecified, modifier = Modifier.size(140.dp),
+                )
+                Spacer(Modifier.height(18.dp))
+                Text(stringResource(R.string.about_app_name), style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.about_version, version), style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted)
+                Spacer(Modifier.height(18.dp))
+                Text(stringResource(R.string.about_credit), style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        },
+    ) {
+        item { SettingsRow(stringResource(R.string.settings_version), version, Modifier.focusRequester(first)) {} }
+        val h = state.health
+        item { SettingsRow(stringResource(R.string.settings_server), h?.name?.ifBlank { null } ?: state.serverName.orEmpty()) {} }
+        if (h != null) {
+            item { SettingsRow(stringResource(R.string.about_arc_version), h.version) {} }
+            if (h.apiVersion > 0) item { SettingsRow(stringResource(R.string.about_api), "v${h.apiVersion}") {} }
+        }
+        state.address?.let { item { SettingsRow(stringResource(R.string.about_address), it) {} } }
+        state.local?.let { item { SettingsRow(stringResource(R.string.about_connection), stringResource(if (it) R.string.about_local else R.string.about_remote)) {} } }
+        item { SettingsRow(licencesTitle, "") { onLicences(licencesTitle to licences) } }
+    }
+    LaunchedEffect(Unit) { first.requestWhenReady() }
 }
 
 @Composable
@@ -261,7 +382,7 @@ private fun Note(text: String, warn: Boolean = false) {
 private fun SettingsRow(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = modifier.padding(bottom = 4.dp).width(550.dp).height(38.dp),
+        modifier = modifier.padding(bottom = 4.dp).fillMaxWidth().height(38.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(

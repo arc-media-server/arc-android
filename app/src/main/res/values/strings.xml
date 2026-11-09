@@ -89,6 +89,21 @@
     <string name="settings_profile_note">These follow your profile, on every device. Choosing a track in the player updates them too.</string>
     <string name="settings_this_tv">This TV</string>
     <string name="settings_server">Server</string>
+    <string name="settings_about">About</string>
+    <string name="about_app_name">Arc for Android TV</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_credit">Titles, artwork and episode details come from TMDB and TheTVDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</string>
+    <string name="about_arc_version">Arc Version</string>
+    <string name="about_api">API</string>
+    <string name="about_address">Address</string>
+    <string name="about_connection">Connection</string>
+    <string name="about_local">Local network</string>
+    <string name="about_remote">Remote</string>
+    <string name="about_licences">Open Source Licences</string>
+    <string name="about_licence_androidx">AndroidX, Jetpack Compose and Media3</string>
+    <string name="about_licence_libass">libass, with FreeType, HarfBuzz and FriBidi</string>
+    <string name="about_licence_libass_detail">ISC; FreeType Licence, MIT and LGPL-2.1</string>
+    <string name="about_licence_kotlin">Kotlin and kotlinx</string>
     <string name="settings_version">App Version</string>
     <string name="settings_sign_out">Sign Out of This TV</string>
     <string name="settings_server_note">Choose Server to connect this TV to a different Arc.</string>
@@ -200,6 +215,26 @@
         <item quantity="one">%1$d title</item>
         <item quantity="other">%1$d titles</item>
     </plurals>
+    <plurals name="person_in_libraries">
+        <item quantity="one">%1$d title in your libraries</item>
+        <item quantity="other">%1$d titles in your libraries</item>
+    </plurals>
+    <!-- "Acting · 12 titles in your libraries" -->
+    <string name="person_summary">%1$s · %2$s</string>
+    <string name="person_known_actor">Acting</string>
+    <string name="person_known_director">Directing</string>
+    <string name="person_known_writer">Writing</string>
+    <string name="person_known_creator">Creating</string>
+    <string name="person_row_movies">Movies</string>
+    <string name="person_row_shows">TV Shows</string>
+    <string name="person_row_crew">Behind the Camera</string>
+    <!-- The focused title and their part: "Heat (1995) · as Neil McCauley". -->
+    <string name="person_title_year">%1$s (%2$d)</string>
+    <string name="person_part_as">as %1$s</string>
+    <string name="person_role_actor">Actor</string>
+    <string name="person_role_director">Director</string>
+    <string name="person_role_writer">Writer</string>
+    <string name="person_role_creator">Creator</string>
 
     <!-- Library -->
     <plurals name="library_filters_on">

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -109,6 +110,7 @@ fun CollectionScreen(state: LoadState<CollectionPage>, onOpen: (Item) -> Unit, o
                 empty = null,
                 onOpen = onOpen,
                 onPlay = onPlay,
+                overview = page.collection.overview,
             )
         }
     }
@@ -128,6 +130,8 @@ fun TitlesPage(
     empty: String?,
     onOpen: (Item) -> Unit,
     onPlay: ((shuffle: Boolean) -> Unit)?,
+    /** A collection's overview, under its name (as the Apple TV app's collection page). */
+    overview: String? = null,
 ) {
     val first = remember { FocusRequester() }
     val play = remember { FocusRequester() }
@@ -143,6 +147,13 @@ fun TitlesPage(
                     HeaderButton(androidx.compose.ui.res.stringResource(R.string.action_shuffle), icon = org.arcmediaserver.android.ui.components.ArcIcons.Shuffle) { onPlay(true) }
                 }
             }
+        }
+        if (!overview.isNullOrBlank()) {
+            Text(
+                overview, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Foreground.copy(alpha = 0.75f),
+                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp, bottom = 4.dp).widthIn(max = 820.dp),
+            )
         }
         if (items.isEmpty() && empty != null) {
             Text(empty, style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))

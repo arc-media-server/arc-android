@@ -182,8 +182,23 @@ class ScreenshotTest {
             org.arcmediaserver.android.ui.settings.SettingsUiState(
                 prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs(audioLanguage = "eng", subtitleMode = "foreign", autoSkip = true)),
                 serverName = "Living Room Arc",
+                profile = org.arcmediaserver.android.data.Profile("p1", "Jon", "violet"),
             ),
             onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
+        )
+    }
+
+    @Test
+    fun settingsAbout() = shot("settings-about") {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(
+                prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs()),
+                serverName = "Living Room Arc",
+                health = org.arcmediaserver.android.data.Health("Living Room Arc", "0.1.0", 1),
+                address = "http://192.168.1.20:8099",
+                local = true,
+            ),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {}, initialAbout = true,
         )
     }
 
@@ -491,7 +506,7 @@ class ScreenshotTest {
                         text = "drama", query = "drama",
                         sections = searchSections(
                             org.arcmediaserver.android.data.SearchResults(
-                                collections = listOf(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3)),
+                                collections = listOf(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3, overview = "Three films following the crew of the Long Orbit, from the first launch to the last return home across forty years of deep-space travel.")),
                                 genres = listOf(
                                     org.arcmediaserver.android.data.GenreMatch("Drama", 1, "Movies", 12),
                                     org.arcmediaserver.android.data.GenreMatch("Drama", 2, "TV", 4),
@@ -547,7 +562,7 @@ class ScreenshotTest {
     fun collectionPlay() = shot("collection-play") {
         // A collection's page on a server with play queues: Play (focused) and Shuffle.
         org.arcmediaserver.android.ui.browse.CollectionScreen(
-            LoadState.Ready(org.arcmediaserver.android.data.CollectionPage(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3), Fixtures.movies.take(3))),
+            LoadState.Ready(org.arcmediaserver.android.data.CollectionPage(org.arcmediaserver.android.data.CollectionRef("c1", "The Orbit Collection", count = 3, overview = "Three films following the crew of the Long Orbit, from the first launch to the last return home across forty years of deep-space travel."), Fixtures.movies.take(3))),
             onOpen = {}, onRetry = {}, onPlay = {},
         )
     }
@@ -689,5 +704,19 @@ class ScreenshotTest {
                 onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
             )
         }
+    }
+
+    @Test
+    fun person() = shot("person") {
+        val credits = listOf(
+            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[0], listOf("actor"), "Commander Hale"),
+            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[1], listOf("actor", "director"), "Ada"),
+            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[2], listOf("actor"), "Dr. Wren"),
+            org.arcmediaserver.android.data.PersonCredit(Fixtures.show, listOf("actor"), "Nell Hart"),
+        )
+        org.arcmediaserver.android.ui.person.PersonScreen(
+            org.arcmediaserver.android.data.PersonPage(org.arcmediaserver.android.data.Person(1, "Mara Ellison", "art:poster:Mara Ellison", count = 4, knownFor = "actor"), credits),
+            onOpen = {},
+        )
     }
 }
