@@ -53,8 +53,6 @@
     <string name="nav_settings">Settings</string>
     <string name="nav_playlists">Playlists</string>
     <!-- Home hero: a show opens its page; More Info opens the title page. -->
-    <string name="home_hero_view">View</string>
-    <string name="home_hero_info">More Info</string>
     <!-- Settings: the profile's playback and subtitle choices (shared with every app), and this TV. -->
     <string name="settings_on">On</string>
     <string name="settings_off">Off</string>
