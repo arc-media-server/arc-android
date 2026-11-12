@@ -149,9 +149,9 @@ fun cardFor(item: Item, key: String = item.id): MediaCard {
     )
 }
 
-/** A TV library's Recently Added card: a new show, new episodes of a season, or one episode. */
+/** A TV library's Recently Added card: one day's new episodes of a show, as the show, a season or the episode. */
 fun cardFor(card: RecentCard): MediaCard {
-    val base = cardFor(card.item, key = "${card.type}:${card.item.id}:${card.seasonNumber ?: ""}")
+    val base = cardFor(card.item, key = "${card.type}:${card.item.id}:${card.seasonNumber ?: ""}:${card.addedAt}")
     return if (card.type == "season") {
         base.copy(seasonNumber = card.seasonNumber, newEpisodes = card.episodes, seasonPoster = card.seasonPoster ?: base.poster)
     } else {

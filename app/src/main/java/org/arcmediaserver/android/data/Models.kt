@@ -208,6 +208,9 @@ data class RecentCard(
     @SerialName("season_number") val seasonNumber: Int? = null,
     val episodes: Int = 0,
     @SerialName("season_poster") val seasonPoster: String? = null,
+    /** When the card's newest episode was added (Unix seconds): the same show or season can
+     * appear more than once, one card per day's batch, so this is part of its identity. */
+    @SerialName("added_at") val addedAt: Long = 0,
 )
 
 @Serializable
