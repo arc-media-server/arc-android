@@ -6,6 +6,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -114,6 +115,15 @@ class HomeRowsTest {
         assertEquals("/show", card.poster)
         assertEquals(1, card.seasonNumber)
         assertEquals(3, card.newEpisodes)
+    }
+
+    @Test
+    fun `the same season added on two days is two cards with their own keys`() {
+        // A row's cards need distinct keys; two days' batches of one season are separate cards.
+        val show = Item(id = "s1", kind = "series", title = "Firefly")
+        val monday = cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, addedAt = 1_700_000_000))
+        val wednesday = cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 4, addedAt = 1_700_172_800))
+        assertNotEquals(monday.key, wednesday.key)
     }
 
     @Test
