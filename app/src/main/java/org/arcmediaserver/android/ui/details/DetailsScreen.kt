@@ -370,7 +370,7 @@ private fun Header(
                 ),
             ) {
               Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                item.overview?.takeIf { it.isNotBlank() }?.let {
+                org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
                     Text(
                         it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis,
                         onTextLayout = { layout -> cut = layout.hasVisualOverflow },
@@ -410,7 +410,7 @@ private fun AboutPanel(item: Item, onClose: () -> Unit) {
             scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent, contentColor = ArcColors.Foreground, focusedContentColor = ArcColors.Foreground),
         ) {
-            Text(item.overview.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp))
+            Text(org.arcmediaserver.android.ui.components.spoilerSafeOverview(item).orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp))
         }
     }
     org.arcmediaserver.android.ui.components.FocusOnOpen(first)
@@ -495,7 +495,7 @@ private fun AboutSection(item: Item, serverName: String?) {
         stringResource(R.string.details_edition) to file?.edition.orEmpty(),
         stringResource(R.string.details_file) to (file?.path?.substringAfterLast('/')?.substringAfterLast('\\') ?: ""),
     ).filter { it.second.isNotBlank() }
-    val overview = item.overview?.takeIf { it.isNotBlank() }
+    val overview = org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)
     if (overview == null && details.isEmpty() && crew.isEmpty() && playback.isEmpty()) return
     Column(Modifier.padding(start = PageStart, end = PageStart, top = 28.dp)) {
         Text(stringResource(R.string.details_about), style = MaterialTheme.typography.titleMedium)
@@ -588,7 +588,7 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
     val card = cardFor(ep)
     Column(Modifier.width(EpisodeWidth)) {
         FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
-            Artwork(card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
+            org.arcmediaserver.android.ui.components.EpisodeArtwork(ep, card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
             WatchBadge(ep)
             ProgressLine(card.progress)
         }
@@ -606,9 +606,9 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (!ep.overview.isNullOrBlank()) {
+        org.arcmediaserver.android.ui.components.spoilerSafeOverview(ep)?.let { overview ->
             Text(
-                ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.65f), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.65f), maxLines = 3, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 3.dp),
             )
         }

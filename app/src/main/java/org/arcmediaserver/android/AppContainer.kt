@@ -82,8 +82,12 @@ class AppContainer(private val context: Context) {
     /** This TV's play queue on Arc, for the profile. */
     val queues = org.arcmediaserver.android.data.PlayQueues(::api)
 
+    /** The profile's Hide Spoilers, as last read from (or saved to) its preferences. */
+    val hideSpoilers = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
     fun profileChanged() {
+        hideSpoilers.value = false
         palettes.clear()
         itemChanges.clear()
         offContinue.clear()

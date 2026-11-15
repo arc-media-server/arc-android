@@ -68,7 +68,11 @@ fun ArcNavHost() {
     val nav = rememberNavController()
     val container = (LocalContext.current.applicationContext as ArcApplication).container
     ResumeFromHomeScreen(nav, container)
-    CompositionLocalProvider(LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path }) {
+    val hideSpoilers by container.hideSpoilers.collectAsState()
+    CompositionLocalProvider(
+        LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path },
+        org.arcmediaserver.android.ui.components.LocalHideSpoilers provides hideSpoilers,
+    ) {
         CardMenuHost(container) {
             NavHost(nav, startDestination = LaunchDest) {
                 composable<LaunchDest> { LaunchRoute(onDestination = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }

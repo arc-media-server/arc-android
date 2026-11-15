@@ -426,6 +426,22 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showSpoilersHidden() = shot("show-spoilers-hidden", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // Hide Spoilers on: episodes 4-6 aren't started, so they show the show's background (the
+        // last has none, so its own still is blurred) and no description; 1-3 are as usual.
+        val season = Fixtures.seasons[0].let { s ->
+            s.copy(episodes = s.episodes.mapIndexed { i, e -> if (i == 5) e.copy(images = e.images?.copy(seriesBackdrop = null)) else e })
+        }
+        CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalHideSpoilers provides true) {
+            DetailsScreen(
+                Details(Fixtures.show, listOf(season) + Fixtures.seasons.drop(1), next = season.episodes[2], initialSeason = 0),
+                onPlay = { _: Item, _: Long -> },
+                onOpen = {},
+            )
+        }
+    }
+
+    @Test
     fun playerStats() = shot("player-stats") {
         // Stats for nerds over a remuxed Dolby Vision profile 8 film with TrueHD sent as DD+ 5.1.
         val plan = Fixtures.plan.copy(
