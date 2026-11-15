@@ -426,7 +426,9 @@ class ScreenshotTest {
     }
 
     @Test
-    fun showSpoilersHidden() = shot("show-spoilers-hidden", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+    fun showSpoilersHidden() = shot("show-spoilers-hidden", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionLeft, androidx.compose.ui.input.key.Key.DirectionDown) + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // Down to the tabs (it lands on Season 2), back to Season 1, into its episodes (from the
+        // next one, 3) and along to 5, so watched 3 and hidden 4-6 are side by side.
         // Hide Spoilers on: episodes 4-6 aren't started, so they show the show's background (the
         // last has none, so its own still is blurred) and no description; 1-3 are as usual.
         val season = Fixtures.seasons[0].let { s ->
