@@ -398,7 +398,7 @@ fun UpNextCard(next: Item, seconds: Int, onPlayNow: () -> Unit, onCancel: () -> 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val card = cardFor(next)
-            Artwork(card.thumb, label = next.title, modifier = Modifier.width(120.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
+            org.arcmediaserver.android.ui.components.EpisodeArtwork(next, card.thumb, label = next.title, modifier = Modifier.width(120.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(pluralStringResource(R.plurals.player_up_next_in, seconds, seconds), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.55f))
