@@ -426,6 +426,24 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showNotInOrder() = shot("show-not-in-order") {
+        // Two files the show's order leaves out: the last tab, with the note and no episode numbers.
+        val outside = listOf(
+            // Arc numbers them season 0, episode 0: no number shows anywhere.
+            Fixtures.episode(0, 0, "The Lost Reel"),
+            Fixtures.episode(0, 0, "Deleted Scenes Cut", played = true).copy(id = "ep:hc:x:2"),
+        )
+        DetailsScreen(
+            Details(
+                Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2],
+                initialSeason = Fixtures.seasons.size, unplaced = outside, orderName = "TheTVDB Aired Order",
+            ),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun playerStats() = shot("player-stats") {
         // Stats for nerds over a remuxed Dolby Vision profile 8 film with TrueHD sent as DD+ 5.1.
         val plan = Fixtures.plan.copy(

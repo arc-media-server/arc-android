@@ -48,8 +48,9 @@ fun watchNextEntries(items: List<Item>, now: Long): List<WatchNextEntry> =
             isEpisode = item.isEpisode,
             title = if (item.isEpisode) item.seriesTitle ?: item.title else item.title,
             episodeTitle = if (item.isEpisode) item.title else null,
-            season = item.seasonNumber,
-            episode = item.episodeNumber,
+            // None for an episode outside the show's order (Arc's 0 and 0): no "S0 E0" on the TV's home.
+            season = item.orderNumbers?.first,
+            episode = item.orderNumbers?.second,
             year = item.year,
             overview = item.overview,
             positionMs = item.resumeMs,

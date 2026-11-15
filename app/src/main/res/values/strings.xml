@@ -324,6 +324,9 @@
     <string name="extras_short">Short</string>
     <string name="extras_other">Extra</string>
     <string name="details_no_episodes">No episodes on disk yet.</string>
+    <string name="details_not_in_order">Not in This Order</string>
+    <string name="details_not_in_order_note">You have these episodes, but %1$s doesn\'t include them. They\'re still here so nothing goes missing.</string>
+    <string name="details_not_in_order_note_unnamed">You have these episodes, but this episode order doesn\'t include them. They\'re still here so nothing goes missing.</string>
     <string name="action_mark_watched">Mark as Watched</string>
     <string name="action_mark_unwatched">Mark as Unwatched</string>
     <string name="action_add_watchlist">Add to Watchlist</string>
