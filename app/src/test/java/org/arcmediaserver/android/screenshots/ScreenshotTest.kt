@@ -426,6 +426,28 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
+        // Down to the season tabs, then OK on Season 1: its menu offers Mark Season as Watched.
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
+    fun showSeasonWatchedFailed() = shot("show-season-failed", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // A watched season (Season 2) whose change couldn't be saved: the note sits beside the tabs.
+        val seasons = Fixtures.seasons.mapIndexed { i, s -> if (i == 1) s.copy(episodes = s.episodes.map { it.withWatched(true) }) else s }
+        DetailsScreen(
+            Details(Fixtures.show, seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 1),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(problem = org.arcmediaserver.android.ui.details.ActionProblem.Season),
+        )
+    }
+
+    @Test
     fun playerStats() = shot("player-stats") {
         // Stats for nerds over a remuxed Dolby Vision profile 8 film with TrueHD sent as DD+ 5.1.
         val plan = Fixtures.plan.copy(
