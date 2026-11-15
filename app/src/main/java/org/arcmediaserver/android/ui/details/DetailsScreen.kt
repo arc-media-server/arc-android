@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -72,6 +73,7 @@ import org.arcmediaserver.android.R
 import org.arcmediaserver.android.ui.components.requestWhenReady
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.Season
+import org.arcmediaserver.android.data.orderNumbers
 import org.arcmediaserver.android.data.cardFor
 import org.arcmediaserver.android.ui.arcViewModel
 import org.arcmediaserver.android.ui.browse.runtimeText
@@ -289,7 +291,8 @@ private fun Header(
                         val duration = target.durationMs
                         val s = target.seasonNumber
                         val e = target.episodeNumber
-                        val numbered = target.isEpisode && s != null && e != null
+                        // Outside the show's order (Arc's 0 and 0) an episode has no number to show.
+                        val numbered = target.isEpisode && target.orderNumbers != null
                         val left = if (resume > 0 && duration > resume) runtimeText(((duration - resume) / 60_000).toInt().coerceAtLeast(1)) else null
                         // What will play, as the Apple TV app's labels: part watched shows a bar and
                         // what's left ("S5 E12 · 43 min" or "1 h 2 min").
@@ -546,17 +549,31 @@ fun clock(ms: Long): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
-    if (details.seasons.isEmpty()) {
+    // The seasons, then Not in This Order (episodes on disk the show's order leaves out) as the
+    // last tab, as the web's show page: nothing goes missing.
+    val outside = details.unplaced.isNotEmpty()
+    val tabs = details.seasons.size + if (outside) 1 else 0
+    if (tabs == 0) {
         Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = PageStart, top = 32.dp))
         return
     }
-    var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, details.seasons.lastIndex)) }
+    var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
     Column(Modifier.padding(top = 24.dp)) {
-        PillTabs(details.seasons.map { seasonName(it) }, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = PageStart - 8.dp))
-        val season = details.seasons[selected]
+        val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
+        PillTabs(labels, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = PageStart - 8.dp))
+        val unplacedTab = selected >= details.seasons.size
+        val episodes = if (unplacedTab) details.unplaced else details.seasons[selected].episodes
+        if (unplacedTab) {
+            Text(
+                if (details.orderName.isNotBlank()) stringResource(R.string.details_not_in_order_note, details.orderName)
+                else stringResource(R.string.details_not_in_order_note_unnamed),
+                style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted,
+                modifier = Modifier.padding(start = PageStart, top = 14.dp).widthIn(max = 640.dp),
+            )
+        }
         val listState = rememberLazyListState()
         LaunchedEffect(selected) {
-            val idx = season.episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
+            val idx = episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
         CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(PageStart)) {
@@ -565,9 +582,9 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
                 contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                items(season.episodes, key = { it.id }) { ep ->
+                items(episodes, key = { it.id }) { ep ->
                     val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
-                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod)
+                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod, numbered = !unplacedTab)
                 }
             }
         }
@@ -583,7 +600,7 @@ fun seasonName(season: Season): String = season.name.takeIf { it.isNotBlank() }
  * its name, a few lines of its description, and its length (or what's left of it).
  */
 @Composable
-private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier, numbered: Boolean = true) {
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
     Column(Modifier.width(EpisodeWidth)) {
@@ -593,7 +610,8 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
             ProgressLine(card.progress)
         }
         Spacer(Modifier.height(10.dp))
-        ep.episodeNumber?.let {
+        // Outside the show's order an episode has no number in it.
+        ep.episodeNumber?.takeIf { numbered && ep.orderNumbers != null }?.let {
             Text(
                 stringResource(R.string.details_episode_n, it).uppercase(), maxLines = 1,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = 0.5.sp), color = ArcColors.Muted,
