@@ -47,7 +47,13 @@ theirs. It covers:
 
 ## Checks
 
-See the PR. New tests:
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: passed (167 tests, 1 skipped,
+  0 failed), built through Google's copy of Maven Central because Maven Central was rate-limiting
+  this environment. The new screenshot was checked: the tab selected after the seasons, with the
+  note naming the order.
+- Not tried on a real TV or emulator.
+
+New tests:
 - `EpisodeOrderTest`: which list the player shows; the tab a page opens on; Play staying in the
   order; no number for 0 and 0, while specials keep theirs.
 - `ArcApiTest`: `unplaced` read, and `null` read as none.
