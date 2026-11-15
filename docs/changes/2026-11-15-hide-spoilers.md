@@ -45,10 +45,13 @@ fails, and reset when the profile changes. Every screen reads it through `LocalH
 
 ## Checks
 
-- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: see the PR (the run in this
-  session was stopped by Maven Central's rate limit before compiling).
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: passed (163 tests, 1 skipped,
+  0 failed). Built through Google's copy of Maven Central (maven-central.storage-download.googleapis.com)
+  because Maven Central was rate-limiting this environment.
 - New tests: `SpoilersTest` (which episodes are hidden; background, blur or still) and the
-  screenshot `tv-show-spoilers-hidden`.
+  screenshot `tv-show-spoilers-hidden`, which moves to Season 1's episodes so a started episode
+  (3, as usual) sits beside unstarted ones (4 and 5 with the show's background, 6 blurred) and
+  their hidden descriptions. Checked.
 - The screenshot `tv-settings` gains the new row.
 - Not tried on a TV or emulator.
 
