@@ -418,6 +418,19 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showMissingEpisodes() = shot("show-missing-episodes", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // Show Missing Episodes on: Season 2 gains two episodes with no file, dimmed and "Not on disk".
+        val season = Fixtures.seasons[1].let { s ->
+            s.copy(episodes = s.episodes + listOf(Fixtures.episode(2, 4, "Woe's Hollow", 54), Fixtures.episode(2, 5, "Trojan's Horse", 50)).map { it.copy(available = false, userData = null) })
+        }
+        DetailsScreen(
+            Details(Fixtures.show, listOf(Fixtures.seasons[0], season), next = Fixtures.seasons[0].episodes[2], initialSeason = 1, missing = true),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun show() = shot("show-episodes") {
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
