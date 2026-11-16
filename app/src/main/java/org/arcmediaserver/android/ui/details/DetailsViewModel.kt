@@ -56,8 +56,15 @@ fun nextEpisode(seasons: List<Season>): Item? {
     return episodes.firstOrNull { it.resumeMs > 0 } ?: episodes.firstOrNull { it.userData?.played != true } ?: episodes.firstOrNull()
 }
 
+/** A season counts as watched when it has episodes and every one is watched, as on the web. */
+fun Season.watched(): Boolean = episodes.isNotEmpty() && episodes.all { it.userData?.played == true }
+
+/** [seasons] with the season numbered [seasonNumber] marked watched or unwatched (resume points cleared). */
+fun withSeasonWatched(seasons: List<Season>, seasonNumber: Int, played: Boolean): List<Season> =
+    seasons.map { s -> if (s.seasonNumber != seasonNumber) s else s.copy(episodes = s.episodes.map { it.withWatched(played) }) }
+
 /** A title action's outcome to tell the viewer about: it couldn't be saved, so it was put back. */
-enum class ActionProblem { Watched, Watchlist }
+enum class ActionProblem { Watched, Watchlist, Season }
 
 /**
  * Changes a title on screen straight away, then asks Arc; if Arc says no (or can't be reached),
@@ -105,6 +112,34 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
                 _problem.value = ActionProblem.Watched
             } else if (item.isSeries) {
                 load(quiet = true) // the episodes' ticks and what Play starts change too
+            }
+        }
+    }
+
+    /**
+     * Mark Season as Watched / Unwatched, as the web's show page: every episode of the season
+     * numbered [seasonNumber] (`season_number` on the show's watched call). The ticks change at
+     * once; the page then refreshes, since what Play starts and the show's count follow.
+     */
+    fun toggleSeasonWatched(seasonNumber: Int) {
+        val api = container.api() ?: return
+        val details = (_state.value as? LoadState.Ready)?.value ?: return
+        val season = details.seasons.firstOrNull { it.seasonNumber == seasonNumber } ?: return
+        val played = !season.watched()
+        viewModelScope.launch {
+            val shown = withSeasonWatched(details.seasons, seasonNumber, played)
+            _state.value = LoadState.Ready(details.copy(seasons = shown))
+            try {
+                api.setPlayed(details.item.id, played, seasonNumber)
+                ArcLog.Android.info("marked a season ${if (played) "watched" else "unwatched"} (${season.episodes.size} episodes)")
+                load(quiet = true)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("marking a season ${if (played) "watched" else "unwatched"} failed: ${e.javaClass.simpleName}")
+                (_state.value as? LoadState.Ready)?.value?.let { cur ->
+                    _state.value = LoadState.Ready(cur.copy(seasons = cur.seasons.map { s -> if (s.seasonNumber == seasonNumber) season else s }))
+                }
+                _problem.value = ActionProblem.Season
             }
         }
     }
