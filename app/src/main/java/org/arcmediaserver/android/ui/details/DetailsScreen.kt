@@ -181,15 +181,12 @@ fun DetailsScreen(
             LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
-                        Modifier.fillParentMaxHeight(if (item.isSeries) 0.88f else 1f).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
+                        (if (item.isSeries) Modifier.fillParentMaxHeight(0.88f) else Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More }, about = about, onAbout = { panel = DetailsPanel.About })
                     }
                 }
-                // A film's artwork fills the whole screen, with nothing below it peeking in (the list's
-                // bottom padding takes this much from the header's height); a show's seasons do show.
-                if (!item.isSeries) item { Spacer(Modifier.height(40.dp)) }
                 if (item.isSeries) {
                     // The seasons show whole while they have focus, so episode names and
                     // details under the pictures aren't cut off at the bottom.

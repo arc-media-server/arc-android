@@ -35,7 +35,7 @@ fetched and never prints the key or request URLs.
 
 ## The film page fills the screen (owner, 16 November, from a photo of another Apple TV app)
 
-- A film's (or episode's) artwork now fills the whole first screen; nothing below peeks in until
+- A film's (or episode's) artwork now fills the whole first screen (the header is the screen's full height, so the buttons sit low as in the photo); nothing below peeks in until
   you move down. A show's page keeps its seasons showing at the foot, as before.
 - Low on the artwork, top to bottom: the clear logo (a little bigger), the age rating box and up to
   three genres, the description, the year and running time with the quality capsules on one line,
