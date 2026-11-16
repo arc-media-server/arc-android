@@ -27,7 +27,12 @@ choice.
 
 ## Checks
 
-- See the PR.
+- Merged main and claude/shuffle-season (#31) in: the season menu reads Mark Season as Watched,
+  Shuffle Season, Show Missing Episodes. `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug`: passed (183 tests, 1 skipped (the live-server test), 0 failed).
+- `tv-show-missing-episodes` now uses Severance (Season 2 gains Woe's Hollow and Trojan's Horse,
+  not on disk) and moves down to the episodes; the missing ones render at about half brightness
+  (dimmed) and the menu screenshot shows all three items.
 - New tests:
   - `ArcApiTest`: `missing=1` is sent only when asked, and `available` is read;
   - `TitleActionsTest`: missing episodes don't stop a season counting as watched; the season is
