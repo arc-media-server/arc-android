@@ -29,12 +29,14 @@
 
 ## Checks
 
-- See the PR.
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug` after merging main: passed
+  (179 tests, 1 skipped (the live-server test), 0 failed).
 - New `SeasonTabsFocusTest`:
   - Down from Play reaches Season 1, or Season 2 when that's the one shown;
   - Up from the episodes returns to the season's tab;
   - which episodes each Shuffle takes.
-- The screenshot `tv-show-season-menu` shows both menu items.
+- The screenshot `tv-show-season-menu` shows Season 1's menu with both items, and
+  `tv-show-spoilers-hidden` now shows Season 1 (Down from Play lands on the season shown).
 - Not tried on a TV or emulator.
 
 ## Logging
