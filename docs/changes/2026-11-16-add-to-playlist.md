@@ -33,7 +33,11 @@ The web's card and title menus have **Add to Playlist…**; the TV now has it to
 
 ## Checks
 
-- See the PR.
+- Merged main and claude/star-rating (#34) in (the ⋯ menu holds both: queue items, Add to
+  Playlist…, …, Play Version…, Rate…, Media Info). `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug`: passed (185 tests, 1 skipped (the live-server test), 0 failed).
+- `tv-add-to-playlist` lists Movie Night and Short List, not the smart Unwatched 4K;
+  `tv-add-to-playlist-none` shows the note pointing to the web.
 - New tests:
   - `ArcApiTest`: smart playlists aren't editable, and the POST and its answer.
 - New screenshots: `tv-add-to-playlist` and `tv-add-to-playlist-none`.
