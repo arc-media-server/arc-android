@@ -27,7 +27,9 @@ This was on the to-do list (arc-android#2, "Matching the web").
 
 ## Checks
 
-- See the PR.
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug` after merging main: passed
+  (182 tests, 1 skipped (the live-server test), 0 failed; `SubtitleTimingTest` 5 of 5). Both new
+  screenshots were looked at.
 - New `SubtitleTimingTest`: steps and limits, reset, which cue shows, per file and track, which
   tracks can move, how the value reads.
 - New screenshots: `tv-player-menu-subtitles-timing` and `tv-player-menu-subtitle-timing`.
