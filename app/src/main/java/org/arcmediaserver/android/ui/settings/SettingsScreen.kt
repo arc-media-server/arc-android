@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.settings
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -350,9 +351,9 @@ private fun AboutContent(state: SettingsUiState, version: String, onLicences: (P
         title = stringResource(R.string.settings_about),
         side = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 420.dp)) {
-                androidx.tv.material3.Icon(
-                    androidx.compose.ui.res.painterResource(R.drawable.arc_logo), contentDescription = null,
-                    tint = Color.Unspecified, modifier = Modifier.size(140.dp),
+                androidx.compose.foundation.Image(
+                    androidx.compose.ui.res.painterResource(R.drawable.arc_logo_stacked), contentDescription = null,
+                    modifier = Modifier.height(140.dp).aspectRatio(65.42f / 69.16f),
                 )
                 Spacer(Modifier.height(18.dp))
                 Text(stringResource(R.string.about_app_name), style = MaterialTheme.typography.headlineSmall)

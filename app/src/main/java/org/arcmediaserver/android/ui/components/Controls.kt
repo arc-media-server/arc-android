@@ -157,21 +157,25 @@ fun FormatBadges(labels: List<String>, modifier: Modifier = Modifier) {
  * "DD+ | 5.1", "Atmos"). A title with several versions says how many instead.
  */
 @Composable
-fun TitleBadges(item: org.arcmediaserver.android.data.Item, modifier: Modifier = Modifier) {
+fun TitleBadges(item: org.arcmediaserver.android.data.Item, modifier: Modifier = Modifier, showRating: Boolean = true) {
     val files = item.files.filter { !it.missing }
     androidx.compose.foundation.layout.Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        item.contentRating?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                it, style = MaterialTheme.typography.labelMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 1,
-                modifier = Modifier.border(1.dp, ArcColors.Foreground.copy(alpha = 0.5f), RoundedCornerShape(3.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
-            )
-        }
+        if (showRating) item.contentRating?.takeIf { it.isNotBlank() }?.let { AgeRating(it) }
         if (files.size > 1) {
             Capsule(listOf(androidx.compose.ui.res.pluralStringResource(org.arcmediaserver.android.R.plurals.media_versions, files.size, files.size)), filled = false)
             return@Row
         }
         org.arcmediaserver.android.playback.Quality.capsules(files.firstOrNull()).forEach { Capsule(it.parts, it.filled) }
     }
+}
+
+/** A title's age rating ("12A", "PG-13") in its outlined box. */
+@Composable
+fun AgeRating(rating: String) {
+    Text(
+        rating, style = MaterialTheme.typography.labelMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 1,
+        modifier = Modifier.border(1.dp, ArcColors.Foreground.copy(alpha = 0.5f), RoundedCornerShape(3.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+    )
 }
 
 @Composable
