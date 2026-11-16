@@ -22,9 +22,12 @@ if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
   rm -rf "$tmp"
 fi
 
-yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses >/dev/null
+# Licences: answered "y" for whichever tools are installed. Older sdkmanager asks here; the newest
+# says --licenses is no longer needed, exits at once and asks during the install instead. `yes`
+# then stops on a closed pipe, which pipefail would treat as a failure, hence `|| true` inside.
+{ yes || true; } | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses >/dev/null || true
 # compileSdk 37 (today's AndroidX libraries need it); build-tools as AGP 9.5 uses by default.
-"$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" \
+{ yes || true; } | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" \
   "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"
 
 echo "Android SDK ready in $SDK. Now: export ANDROID_HOME=$SDK"

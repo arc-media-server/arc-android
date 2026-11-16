@@ -118,6 +118,7 @@ fun DetailsRoute(
                 details, onPlay, onOpen,
                 actions = TitleActions(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
+                    onSeasonWatched = vm::toggleSeasonWatched,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
                     onPlayVersion = onPlayVersion,
                 ),
@@ -139,6 +140,8 @@ data class TitleActions(
     val onShuffle: (() -> Unit)? = null,
     /** Play Version…: plays the title from a point with a chosen file. */
     val onPlayVersion: ((Item, Long, Long) -> Unit)? = null,
+    /** A show's Mark Season as Watched / Unwatched, by season number. */
+    val onSeasonWatched: (Int) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -164,6 +167,9 @@ fun DetailsScreen(
     // The Apple TV app's page: the artwork fills the screen and dims once the page scrolls.
     val scrolled by remember { androidx.compose.runtime.derivedStateOf { page.firstVisibleItemIndex > 0 || page.firstVisibleItemScrollOffset > 40 } }
     var moreAnchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // A season's menu (OK on its tab): its number and where its tab is.
+    var seasonMenu by remember { mutableStateOf<Pair<Int, androidx.compose.ui.geometry.Rect?>?>(null) }
+    val seasonTab = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         HeroBackdrop(item, scrolled)
         val scope = rememberCoroutineScope()
@@ -185,7 +191,7 @@ fun DetailsScreen(
                     // details under the pictures aren't cut off at the bottom.
                     item {
                         Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(1) } }) {
-                            Seasons(details, onPlay, episodeFocus)
+                            Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
                         }
                     }
                 }
@@ -226,6 +232,30 @@ fun DetailsScreen(
             panel = DetailsPanel.None
             more.requestFocus()
             Unit
+        }
+        seasonMenu?.let { (number, at) ->
+            val season = details.seasons.firstOrNull { it.seasonNumber == number }
+            val close = {
+                seasonMenu = null
+                runCatching { seasonTab.requestFocus() }
+                Unit
+            }
+            if (season == null) {
+                LaunchedEffect(Unit) { seasonMenu = null } // the page reloaded without that season
+            } else {
+                val first = remember { FocusRequester() }
+                org.arcmediaserver.android.ui.components.Popover(at, onClose = close, place = org.arcmediaserver.android.ui.components.PopoverPlace.Below, title = seasonName(season)) {
+                    val watched = season.watched()
+                    org.arcmediaserver.android.ui.components.PopoverItem(
+                        stringResource(if (watched) R.string.action_season_unwatched else R.string.action_season_watched),
+                        icon = ArcIcons.CircleCheck, focus = first,
+                    ) {
+                        actions.onSeasonWatched(number)
+                        close()
+                    }
+                }
+                org.arcmediaserver.android.ui.components.FocusOnOpen(first)
+            }
         }
         when (panel) {
             DetailsPanel.None -> Unit
@@ -342,7 +372,8 @@ private fun Header(
                 }
                 // The focused round button's name, or what couldn't be saved.
                 Box(Modifier.height(28.dp).padding(top = 8.dp)) {
-                    val problem = actions.problem
+                    // A season's problem shows beside its own button, in the seasons below.
+                    val problem = actions.problem?.takeIf { it != ActionProblem.Season }
                     if (problem != null) {
                         Text(
                             stringResource(if (problem == ActionProblem.Watched) R.string.action_watched_failed else R.string.action_watchlist_failed),
@@ -373,7 +404,7 @@ private fun Header(
                 ),
             ) {
               Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                item.overview?.takeIf { it.isNotBlank() }?.let {
+                org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
                     Text(
                         it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis,
                         onTextLayout = { layout -> cut = layout.hasVisualOverflow },
@@ -413,7 +444,7 @@ private fun AboutPanel(item: Item, onClose: () -> Unit) {
             scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent, contentColor = ArcColors.Foreground, focusedContentColor = ArcColors.Foreground),
         ) {
-            Text(item.overview.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp))
+            Text(org.arcmediaserver.android.ui.components.spoilerSafeOverview(item).orEmpty(), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp))
         }
     }
     org.arcmediaserver.android.ui.components.FocusOnOpen(first)
@@ -498,7 +529,7 @@ private fun AboutSection(item: Item, serverName: String?) {
         stringResource(R.string.details_edition) to file?.edition.orEmpty(),
         stringResource(R.string.details_file) to (file?.path?.substringAfterLast('/')?.substringAfterLast('\\') ?: ""),
     ).filter { it.second.isNotBlank() }
-    val overview = item.overview?.takeIf { it.isNotBlank() }
+    val overview = org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)
     if (overview == null && details.isEmpty() && crew.isEmpty() && playback.isEmpty()) return
     Column(Modifier.padding(start = PageStart, end = PageStart, top = 28.dp)) {
         Text(stringResource(R.string.details_about), style = MaterialTheme.typography.titleMedium)
@@ -548,7 +579,14 @@ fun clock(ms: Long): String {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus: FocusRequester) {
+private fun Seasons(
+    details: Details,
+    onPlay: (Item, Long) -> Unit,
+    episodeFocus: FocusRequester,
+    actions: TitleActions = TitleActions(),
+    seasonTab: FocusRequester = remember { FocusRequester() },
+    onSeasonMenu: (Season, androidx.compose.ui.geometry.Rect?) -> Unit = { _, _ -> },
+) {
     // The seasons, then Not in This Order (episodes on disk the show's order leaves out) as the
     // last tab, as the web's show page: nothing goes missing.
     val outside = details.unplaced.isNotEmpty()
@@ -560,9 +598,29 @@ private fun Seasons(details: Details, onPlay: (Item, Long) -> Unit, episodeFocus
     var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
     Column(Modifier.padding(top = 24.dp)) {
         val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
-        PillTabs(labels, selected, onSelect = { selected = it }, modifier = Modifier.padding(start = PageStart - 8.dp))
         val unplacedTab = selected >= details.seasons.size
         val episodes = if (unplacedTab) details.unplaced else details.seasons[selected].episodes
+        // Moving along the tabs switches season, so a button after them could only be reached by
+        // passing the last one. OK on a season's tab opens its menu instead (Mark Season as
+        // Watched / Unwatched), as Plex's season menu. Not in This Order isn't a season, so it
+        // has no menu.
+        var tabBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PillTabs(
+                labels, selected, onSelect = { selected = it },
+                modifier = Modifier.padding(start = PageStart - 8.dp),
+                onClick = { i -> details.seasons.getOrNull(i)?.let { onSeasonMenu(it, tabBounds) } },
+                selectedTab = Modifier.focusRequester(seasonTab).onGloballyPositioned { tabBounds = it.boundsInRoot() },
+            )
+            if (actions.problem == ActionProblem.Season) {
+                Spacer(Modifier.width(16.dp))
+                Text(stringResource(R.string.action_season_watched_failed), style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning)
+                LaunchedEffect(actions.problem) {
+                    kotlinx.coroutines.delay(5_000)
+                    actions.onProblemShown()
+                }
+            }
+        }
         if (unplacedTab) {
             Text(
                 if (details.orderName.isNotBlank()) stringResource(R.string.details_not_in_order_note, details.orderName)
@@ -605,7 +663,7 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
     val card = cardFor(ep)
     Column(Modifier.width(EpisodeWidth)) {
         FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
-            Artwork(card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
+            org.arcmediaserver.android.ui.components.EpisodeArtwork(ep, card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
             WatchBadge(ep)
             ProgressLine(card.progress)
         }
@@ -624,9 +682,9 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (!ep.overview.isNullOrBlank()) {
+        org.arcmediaserver.android.ui.components.spoilerSafeOverview(ep)?.let { overview ->
             Text(
-                ep.overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.65f), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                overview, style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.65f), maxLines = 3, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 3.dp),
             )
         }

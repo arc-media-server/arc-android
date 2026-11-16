@@ -426,6 +426,24 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showSpoilersHidden() = shot("show-spoilers-hidden", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionLeft, androidx.compose.ui.input.key.Key.DirectionDown) + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // Down to the tabs (it lands on Season 2), back to Season 1, into its episodes (from the
+        // next one, 3) and along to 5, so watched 3 and hidden 4-6 are side by side.
+        // Hide Spoilers on: episodes 4-6 aren't started, so they show the show's background (the
+        // last has none, so its own still is blurred) and no description; 1-3 are as usual.
+        val season = Fixtures.seasons[0].let { s ->
+            s.copy(episodes = s.episodes.mapIndexed { i, e -> if (i == 5) e.copy(images = e.images?.copy(seriesBackdrop = null)) else e })
+        }
+        CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalHideSpoilers provides true) {
+            DetailsScreen(
+                Details(Fixtures.show, listOf(season) + Fixtures.seasons.drop(1), next = season.episodes[2], initialSeason = 0),
+                onPlay = { _: Item, _: Long -> },
+                onOpen = {},
+            )
+        }
+    }
+
+    @Test
     fun showNotInOrder() = shot("show-not-in-order") {
         // Two files the show's order leaves out: the last tab, with the note and no episode numbers.
         val outside = listOf(
@@ -440,6 +458,28 @@ class ScreenshotTest {
             ),
             onPlay = { _: Item, _: Long -> },
             onOpen = {},
+        )
+    }
+
+    @Test
+    fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
+        // Down to the season tabs, then OK on Season 1: its menu offers Mark Season as Watched.
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
+    fun showSeasonWatchedFailed() = shot("show-season-failed", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // A watched season (Season 2) whose change couldn't be saved: the note sits beside the tabs.
+        val seasons = Fixtures.seasons.mapIndexed { i, s -> if (i == 1) s.copy(episodes = s.episodes.map { it.withWatched(true) }) else s }
+        DetailsScreen(
+            Details(Fixtures.show, seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 1),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(problem = org.arcmediaserver.android.ui.details.ActionProblem.Season),
         )
     }
 
