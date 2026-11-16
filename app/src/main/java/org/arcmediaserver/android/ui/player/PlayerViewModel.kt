@@ -96,8 +96,10 @@ data class PlayerUiState(
     val trickplay: Trickplay? = null,
     /** The controls' Cast tab: the episode's own actors, else the show's. */
     val cast: List<org.arcmediaserver.android.data.Credit> = emptyList(),
-    /** The controls' Episodes tab: the playing episode's season. */
+    /** The controls' Episodes tab: the playing episode's season, or the episodes outside the show's order. */
     val episodes: List<Item> = emptyList(),
+    /** [episodes] are the ones not in the show's order: shown without episode numbers. */
+    val episodesUnplaced: Boolean = false,
     /** Zoom Mode: the picture fills the screen, cropping its edges. */
     val zoom: Boolean = false,
 )
@@ -284,10 +286,11 @@ class PlayerViewModel(
                     .onFailure { log.debug("player: the show's cast didn't load: ${it.javaClass.simpleName}") }
                     .getOrDefault(emptyList())
             }
-            val episodes = runCatching { api.seasons(seriesId).seasons.firstOrNull { it.seasonNumber == item.seasonNumber }?.episodes.orEmpty() }
+            // Its season in the show's order, or the episodes outside that order when it's one of them.
+            val list = runCatching { org.arcmediaserver.android.data.episodesAround(api.seasons(seriesId), item.id, item.seasonNumber) }
                 .onFailure { log.debug("player: the season's episodes didn't load: ${it.javaClass.simpleName}") }
-                .getOrDefault(emptyList())
-            _state.update { it.copy(episodes = episodes) }
+                .getOrDefault(org.arcmediaserver.android.data.EpisodeList(emptyList()))
+            _state.update { it.copy(episodes = list.episodes, episodesUnplaced = list.unplaced) }
         }
         _state.update { it.copy(cast = cast) }
     }

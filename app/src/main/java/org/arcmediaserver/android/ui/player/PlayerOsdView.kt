@@ -51,6 +51,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import org.arcmediaserver.android.data.orderNumbers
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -255,9 +256,9 @@ fun PlayerControls(
 @Composable
 internal fun episodeLine(item: Item): String? {
     if (!item.isEpisode) return null
-    val s = item.seasonNumber
-    val e = item.episodeNumber
-    return if (s != null && e != null) stringResource(R.string.player_episode_line, s, e, item.title) else item.title
+    // Outside the show's order (Arc's 0 and 0): the name alone.
+    val (s, e) = item.orderNumbers ?: return item.title
+    return stringResource(R.string.player_episode_line, s, e, item.title)
 }
 
 @Composable
@@ -471,9 +472,7 @@ private fun InfoCard(state: PlayerUiState, plan: PlaybackPlan?, onRestart: () ->
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val parts = buildList {
-                    val s = item.seasonNumber
-                    val e = item.episodeNumber
-                    if (item.isEpisode && s != null && e != null) add(stringResource(R.string.episode_code, s, e))
+                    if (item.isEpisode) item.orderNumbers?.let { (s, e) -> add(stringResource(R.string.episode_code, s, e)) }
                     item.runtimeMin?.takeIf { it > 0 }?.let { add(runtimeText(it)) }
                     infoDate(item.releaseDate)?.let(::add)
                 }
@@ -566,7 +565,9 @@ private fun EpisodesCard(state: PlayerUiState, onPlayEpisode: (Item) -> Unit, en
                         org.arcmediaserver.android.ui.components.EpisodeArtwork(ep, cardFor(ep).thumb, label = ep.title, modifier = Modifier.fillMaxSize())
                         val s = ep.seasonNumber
                         val e = ep.episodeNumber
-                        Row(
+                        // Outside the show's order an episode has no number in it.
+                        val numbered = ep.orderNumbers != null && !state.episodesUnplaced
+                        if (playing || numbered) Row(
                             Modifier.align(Alignment.BottomStart).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 6.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -574,7 +575,7 @@ private fun EpisodesCard(state: PlayerUiState, onPlayEpisode: (Item) -> Unit, en
                                 Icon(ArcIcons.Play, contentDescription = null, tint = Color.White, modifier = Modifier.size(10.dp))
                                 Spacer(Modifier.width(5.dp))
                             }
-                            if (s != null && e != null) Text(stringResource(R.string.episode_code, s, e), style = MaterialTheme.typography.labelMedium, color = Color.White)
+                            if (numbered) Text(stringResource(R.string.episode_code, s!!, e!!), style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                     Text(ep.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))

@@ -189,6 +189,17 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a show's seasons come with the episodes outside its order`() = runTest {
+        answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"ordering":{"id":3,"name":"TheTVDB Aired Order"},"seasons":[{"season_number":1,"name":"Season 1","episodes":[{"id":"e1","kind":"episode","title":"One"}]}],"unplaced":[{"id":"x","kind":"episode","title":"Extra","season_number":0,"episode_number":0}]}""")
+        answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"seasons":[],"unplaced":null}""")
+        val first = api.seasons("s")
+        assertEquals("TheTVDB Aired Order", first.ordering?.name)
+        assertEquals(listOf("x"), first.unplaced.map { it.id })
+        // The contract allows null: none outside the order.
+        assertEquals(emptyList<Item>(), api.seasons("s").unplaced)
+    }
+
+    @Test
     fun `watched and watchlist are PUTs that answer 204`() = runTest {
         answer(204, "")
         answer(204, "")

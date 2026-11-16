@@ -444,6 +444,24 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showNotInOrder() = shot("show-not-in-order") {
+        // Two files the show's order leaves out: the last tab, with the note and no episode numbers.
+        val outside = listOf(
+            // Arc numbers them season 0, episode 0: no number shows anywhere.
+            Fixtures.episode(0, 0, "The Lost Reel"),
+            Fixtures.episode(0, 0, "Deleted Scenes Cut", played = true).copy(id = "ep:hc:x:2"),
+        )
+        DetailsScreen(
+            Details(
+                Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2],
+                initialSeason = Fixtures.seasons.size, unplaced = outside, orderName = "TheTVDB Aired Order",
+            ),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
         // Down to the season tabs, then OK on Season 1: its menu offers Mark Season as Watched.
         DetailsScreen(

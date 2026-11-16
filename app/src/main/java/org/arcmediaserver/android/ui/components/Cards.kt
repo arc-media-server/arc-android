@@ -197,6 +197,8 @@ fun cardSubtitle(card: MediaCard): String? {
 fun episodeCode(item: Item): String? {
     val s = item.seasonNumber ?: return null
     val e = item.episodeNumber ?: return stringResource(R.string.season_number, s)
+    // An episode outside the show's order (Arc's 0 and 0) has no number to show.
+    if (s == 0 && e == 0) return null
     return stringResource(R.string.episode_code, s, e)
 }
 

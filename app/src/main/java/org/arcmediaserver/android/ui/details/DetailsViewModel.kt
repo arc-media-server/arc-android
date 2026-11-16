@@ -22,13 +22,31 @@ data class Details(
     val seasons: List<Season> = emptyList(),
     /** For a show: the episode Play starts (the one part-way through, or the next unwatched). */
     val next: Item? = null,
-    /** The season to open on: the [focus] episode's, else the next episode's. */
+    /**
+     * The tab to open on: the [focus] episode's, else the next episode's. One past the last season
+     * is the Not in This Order tab.
+     */
     val initialSeason: Int = 0,
     /** An episode opened from a row (Continue Watching, Recently Added): the page lands on it. */
     val focus: Item? = null,
     /** Rows under the title, loaded after it: each collection it's in, then More Like This. */
     val related: List<RelatedRow> = emptyList(),
+    /** Episodes on disk the show's order doesn't include, shown after the seasons (Not in This Order). */
+    val unplaced: List<Item> = emptyList(),
+    /** The name of the show's episode order, for the Not in This Order note. */
+    val orderName: String = "",
 )
+
+/**
+ * The tab a show's page opens on: the season holding [land] (the episode opened from a row, else
+ * the one Play starts), the Not in This Order tab (one past the seasons) when it's there, else 0.
+ */
+fun initialTab(seasons: List<Season>, unplaced: List<Item>, land: Item?): Int {
+    val season = seasons.indexOfFirst { s -> s.episodes.any { it.id == land?.id } }
+    if (season >= 0) return season
+    if (land != null && unplaced.any { it.id == land.id }) return seasons.size
+    return 0
+}
 
 /** A row of titles under a title's page: a collection it's in ([title]), or More Like This (no title). */
 data class RelatedRow(val key: String, val title: String?, val items: List<Item>, val landscape: Boolean = false)
@@ -192,12 +210,18 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
             _state.value = try {
                 val item = api.item(itemId)
                 if (item.isSeries) {
-                    val seasons = api.seasons(item.id).seasons.filter { it.episodes.isNotEmpty() }
+                    val response = api.seasons(item.id)
+                    val seasons = response.seasons.filter { it.episodes.isNotEmpty() }
+                    // Play, Resume and Up Next follow the order: the seasons, not what's outside it.
                     val next = nextEpisode(seasons)
-                    val focus = episodeId?.let { id -> seasons.firstNotNullOfOrNull { s -> s.episodes.firstOrNull { it.id == id } } }
-                    val land = focus ?: next
-                    val idx = seasons.indexOfFirst { s -> s.episodes.any { it.id == land?.id } }.coerceAtLeast(0)
-                    LoadState.Ready(Details(item, seasons, next, idx, focus, related = currentRelated()))
+                    val focus = episodeId?.let { id -> (seasons.flatMap { it.episodes } + response.unplaced).firstOrNull { it.id == id } }
+                    val idx = initialTab(seasons, response.unplaced, focus ?: next)
+                    LoadState.Ready(
+                        Details(
+                            item, seasons, next, idx, focus, related = currentRelated(),
+                            unplaced = response.unplaced, orderName = response.ordering?.name.orEmpty(),
+                        ),
+                    )
                 } else {
                     LoadState.Ready(Details(item, related = currentRelated()))
                 }
