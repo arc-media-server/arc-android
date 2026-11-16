@@ -41,4 +41,27 @@ class TitleActionsTest {
         assertTrue(show.canWatchlist)
         assertFalse(Item(id = "e", kind = "episode", title = "E").canWatchlist)
     }
+
+    private fun ep(n: Int, played: Boolean = false, pos: Long = 0) =
+        Item(id = "e$n", kind = "episode", title = "E$n", userData = UserData(positionMs = pos, played = played))
+
+    @Test
+    fun `a season is watched only when every episode is`() {
+        assertTrue(org.arcmediaserver.android.data.Season(1, episodes = listOf(ep(1, true), ep(2, true))).watched())
+        assertFalse(org.arcmediaserver.android.data.Season(1, episodes = listOf(ep(1, true), ep(2))).watched())
+        assertFalse(org.arcmediaserver.android.data.Season(1).watched())
+    }
+
+    @Test
+    fun `marking a season changes only that season, and clears its resume points`() {
+        val seasons = listOf(
+            org.arcmediaserver.android.data.Season(1, episodes = listOf(ep(1), ep(2, pos = 60_000))),
+            org.arcmediaserver.android.data.Season(2, episodes = listOf(ep(3))),
+        )
+        val marked = withSeasonWatched(seasons, 1, played = true)
+        assertTrue(marked[0].watched())
+        assertEquals(0L, marked[0].episodes[1].resumeMs)
+        assertEquals(seasons[1], marked[1])
+        assertFalse(withSeasonWatched(marked, 1, played = false)[0].watched())
+    }
 }
