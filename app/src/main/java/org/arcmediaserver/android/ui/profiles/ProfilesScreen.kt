@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.profiles
 
+import androidx.compose.foundation.layout.aspectRatio
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -274,14 +275,10 @@ fun AuthGlow() {
     )
 }
 
-/** Arc's mark and name, as at the top of the web's sign-in screens. */
+/** Arc's logo (the TV with its name), as at the top of the web's sign-in screens. */
 @Composable
 fun ArcWordmark() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(painterResource(R.drawable.arc_logo), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(34.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp))
-    }
+    androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(40.dp).aspectRatio(136.02f / 36.2f))
 }
 
 /** A profile's picture: its initial on its colour (web/src/components/Avatar.tsx). */
