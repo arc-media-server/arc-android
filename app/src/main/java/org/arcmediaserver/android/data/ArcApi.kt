@@ -226,6 +226,12 @@ class ArcApi(
     /** The profile's playlists (made on the web). */
     suspend fun playlists(): List<PlaylistInfo> = get("playlists", kotlinx.serialization.builtins.ListSerializer(PlaylistInfo.serializer()))
 
+    /** Adds titles (a show adds its episodes) to the end of an ordinary playlist; how many entries were added. */
+    suspend fun addToPlaylist(playlistId: String, itemIds: List<String>): Int {
+        val body = JsonObject(mapOf("item_ids" to kotlinx.serialization.json.JsonArray(itemIds.map { JsonPrimitive(it) })))
+        return send("POST", "playlists/${enc(playlistId)}/items", body.toString(), PlaylistAdded.serializer(), route = "playlists/{id}/items").added
+    }
+
     suspend fun playlist(id: String): PlaylistPage = get("playlists/${enc(id)}", PlaylistPage.serializer(), route = "playlists/{id}")
 
     suspend fun collection(id: String): CollectionPage = get("collections/${enc(id)}", CollectionPage.serializer(), route = "collections/{id}")

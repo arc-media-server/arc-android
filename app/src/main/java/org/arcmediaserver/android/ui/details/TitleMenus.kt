@@ -103,6 +103,8 @@ fun MoreMenu(
     onRemoveContinue: (() -> Unit)? = null,
     /** Move Earlier, Move Later, Remove from Queue; given only for a card on Home's Queue row. */
     queueMoves: QueueMoves? = null,
+    /** Add to Playlist…, for what a playlist can hold (films, episodes, shows). */
+    onAddToPlaylist: (() -> Unit)? = null,
     /** Rate…: the profile's own stars; given on a title's page. */
     onRate: (() -> Unit)? = null,
 ) {
@@ -123,6 +125,10 @@ fun MoreMenu(
         if (onQueue != null && item.queueable) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
+        }
+        // The web's Add to Playlist…, after the queue's choices.
+        if (onAddToPlaylist != null && item.queueable) {
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.playlist_add), ArcIcons.ListOrdered) { onAddToPlaylist() }
         }
         queueMoves?.earlier?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_move_earlier), ArcIcons.ArrowLeft) { f(); onClose() } }
         queueMoves?.later?.let { f -> org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_move_later), ArcIcons.ArrowRight) { f(); onClose() } }
@@ -205,6 +211,52 @@ private fun aspect(r: Double): String? = when {
     kotlin.math.abs(r - 4.0 / 3) < 0.02 -> "4:3"
     kotlin.math.abs(r - 16.0 / 9) < 0.02 -> "16:9"
     else -> String.format(Locale.US, "%.2f:1", r)
+}
+
+/**
+ * Add to Playlist…, as the web's picker: the profile's ordinary playlists (smart ones fill
+ * themselves), each with its title count; choosing one adds [item] (a show, its episodes).
+ * Playlists are made on the web, so with none there's a note saying so.
+ */
+@Composable
+fun PlaylistPicker(
+    item: Item,
+    playlists: org.arcmediaserver.android.ui.components.LoadState<List<org.arcmediaserver.android.data.PlaylistInfo>>,
+    onPick: (org.arcmediaserver.android.data.PlaylistInfo) -> Unit,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    val ready = (playlists as? org.arcmediaserver.android.ui.components.LoadState.Ready)?.value?.filter { it.editable }
+    val body = when {
+        playlists is org.arcmediaserver.android.ui.components.LoadState.Loading -> stringResource(R.string.playlist_loading)
+        playlists is org.arcmediaserver.android.ui.components.LoadState.Failed -> stringResource(R.string.playlist_load_failed)
+        ready.isNullOrEmpty() -> stringResource(R.string.playlist_none_editable)
+        item.isSeries -> stringResource(R.string.playlist_add_show_to, item.title)
+        else -> stringResource(R.string.playlist_add_to, item.title)
+    }
+    org.arcmediaserver.android.ui.components.Popover(
+        anchor = null, onClose = onClose, place = org.arcmediaserver.android.ui.components.PopoverPlace.Center,
+        title = stringResource(R.string.playlist_add_title), body = body, width = 360.dp,
+    ) {
+        if (!ready.isNullOrEmpty()) {
+            org.arcmediaserver.android.ui.components.PopoverList(maxHeight = 320.dp) {
+                ready.forEachIndexed { i, p ->
+                    org.arcmediaserver.android.ui.components.PopoverItem(
+                        p.title, ArcIcons.ListVideo,
+                        detail = pluralStringResource(R.plurals.playlist_title_count, p.count, p.count),
+                        focus = if (i == 0) first else null,
+                    ) { onPick(p) }
+                }
+            }
+        } else if (playlists is org.arcmediaserver.android.ui.components.LoadState.Failed) {
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_retry), ArcIcons.RotateCw, focus = first) { onRetry() }
+        } else {
+            // Something to hold the focus (Back also closes it).
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.player_close), ArcIcons.Close, focus = first) { onClose() }
+        }
+    }
+    LaunchedEffect(playlists is org.arcmediaserver.android.ui.components.LoadState.Ready, playlists is org.arcmediaserver.android.ui.components.LoadState.Failed) { first.requestWhenReady() }
 }
 
 /**

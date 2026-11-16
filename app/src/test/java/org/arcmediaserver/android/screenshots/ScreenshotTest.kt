@@ -668,6 +668,30 @@ class ScreenshotTest {
     }
 
     @Test
+    fun addToPlaylist() = shot("add-to-playlist") {
+        // Add to Playlist… over a film's page: ordinary playlists only (the smart one isn't listed).
+        DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {})
+        org.arcmediaserver.android.ui.details.PlaylistPicker(
+            Fixtures.movieWithFile,
+            LoadState.Ready(
+                listOf(
+                    org.arcmediaserver.android.data.PlaylistInfo("p1", "Movie Night", count = 6),
+                    org.arcmediaserver.android.data.PlaylistInfo("p2", "Unwatched 4K", count = 31, smartFilter = kotlinx.serialization.json.buildJsonObject { put("resolution", kotlinx.serialization.json.JsonPrimitive("4k")) }),
+                    org.arcmediaserver.android.data.PlaylistInfo("p3", "Short List", count = 1),
+                ),
+            ),
+            onPick = {}, onRetry = {}, onClose = {},
+        )
+    }
+
+    @Test
+    fun addToPlaylistNone() = shot("add-to-playlist-none") {
+        // No playlists to add to: a note pointing to the web, and Close.
+        DetailsScreen(Details(Fixtures.show), onPlay = { _: Item, _: Long -> }, onOpen = {})
+        org.arcmediaserver.android.ui.details.PlaylistPicker(Fixtures.show, LoadState.Ready(emptyList()), onPick = {}, onRetry = {}, onClose = {})
+    }
+
+    @Test
     fun playlists() = shot("playlists") {
         // The sidebar's Playlists: a mosaic of four posters, and one with fewer titles (its first poster).
         val posters = Fixtures.movies.take(4).mapNotNull { it.images?.primary }

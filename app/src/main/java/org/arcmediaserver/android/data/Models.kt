@@ -396,7 +396,16 @@ data class PlaylistInfo(
     val count: Int = 0,
     @SerialName("duration_ms") val durationMs: Long = 0,
     val images: List<String> = emptyList(),
-)
+    /** A smart playlist's rules: it fills itself, so titles can't be added to it by hand. */
+    @SerialName("smart_filter") val smartFilter: kotlinx.serialization.json.JsonObject? = null,
+) {
+    /** Titles can be added to it (an ordinary playlist, not a smart one). */
+    val editable: Boolean get() = smartFilter == null
+}
+
+/** POST /playlists/{id}/items: how many entries were added. */
+@Serializable
+data class PlaylistAdded(val added: Int = 0)
 
 @Serializable
 data class PlaylistEntry(@SerialName("entry_id") val entryId: Long, val item: Item)

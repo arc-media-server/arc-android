@@ -68,6 +68,8 @@ interface CardMenu {
     fun offContinue(id: String): Boolean = false
     /** Play Next ([next]) or Add to Queue, with a note of what happened; null when the server keeps no queue. */
     val queue: ((item: Item, next: Boolean) -> Unit)? get() = null
+    /** Add to Playlist…: a list of the profile's playlists over the page; [onClose] puts the focus back. */
+    fun addToPlaylist(item: Item, onClose: () -> Unit) {}
 }
 
 val LocalCardMenu = compositionLocalOf<CardMenu?> { null }

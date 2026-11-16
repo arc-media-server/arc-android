@@ -290,10 +290,14 @@ fun DetailsScreen(
         when (panel) {
             DetailsPanel.None -> Unit
             DetailsPanel.More -> {
-                val queue = org.arcmediaserver.android.ui.components.LocalCardMenu.current?.queue
+                val cardMenu = org.arcmediaserver.android.ui.components.LocalCardMenu.current
+                val queue = cardMenu?.queue
                 MoreMenu(
                     item, actions.onWatched, actions.onWatchlist, onMediaInfo = { panel = DetailsPanel.MediaInfo }, onClose = closePanel,
                     onQueue = queue?.let { q -> { next: Boolean -> q(item, next) } },
+                    // The same list as a card's menu (the app's card menu host draws it); closing it
+                    // returns to ⋯.
+                    onAddToPlaylist = cardMenu?.let { m -> { panel = DetailsPanel.None; m.addToPlaylist(item) { runCatching { more.requestFocus() } } } },
                     anchor = moreAnchor,
                     onPlayVersion = if (!item.isSeries && actions.onPlayVersion != null && versionsOf(item).size > 1) { { panel = DetailsPanel.Version } } else null,
                     onRate = { panel = DetailsPanel.Rating },

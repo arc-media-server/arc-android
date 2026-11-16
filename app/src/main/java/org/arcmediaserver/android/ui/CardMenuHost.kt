@@ -18,6 +18,7 @@ import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.ui.components.CardMenu
 import org.arcmediaserver.android.ui.components.LocalCardMenu
+import org.arcmediaserver.android.ui.components.toUiError
 import org.arcmediaserver.android.ui.details.MediaInfoDialog
 import org.arcmediaserver.android.ui.details.MoreMenu
 
@@ -36,7 +37,41 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     // Whether this server keeps a play queue (Play Next, Add to Queue), and what was just queued.
     var queueable by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // Add to Playlist…: the title being added (and where the focus goes back), and the playlists.
+    var picking by remember { mutableStateOf<Pair<Item, () -> Unit>?>(null) }
+    var playlists by remember { mutableStateOf<org.arcmediaserver.android.ui.components.LoadState<List<org.arcmediaserver.android.data.PlaylistInfo>>>(org.arcmediaserver.android.ui.components.LoadState.Loading) }
+    var playlistLoads by remember { mutableStateOf(0) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(picking != null, playlistLoads) {
+        if (picking == null) return@LaunchedEffect
+        playlists = org.arcmediaserver.android.ui.components.LoadState.Loading
+        val api = container.api() ?: return@LaunchedEffect
+        playlists = try {
+            org.arcmediaserver.android.ui.components.LoadState.Ready(api.playlists())
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            ArcLog.Android.warn("playlists failed to load for Add to Playlist: ${e.javaClass.simpleName}")
+            org.arcmediaserver.android.ui.components.LoadState.Failed(e.toUiError())
+        }
+    }
+    fun addToPlaylist(item: Item, playlist: org.arcmediaserver.android.data.PlaylistInfo) {
+        val api = container.api() ?: return
+        container.appScope.launch {
+            val ok = try {
+                api.addToPlaylist(playlist.id, listOf(item.id))
+                true
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ArcLog.Android.warn("adding to a playlist failed: ${e.javaClass.simpleName}")
+                false
+            }
+            val text = context.getString(
+                if (ok) org.arcmediaserver.android.R.string.playlist_added else org.arcmediaserver.android.R.string.playlist_add_failed,
+                item.title, playlist.title,
+            )
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
+        }
+    }
     // Asked again when a menu opens (the profile may have changed); cached by the queue store.
     androidx.compose.runtime.LaunchedEffect(open) { queueable = container.queues.supported() }
     androidx.compose.runtime.LaunchedEffect(notice) {
@@ -64,6 +99,9 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
             override fun current(item: Item) = container.withChanges(item)
             override fun offContinue(id: String) = container.offContinue[id] == true
+            override fun addToPlaylist(item: Item, onClose: () -> Unit) {
+                picking = item to onClose
+            }
             override fun open(item: Item, onClose: () -> Unit, at: androidx.compose.ui.geometry.Rect?, continueRow: Boolean, entry: String?) {
                 info = false
                 inContinue = continueRow
@@ -97,6 +135,19 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalCardMenu provides menu) { content() }
         notice?.let { QueueNotice(it, Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) }
+        picking?.let { (item, restore) ->
+            val done = {
+                picking = null
+                restore()
+            }
+            org.arcmediaserver.android.ui.details.PlaylistPicker(
+                item, playlists,
+                onPick = { p -> addToPlaylist(item, p); done() },
+                onRetry = { playlistLoads++ },
+                onClose = done,
+            )
+            return@Box
+        }
         val (opened, restore) = open ?: return@Box
         val item = container.withChanges(opened)
         val close = {
@@ -114,6 +165,11 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onMediaInfo = { info = true },
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
+                // The menu gives way to the playlist list; closing that puts the focus back on the card.
+                onAddToPlaylist = {
+                    open = null
+                    picking = item to restore
+                },
                 anchor = anchor,
                 queueMoves = queueEntry?.let { entry ->
                     val q = container.queues.queue.value ?: return@let null
