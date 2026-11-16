@@ -418,6 +418,19 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showMissingEpisodes() = shot("show-missing-episodes", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // Show Missing Episodes on: Season 2 gains two episodes with no file, dimmed and "Not on disk".
+        val season = Fixtures.seasons[1].let { s ->
+            s.copy(episodes = s.episodes + listOf(Fixtures.episode(2, 4, "Woe's Hollow", 54), Fixtures.episode(2, 5, "Trojan's Horse", 50)).map { it.copy(available = false, userData = null) })
+        }
+        DetailsScreen(
+            Details(Fixtures.show, listOf(Fixtures.seasons[0], season), next = Fixtures.seasons[0].episodes[2], initialSeason = 1, missing = true),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun show() = shot("show-episodes") {
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
@@ -464,11 +477,13 @@ class ScreenshotTest {
 
     @Test
     fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
-        // Down to the season tabs, then OK on Season 1: its menu offers Mark Season as Watched.
+        // Down to the season tabs (landing on Season 1, the season shown), then OK: its menu offers
+        // Mark Season as Watched and Shuffle Season.
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
             onPlay = { _: Item, _: Long -> },
             onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(onShuffleSeason = {}),
         )
     }
 
@@ -810,6 +825,44 @@ class ScreenshotTest {
             )
             PlayerMenuPanel(
                 menu = PlayerMenu.Playback, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    /** Text subtitles on, shown 1.5 s later than the file has them. */
+    private fun timedState() = osdState().let { s ->
+        val track = s.plan!!.subtitleTracks.first()
+        s.copy(subtitle = track, subtitleOffsets = mapOf(org.arcmediaserver.android.playback.SubtitleTiming.key(s.plan!!.fileId, track) to 1_500L))
+    }
+
+    @Test
+    fun playerSubtitlesMenuTiming() = shot("player-menu-subtitles-timing") {
+        // The subtitle menu with text subtitles on: Timing shows after the tracks, with its value.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = timedState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Subtitles,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Subtitles, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerSubtitleTimingMenu() = shot("player-menu-subtitle-timing") {
+        // Timing open: "Timing: +1.5s (later)", Show 0.5s Earlier / Later and Reset.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = timedState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.SubtitleTiming, state = state, plan = state.plan!!,
                 onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
             )
         }

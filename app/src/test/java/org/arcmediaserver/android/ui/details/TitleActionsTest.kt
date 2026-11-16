@@ -64,4 +64,21 @@ class TitleActionsTest {
         assertEquals(seasons[1], marked[1])
         assertFalse(withSeasonWatched(marked, 1, played = false)[0].watched())
     }
+
+    @Test
+    fun `missing episodes don't count against a watched season`() {
+        val gone = Item(id = "g", kind = "episode", title = "G", available = false)
+        assertTrue(org.arcmediaserver.android.data.Season(1, episodes = listOf(ep(1, true), gone)).watched())
+        assertFalse(org.arcmediaserver.android.data.Season(1, episodes = listOf(gone)).watched())
+    }
+
+    @Test
+    fun `Show Missing keeps the season it was chosen on`() {
+        val one = org.arcmediaserver.android.data.Season(1)
+        val two = org.arcmediaserver.android.data.Season(2)
+        // Season 1 had only missing episodes, so it appears in front: Season 2 moves to the second tab.
+        assertEquals(1, tabOfSeason(listOf(one, two), 2))
+        assertEquals(0, tabOfSeason(listOf(two), 2))
+        assertEquals(0, tabOfSeason(listOf(two), 9))
+    }
 }

@@ -35,6 +35,8 @@ data class Details(
     val unplaced: List<Item> = emptyList(),
     /** The name of the show's episode order, for the Not in This Order note. */
     val orderName: String = "",
+    /** Show Missing Episodes is on: [seasons] include episodes not in the library (available false). */
+    val missing: Boolean = false,
 )
 
 /**
@@ -67,6 +69,13 @@ suspend fun relatedRows(api: org.arcmediaserver.android.data.ArcApi, item: Item)
     (collections.map { it.await() } + similar.await()).filterNotNull().filter { it.items.isNotEmpty() }
 }
 
+/**
+ * What Shuffle plays: the episodes on disk of the season numbered [seasonNumber] (Shuffle Season),
+ * or of every season (a show's Shuffle). Episodes outside the show's order aren't included.
+ */
+fun shuffleCandidates(seasons: List<Season>, seasonNumber: Int? = null): List<Item> =
+    seasons.filter { seasonNumber == null || it.seasonNumber == seasonNumber }.flatMap { it.episodes }.filter { it.available }
+
 /** The episode to carry on with: one part-way through, else the first not watched, specials last. */
 fun nextEpisode(seasons: List<Season>): Item? {
     val ordered = seasons.filter { it.seasonNumber > 0 } + seasons.filter { it.seasonNumber <= 0 }
@@ -75,7 +84,14 @@ fun nextEpisode(seasons: List<Season>): Item? {
 }
 
 /** A season counts as watched when it has episodes and every one is watched, as on the web. */
-fun Season.watched(): Boolean = episodes.isNotEmpty() && episodes.all { it.userData?.played == true }
+fun Season.watched(): Boolean = episodes.filter { it.available }.let { on -> on.isNotEmpty() && on.all { it.userData?.played == true } }
+
+/**
+ * The tab to keep after Show Missing Episodes changes the seasons: the season numbered
+ * [seasonNumber] in the new list (seasons with only missing episodes come and go), else 0.
+ */
+fun tabOfSeason(seasons: List<Season>, seasonNumber: Int): Int =
+    seasons.indexOfFirst { it.seasonNumber == seasonNumber }.coerceAtLeast(0)
 
 /** [seasons] with the season numbered [seasonNumber] marked watched or unwatched (resume points cleared). */
 fun withSeasonWatched(seasons: List<Season>, seasonNumber: Int, played: Boolean): List<Season> =
@@ -103,6 +119,11 @@ suspend fun optimistic(before: Item, after: Item, show: (Item) -> Unit, save: su
 class DetailsViewModel(private val container: AppContainer, private val itemId: String, private val episodeId: String? = null) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<Details>>(LoadState.Loading)
     val state: StateFlow<LoadState<Details>> = _state
+
+    /** Show Missing Episodes is on: the seasons include episodes the show has no file for. */
+    private var showMissing = false
+    /** The season number to stay on when the seasons next load (after Show Missing changes them). */
+    private var keepSeason: Int? = null
 
     private val _problem = MutableStateFlow<ActionProblem?>(null)
     /** The last action that failed and was undone, until the screen has said so. */
@@ -200,20 +221,28 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
     }
 
     /** Shuffle (a show): its available episodes in a random order, as a new queue; [play] starts it. */
-    fun shuffle(play: (Item, String) -> Unit) {
+    fun shuffle(play: (Item, String) -> Unit, seasonNumber: Int? = null) {
         val details = (_state.value as? LoadState.Ready)?.value ?: return
-        val episodes = details.seasons.flatMap { it.episodes }.filter { it.available }.shuffled()
+        val episodes = shuffleCandidates(details.seasons, seasonNumber).shuffled()
         if (episodes.isEmpty()) return
         viewModelScope.launch {
             val queue = container.queues.start(episodes.map { it.id })
             val first = queue?.entries?.firstOrNull { it.id == queue.currentEntryId && it.playable }
             if (queue == null || first?.item == null) {
-                ArcLog.Android.warn("shuffling a show failed")
+                ArcLog.Android.warn("shuffling a ${if (seasonNumber != null) "season" else "show"} failed")
                 return@launch
             }
             ArcLog.Android.debug("shuffled ${episodes.size} episodes")
             play(first.item, first.id)
         }
+    }
+
+    /** Show / Hide Missing Episodes (a season's menu), as the web's show page, staying on [seasonNumber]. */
+    fun toggleMissing(seasonNumber: Int) {
+        showMissing = !showMissing
+        keepSeason = seasonNumber
+        ArcLog.Android.debug("missing episodes ${if (showMissing) "shown" else "hidden"}")
+        load(quiet = true)
     }
 
     /** Loads the page; [quiet] keeps what's shown while it refreshes (coming back from playing). */
@@ -224,16 +253,18 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
             _state.value = try {
                 val item = api.item(itemId)
                 if (item.isSeries) {
-                    val response = api.seasons(item.id)
+                    val response = api.seasons(item.id, missing = showMissing)
                     val seasons = response.seasons.filter { it.episodes.isNotEmpty() }
                     // Play, Resume and Up Next follow the order: the seasons, not what's outside it.
                     val next = nextEpisode(seasons)
                     val focus = episodeId?.let { id -> (seasons.flatMap { it.episodes } + response.unplaced).firstOrNull { it.id == id } }
-                    val idx = initialTab(seasons, response.unplaced, focus ?: next)
+                    val keep = keepSeason
+                    keepSeason = null
+                    val idx = if (keep != null) tabOfSeason(seasons, keep) else initialTab(seasons, response.unplaced, focus ?: next)
                     LoadState.Ready(
                         Details(
                             item, seasons, next, idx, focus, related = currentRelated(),
-                            unplaced = response.unplaced, orderName = response.ordering?.name.orEmpty(),
+                            unplaced = response.unplaced, orderName = response.ordering?.name.orEmpty(), missing = showMissing,
                         ),
                     )
                 } else {
