@@ -137,9 +137,17 @@ class ArcApi(
 
     suspend fun person(id: Long): PersonPage = get("people/$id", PersonPage.serializer(), route = "people/{id}")
 
-    /** Marks a movie or episode (or all of a show's episodes) watched or not, for the profile. */
-    suspend fun setPlayed(itemId: String, played: Boolean) =
-        put("items/${enc(itemId)}/played", JsonObject(mapOf("played" to JsonPrimitive(played))).toString(), "items/{id}/played")
+    /**
+     * Marks a movie or episode (or all of a show's episodes) watched or not, for the profile. With
+     * [seasonNumber], a show's one season in its display order (`season_number`).
+     */
+    suspend fun setPlayed(itemId: String, played: Boolean, seasonNumber: Int? = null) {
+        val body = buildMap {
+            put("played", JsonPrimitive(played))
+            if (seasonNumber != null) put("season_number", JsonPrimitive(seasonNumber))
+        }
+        put("items/${enc(itemId)}/played", JsonObject(body).toString(), "items/{id}/played")
+    }
 
     /** Takes a title out of Continue Watching (and Up Next) without marking it watched. */
     suspend fun removeFromContinue(itemId: String) {
