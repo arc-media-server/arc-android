@@ -54,6 +54,8 @@ data class UserData(
     @SerialName("position_ms") val positionMs: Long = 0,
     val played: Boolean = false,
     val watchlisted: Boolean = false,
+    /** The profile's own rating, 1–10 (half stars out of five); 0 when not rated. */
+    val rating: Int = 0,
 )
 
 @Serializable
@@ -174,6 +176,11 @@ data class Item(
     )
 
     fun withWatchlist(on: Boolean): Item = copy(userData = (userData ?: UserData()).copy(watchlisted = on))
+
+    /** The profile's own rating (1–10, 0 for none). */
+    val myRating: Int get() = userData?.rating ?: 0
+
+    fun withRating(rating: Int): Item = copy(userData = (userData ?: UserData()).copy(rating = rating))
 }
 
 @Serializable

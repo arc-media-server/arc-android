@@ -200,6 +200,18 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a rating is a PUT of one to ten, and comes back on the title`() = runTest {
+        answer(204, "")
+        answer(200, """{"id":"m1","kind":"movie","title":"Heat","user_data":{"played":false,"rating":7}}""")
+        api.setRating("m1", 7)
+        val put = server.takeRequest()
+        assertEquals("PUT", put.method)
+        assertEquals("/api/v1/items/m1/rating", put.url.encodedPath)
+        assertEquals("""{"rating":7}""", put.body?.utf8())
+        assertEquals(7, api.item("m1").myRating)
+    }
+
+    @Test
     fun `missing episodes are asked for with missing=1, and only then`() = runTest {
         answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"seasons":[]}""")
         answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"seasons":[{"season_number":1,"episodes":[{"id":"m","kind":"episode","title":"Gone","available":false}]}]}""")
