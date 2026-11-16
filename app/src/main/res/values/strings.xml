@@ -61,6 +61,8 @@
     <string name="settings_playback">Playback</string>
     <string name="settings_auto_play">Auto-Play Next Episode</string>
     <string name="settings_auto_skip">Skip Intros Automatically</string>
+    <string name="settings_hide_spoilers">Hide Spoilers</string>
+    <string name="spoiler_hidden_description">Description hidden until you watch it.</string>
     <string name="settings_audio_language">Preferred Audio Language</string>
     <string name="settings_subtitles">Subtitles</string>
     <string name="settings_subtitle_mode">Show Subtitles</string>

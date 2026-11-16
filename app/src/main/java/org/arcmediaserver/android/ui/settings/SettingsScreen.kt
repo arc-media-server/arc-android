@@ -113,7 +113,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(prefs = LoadState.Loading) }
         viewModelScope.launch {
             val result = try {
-                LoadState.Ready(api.prefs())
+                LoadState.Ready(api.prefs().also { container.hideSpoilers.value = it.hideSpoilers })
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ArcLog.Android.warn("settings failed to load: ${e.javaClass.simpleName}")
@@ -127,6 +127,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun change(before: Prefs, after: Prefs, changes: JsonObject) {
         val api = container.api() ?: return
         _state.update { it.copy(prefs = LoadState.Ready(after), failed = false) }
+        container.hideSpoilers.value = after.hideSpoilers
         viewModelScope.launch {
             try {
                 api.updatePrefs(changes)
@@ -135,6 +136,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ArcLog.Android.warn("settings: saving ${changes.keys.joinToString()} failed: ${e.javaClass.simpleName}")
                 _state.update { it.copy(prefs = LoadState.Ready(before), failed = true) }
+                container.hideSpoilers.value = before.hideSpoilers
             }
         }
     }
@@ -247,6 +249,11 @@ fun SettingsContent(
                 item {
                     SettingsRow(stringResource(R.string.settings_auto_skip), if (p.autoSkip) on else off) {
                         onChange(p, p.copy(autoSkip = !p.autoSkip), buildJsonObject { put("auto_skip", !p.autoSkip) })
+                    }
+                }
+                item {
+                    SettingsRow(stringResource(R.string.settings_hide_spoilers), if (p.hideSpoilers) on else off) {
+                        onChange(p, p.copy(hideSpoilers = !p.hideSpoilers), buildJsonObject { put("hide_spoilers", !p.hideSpoilers) })
                     }
                 }
                 item { ChoiceRow(R.string.settings_audio_language, audio, p.audioLanguage) { setString("audio_language", it, p.copy(audioLanguage = it)) } }
