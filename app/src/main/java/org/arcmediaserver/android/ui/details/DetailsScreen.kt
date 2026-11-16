@@ -119,6 +119,7 @@ fun DetailsRoute(
                 actions = TitleActions(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
                     onSeasonWatched = vm::toggleSeasonWatched,
+                    onRate = vm::rate,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
                     onPlayVersion = onPlayVersion,
                 ),
@@ -142,6 +143,8 @@ data class TitleActions(
     val onPlayVersion: ((Item, Long, Long) -> Unit)? = null,
     /** A show's Mark Season as Watched / Unwatched, by season number. */
     val onSeasonWatched: (Int) -> Unit = {},
+    /** The profile's own rating, 1–10 (0 clears it). */
+    val onRate: (Int) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -266,8 +269,10 @@ fun DetailsScreen(
                     onQueue = queue?.let { q -> { next: Boolean -> q(item, next) } },
                     anchor = moreAnchor,
                     onPlayVersion = if (!item.isSeries && actions.onPlayVersion != null && versionsOf(item).size > 1) { { panel = DetailsPanel.Version } } else null,
+                    onRate = { panel = DetailsPanel.Rating },
                 )
             }
+            DetailsPanel.Rating -> RatingMenu(item, onClose = closePanel) { rating -> actions.onRate(rating); closePanel() }
             DetailsPanel.MediaInfo -> MediaInfoDialog(item, onClose = closePanel)
             DetailsPanel.Version -> VersionMenu(item, onClose = closePanel) { file -> panel = DetailsPanel.None; actions.onPlayVersion?.invoke(item, item.resumeMs, file) }
             DetailsPanel.About -> AboutPanel(item, onClose = { panel = DetailsPanel.None; about.requestFocus() })
@@ -376,7 +381,13 @@ private fun Header(
                     val problem = actions.problem?.takeIf { it != ActionProblem.Season }
                     if (problem != null) {
                         Text(
-                            stringResource(if (problem == ActionProblem.Watched) R.string.action_watched_failed else R.string.action_watchlist_failed),
+                            stringResource(
+                                when (problem) {
+                                    ActionProblem.Watched -> R.string.action_watched_failed
+                                    ActionProblem.Rating -> R.string.action_rating_failed
+                                    else -> R.string.action_watchlist_failed
+                                },
+                            ),
                             style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning,
                         )
                         LaunchedEffect(problem) {

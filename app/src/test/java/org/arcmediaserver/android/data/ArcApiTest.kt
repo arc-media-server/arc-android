@@ -200,6 +200,18 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a rating is a PUT of one to ten, and comes back on the title`() = runTest {
+        answer(204, "")
+        answer(200, """{"id":"m1","kind":"movie","title":"Heat","user_data":{"played":false,"rating":7}}""")
+        api.setRating("m1", 7)
+        val put = server.takeRequest()
+        assertEquals("PUT", put.method)
+        assertEquals("/api/v1/items/m1/rating", put.url.encodedPath)
+        assertEquals("""{"rating":7}""", put.body?.utf8())
+        assertEquals(7, api.item("m1").myRating)
+    }
+
+    @Test
     fun `watched and watchlist are PUTs that answer 204`() = runTest {
         answer(204, "")
         answer(204, "")

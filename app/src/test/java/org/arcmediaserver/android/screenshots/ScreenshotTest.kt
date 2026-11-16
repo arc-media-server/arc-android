@@ -613,6 +613,20 @@ class ScreenshotTest {
     )
 
     @Test
+    fun moreMenuRate() = shot("movie-more-menu-rate") {
+        // The ⋯ menu on a film rated 3½ stars: Rate… shows them.
+        val rated = Fixtures.movieWithFile.withRating(7)
+        DetailsScreen(Details(rated), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More)
+    }
+
+    @Test
+    fun ratingMenu() = shot("movie-rating") {
+        // Rate…: five stars down to half a star, 3½ ticked and focused, then Clear Rating.
+        val rated = Fixtures.movieWithFile.withRating(7)
+        DetailsScreen(Details(rated), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.Rating)
+    }
+
+    @Test
     fun moreMenuVersions() = shot("movie-more-menu-versions") {
         DetailsScreen(Details(twoVersions), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.More, actions = TitleActions(onPlayVersion = { _, _, _ -> }))
     }
