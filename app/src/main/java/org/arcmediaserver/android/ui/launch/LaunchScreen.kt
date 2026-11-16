@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.ui.launch
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +89,7 @@ fun LaunchRoute(onDestination: (Destination) -> Unit, onChangeServer: () -> Unit
                 }
             }
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(painterResource(R.drawable.arc_logo), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(64.dp))
+                androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo_stacked), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(140.dp).aspectRatio(65.42f / 69.16f))
                 Spacer(Modifier.height(24.dp))
                 Spinner(size = 28.dp)
             }
