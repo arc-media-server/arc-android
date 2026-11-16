@@ -26,7 +26,10 @@ StarRating). Arc keeps it per profile (`user_data.rating`, 1–10). The TV could
 
 ## Checks
 
-- See the PR.
+- Merged main in (the title-page header conflict kept main's layout with the rating failure
+  message added). `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: passed (182
+  tests, 1 skipped (the live-server test), 0 failed). `tv-movie-more-menu-rate` shows Rate… with
+  ★★★½; `tv-movie-rating` shows the ★ and ½ glyphs and 3½ ticked and focused.
 - New tests:
   - `RatingsTest`: stars, wording, choices, and a rating kept beside watched/watchlist;
   - `ArcApiTest`: the PUT's body, and `rating` read back.
