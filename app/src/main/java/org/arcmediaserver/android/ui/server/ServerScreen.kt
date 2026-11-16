@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.server
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -124,7 +125,7 @@ fun ServerScreen(state: ServerUiState, onEdit: (String) -> Unit, onConnect: () -
     Box(Modifier.fillMaxSize().background(ArcColors.Background), contentAlignment = Alignment.Center) {
         BackdropGlow()
         Column(Modifier.width(560.dp), horizontalAlignment = Alignment.Start) {
-            Icon(painterResource(R.drawable.arc_logo), contentDescription = null, tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(52.dp))
+            androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(48.dp).aspectRatio(136.02f / 36.2f))
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.server_title), style = MaterialTheme.typography.displaySmall)
             Spacer(Modifier.height(8.dp))

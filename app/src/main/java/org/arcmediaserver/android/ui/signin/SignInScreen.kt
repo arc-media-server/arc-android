@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.ui.signin
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -141,7 +142,7 @@ fun SignInScreen(state: SignInUiState, onNewCode: () -> Unit, onChangeServer: ()
         }
         Row(Modifier.fillMaxSize().padding(horizontal = 96.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Icon(painterResource(R.drawable.arc_logo), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(48.dp))
+                androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(48.dp).aspectRatio(136.02f / 36.2f))
                 Spacer(Modifier.height(20.dp))
                 Text(stringResource(R.string.signin_title), style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(28.dp))
