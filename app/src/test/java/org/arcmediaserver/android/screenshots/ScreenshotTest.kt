@@ -477,11 +477,13 @@ class ScreenshotTest {
 
     @Test
     fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
-        // Down to the season tabs, then OK on Season 1: its menu offers Mark Season as Watched.
+        // Down to the season tabs (landing on Season 1, the season shown), then OK: its menu offers
+        // Mark Season as Watched and Shuffle Season.
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
             onPlay = { _: Item, _: Long -> },
             onOpen = {},
+            actions = org.arcmediaserver.android.ui.details.TitleActions(onShuffleSeason = {}),
         )
     }
 

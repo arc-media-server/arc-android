@@ -132,6 +132,7 @@
     <string name="queue_added">%1$s added to the queue</string>
     <string name="queue_failed">Couldn\'t add %1$s to the queue</string>
     <string name="action_shuffle">Shuffle</string>
+    <string name="action_shuffle_season">Shuffle Season</string>
     <string name="row_next_up">Up Next</string>
     <string name="row_watchlist">Watchlist</string>
     <string name="row_recent">Recently Added in %1$s</string>
