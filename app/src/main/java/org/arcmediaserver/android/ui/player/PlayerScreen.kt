@@ -115,7 +115,11 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 import java.util.Locale
 
 /** The player's menus, as the web player's: each opens as a panel at the right. */
-enum class PlayerMenu { None, Playback, Audio, Subtitles, Version, Quality, Chapters, Speed, Info }
+enum class PlayerMenu { None, Playback, Audio, Subtitles, SubtitleTiming, Version, Quality, Chapters, Speed, Info }
+
+/** "+0.5", "-1.5" or "0.0": a subtitle offset in seconds, signed, one decimal (the web's). */
+fun timingSeconds(offsetMs: Long): String =
+    (if (offsetMs > 0) "+" else "") + String.format(java.util.Locale.ROOT, "%.1f", offsetMs / 1000.0)
 
 /** Quality limits the player offers (kbit/s), as web/src/lib/playback.ts `qualities`. */
 val qualities = listOf(20000, 12000, 8000, 4000, 3000, 2000, 1500, 720)
@@ -331,6 +335,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onSpeed = { vm.setSpeed(it); if (menu != PlayerMenu.Playback) menu = PlayerMenu.None },
                         onZoom = vm::toggleZoom,
                         onOpen = { menu = it },
+                        onShiftSubtitles = vm::shiftSubtitles,
                     )
                 }
                 val next = state.next
@@ -487,6 +492,8 @@ internal fun PlayerMenuPanel(
     /** Playback's rows: Zoom Mode and Speed change in place; the others open their own list. */
     onZoom: () -> Unit = {},
     onOpen: (PlayerMenu) -> Unit = {},
+    /** Subtitle timing: a nudge in ms (negative earlier), or null to reset. */
+    onShiftSubtitles: (Long?) -> Unit = {},
 ) {
     // While it slides away the panel keeps showing the menu that was open: switching to another
     // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
@@ -524,8 +531,34 @@ internal fun PlayerMenuPanel(
             }
             PlayerMenu.Subtitles -> {
                 title = stringResource(R.string.player_subtitles)
+                val offset = org.arcmediaserver.android.playback.SubtitleTiming.offsetFor(state.subtitleOffsets, plan.fileId, state.subtitle)
                 options = listOf(Option(stringResource(R.string.player_subtitles_off), null, state.subtitle == null) { onSubtitle(null) }) +
-                    plan.subtitleTracks.filter { !it.image }.mapIndexed { i, t -> Option(subtitleName(t, i), subtitleDetail(t), state.subtitle?.id == t.id) { onSubtitle(t) } }
+                    plan.subtitleTracks.filter { !it.image }.mapIndexed { i, t -> Option(subtitleName(t, i), subtitleDetail(t), state.subtitle?.id == t.id) { onSubtitle(t) } } +
+                    // Timing, as the web player's, for the text subtitles shown now.
+                    if (org.arcmediaserver.android.playback.SubtitleTiming.adjustable(state.subtitle)) {
+                        listOf(Option(stringResource(R.string.player_subtitle_timing), stringResource(R.string.player_timing_seconds, timingSeconds(offset)), false) { onOpen(PlayerMenu.SubtitleTiming) })
+                    } else emptyList()
+                if (state.subtitle != null && !org.arcmediaserver.android.playback.SubtitleTiming.adjustable(state.subtitle)) {
+                    body = stringResource(R.string.player_timing_text_only)
+                }
+            }
+            PlayerMenu.SubtitleTiming -> {
+                // Nudges apply at once and the menu stays open, so the line can be matched by eye.
+                title = stringResource(R.string.player_subtitle_timing)
+                val offset = org.arcmediaserver.android.playback.SubtitleTiming.offsetFor(state.subtitleOffsets, plan.fileId, state.subtitle)
+                val max = org.arcmediaserver.android.playback.SubtitleTiming.MAX_MS
+                val step = org.arcmediaserver.android.playback.SubtitleTiming.STEP_MS
+                body = when {
+                    offset > 0 -> stringResource(R.string.player_timing_later, timingSeconds(offset))
+                    offset < 0 -> stringResource(R.string.player_timing_earlier, timingSeconds(offset))
+                    else -> stringResource(R.string.player_timing_zero)
+                }
+                // The choices stay put (the focus mustn't lose its row); at ±10 s a nudge does nothing.
+                options = listOf(
+                    Option(stringResource(R.string.player_timing_show_earlier), null, false) { if (offset > -max) onShiftSubtitles(-step) },
+                    Option(stringResource(R.string.player_timing_show_later), null, false) { if (offset < max) onShiftSubtitles(step) },
+                    Option(stringResource(R.string.player_timing_reset), null, false) { onShiftSubtitles(null) },
+                )
             }
             PlayerMenu.Version -> {
                 title = stringResource(R.string.player_version)

@@ -776,6 +776,44 @@ class ScreenshotTest {
         }
     }
 
+    /** Text subtitles on, shown 1.5 s later than the file has them. */
+    private fun timedState() = osdState().let { s ->
+        val track = s.plan!!.subtitleTracks.first()
+        s.copy(subtitle = track, subtitleOffsets = mapOf(org.arcmediaserver.android.playback.SubtitleTiming.key(s.plan!!.fileId, track) to 1_500L))
+    }
+
+    @Test
+    fun playerSubtitlesMenuTiming() = shot("player-menu-subtitles-timing") {
+        // The subtitle menu with text subtitles on: Timing shows after the tracks, with its value.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = timedState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Subtitles,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Subtitles, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerSubtitleTimingMenu() = shot("player-menu-subtitle-timing") {
+        // Timing open: "Timing: +1.5s (later)", Show 0.5s Earlier / Later and Reset.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = timedState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.SubtitleTiming, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
     @Test
     fun person() = shot("person") {
         val credits = listOf(

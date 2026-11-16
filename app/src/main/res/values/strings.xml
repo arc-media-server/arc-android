@@ -404,6 +404,15 @@
     <string name="player_audio">Audio</string>
     <string name="player_subtitles">Subtitles</string>
     <string name="player_subtitles_off">Off</string>
+    <string name="player_subtitle_timing">Timing</string>
+    <string name="player_timing_seconds">%1$s s</string>
+    <string name="player_timing_later">Timing: %1$ss (later)</string>
+    <string name="player_timing_earlier">Timing: %1$ss (earlier)</string>
+    <string name="player_timing_zero">Timing: 0.0s</string>
+    <string name="player_timing_show_earlier">Show 0.5s Earlier</string>
+    <string name="player_timing_show_later">Show 0.5s Later</string>
+    <string name="player_timing_reset">Reset Subtitle Timing</string>
+    <string name="player_timing_text_only">Timing can be adjusted for text subtitles. These ASS subtitles keep their own timing.</string>
     <string name="player_track">Track %1$d</string>
     <string name="player_forced">Forced</string>
     <string name="player_mono">Mono</string>
