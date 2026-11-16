@@ -61,6 +61,8 @@
     <string name="settings_playback">Playback</string>
     <string name="settings_auto_play">Auto-Play Next Episode</string>
     <string name="settings_auto_skip">Skip Intros Automatically</string>
+    <string name="settings_hide_spoilers">Hide Spoilers</string>
+    <string name="spoiler_hidden_description">Description hidden until you watch it.</string>
     <string name="settings_audio_language">Preferred Audio Language</string>
     <string name="settings_subtitles">Subtitles</string>
     <string name="settings_subtitle_mode">Show Subtitles</string>
@@ -334,6 +336,9 @@
     <string name="action_more">More</string>
     <string name="action_watched_failed">Couldn\'t change whether it\'s watched. Try again.</string>
     <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
+    <string name="action_season_watched">Mark Season as Watched</string>
+    <string name="action_season_unwatched">Mark Season as Unwatched</string>
+    <string name="action_season_watched_failed">Couldn\'t change the season. Try again.</string>
 
     <!-- Media Info (as the web\'s "About This File") -->
     <string name="queue_move_earlier">Move Earlier</string>

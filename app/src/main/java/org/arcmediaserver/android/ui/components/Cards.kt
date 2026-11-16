@@ -136,7 +136,8 @@ fun FocusCard(
 private fun BackdropArt(card: MediaCard) {
     val title = cardTitle(card)
     Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
-        Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
+        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize())
+        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
         var failed by remember(card.logo) { mutableStateOf(false) }
         val logo = card.logo
@@ -265,6 +266,9 @@ fun MediaCardView(
                 BackdropArt(card)
             } else if (!landscape && card.mosaic.size >= 4) {
                 Mosaic(card.mosaic, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            } else if (landscape && card.item.isEpisode) {
+                // An episode's still keeps spoilers back while the profile hides them.
+                EpisodeArtwork(card.item, card.thumb, label = cardTitle(card), modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
             } else {
                 Artwork(
                     url = if (landscape) card.thumb else if (seasonPoster) card.seasonPoster ?: card.poster else card.poster,
@@ -340,10 +344,18 @@ private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.
 
 /**
  * Pill tabs (a show's seasons, a library's Recommended / titles / Collections): moving the focus
- * along them switches what's shown, as Google TV's tabs do.
+ * along them switches what's shown, as Google TV's tabs do. [onClick] is OK on a tab (a season's
+ * menu); [selectedTab] goes on the selected tab (to return the focus to it, or to place a menu).
  */
 @Composable
-fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun PillTabs(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    onClick: ((Int) -> Unit)? = null,
+    selectedTab: Modifier = Modifier,
+) {
     // The Apple TV app's segmented control: a glass pill holding the tabs, the current one lighter
     // and the focused one white (owner, 1 November).
     androidx.tv.material3.TabRow(
@@ -363,6 +375,8 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
             Tab(
                 selected = i == selected,
                 onFocus = { onSelect(i) },
+                onClick = { onClick?.invoke(i) },
+                modifier = if (i == selected) selectedTab else Modifier,
                 colors = androidx.tv.material3.TabDefaults.pillIndicatorTabColors(
                     contentColor = ArcColors.Foreground.copy(alpha = 0.65f),
                     selectedContentColor = ArcColors.Foreground,

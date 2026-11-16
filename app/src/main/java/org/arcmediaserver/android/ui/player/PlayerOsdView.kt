@@ -562,7 +562,7 @@ private fun EpisodesCard(state: PlayerUiState, onPlayEpisode: (Item) -> Unit, en
             Tile({ if (!playing) onPlayEpisode(ep) }, focus, width = 250.dp) {
                 Column {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-                        Artwork(cardFor(ep).thumb, label = ep.title, modifier = Modifier.fillMaxSize())
+                        org.arcmediaserver.android.ui.components.EpisodeArtwork(ep, cardFor(ep).thumb, label = ep.title, modifier = Modifier.fillMaxSize())
                         val s = ep.seasonNumber
                         val e = ep.episodeNumber
                         // Outside the show's order an episode has no number in it.

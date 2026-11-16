@@ -215,6 +215,16 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a season is marked with the show's id and its season number`() = runTest {
+        answer(204, "")
+        api.setPlayed("s1", false, seasonNumber = 2)
+        val played = server.takeRequest()
+        assertEquals("PUT", played.method)
+        assertEquals("/api/v1/items/s1/played", played.url.encodedPath)
+        assertEquals("""{"played":false,"season_number":2}""", played.body?.utf8())
+    }
+
+    @Test
     fun `a failed watchlist change throws with Arc's words`() = runTest {
         answer(500, """{"error":"database is locked"}""")
         try {
