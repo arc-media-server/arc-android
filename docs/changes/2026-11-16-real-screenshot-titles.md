@@ -32,3 +32,15 @@ fetched and never prints the key or request URLs.
   whole text, and Up from the buttons reaches it when it's cut short.
 - **Screenshots:** Home's Continue Watching row uses the Backdrops card style (the title's
   background art with its logo), which the app already offers as a row style.
+
+## The film page fills the screen (owner, 16 November, from a photo of another Apple TV app)
+
+- A film's (or episode's) artwork now fills the whole first screen; nothing below peeks in until
+  you move down. A show's page keeps its seasons showing at the foot, as before.
+- Low on the artwork, top to bottom: the clear logo (a little bigger), the age rating box and up to
+  three genres, the description, the year and running time with the quality capsules on one line,
+  then the Play and round buttons.
+- At the bottom right: "Starring" (first three actors) and "Directed By", the names in bold, using
+  the strings the About section already had.
+- `TitleBadges` takes `showRating = false` here, since the rating sits with the genres; the age
+  rating box is now a shared `AgeRating`.

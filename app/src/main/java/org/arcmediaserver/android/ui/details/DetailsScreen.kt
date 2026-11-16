@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -180,12 +181,15 @@ fun DetailsScreen(
             LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
-                        Modifier.fillParentMaxHeight(0.88f).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
+                        Modifier.fillParentMaxHeight(if (item.isSeries) 0.88f else 1f).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More }, about = about, onAbout = { panel = DetailsPanel.About })
                     }
                 }
+                // A film's artwork fills the whole screen, with nothing below it peeking in (the list's
+                // bottom padding takes this much from the header's height); a show's seasons do show.
+                if (!item.isSeries) item { Spacer(Modifier.height(40.dp)) }
                 if (item.isSeries) {
                     // The seasons show whole while they have focus, so episode names and
                     // details under the pictures aren't cut off at the bottom.
@@ -297,15 +301,26 @@ private fun Header(
     onAbout: () -> Unit = {},
 ) {
     val item = details.item
-    // The logo low on the artwork, then the description and details, then the Play button and
-    // round buttons on one line under them (owner, 16 November; beside them before).
-    Column(Modifier.padding(start = PageStart, end = PageStart, bottom = 8.dp)) {
-        org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 100.dp, maxWidth = 380.dp, textStyle = MaterialTheme.typography.displayMedium)
+    // The artwork fills the screen with everything low on it (owner, 16 November): the logo, the
+    // age rating and genres, the description, the year and running time with the quality
+    // capsules, then the Play button and round buttons; who's in it and who made it at the right.
+    Row(Modifier.padding(start = PageStart, end = PageStart, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+    Column(Modifier.weight(1f)) {
+        org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 120.dp, maxWidth = 460.dp, textStyle = MaterialTheme.typography.displayMedium)
         if (item.isEpisode) {
             Spacer(Modifier.height(8.dp))
             Text(listOfNotNull(episodeCode(item), item.title).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(16.dp))
+        val rating = item.contentRating?.takeIf { it.isNotBlank() }
+        val genres = item.genres.take(3)
+        if (rating != null || genres.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                rating?.let { org.arcmediaserver.android.ui.components.AgeRating(it) }
+                if (genres.isNotEmpty()) Text(genres.joinToString(" · "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.height(2.dp))
         // The description: three lines, and when that cuts it short, MORE under it and the
         // whole thing focusable to open the full text, as the Apple TV app (owner, 1 November).
         var cut by remember { mutableStateOf(false) }
@@ -330,19 +345,19 @@ private fun Header(
             if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
             val unwatched = item.unwatchedCount ?: 0
             val meta = listOfNotNull(
-                item.genres.firstOrNull(),
                 item.year?.toString()?.takeIf { !item.isEpisode },
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
             ).filter { it.isNotBlank() }
+            // The year and running time, then the quality capsules, on one line.
             Spacer(Modifier.height(8.dp))
-            if (meta.isNotEmpty()) {
-                Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.7f), maxLines = 1)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (meta.isNotEmpty()) {
+                    Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 1)
+                }
+                org.arcmediaserver.android.ui.components.TitleBadges(item, showRating = false)
             }
-            // The age rating and the quality capsules, on a line of their own so none is squeezed.
-            Spacer(Modifier.height(8.dp))
-            org.arcmediaserver.android.ui.components.TitleBadges(item)
           }
         }
         Spacer(Modifier.height(6.dp))
@@ -424,6 +439,31 @@ private fun Header(
             } else {
                 focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f)) }
             }
+        }
+    }
+    HeaderCredits(item, Modifier.padding(start = 32.dp, bottom = 40.dp).widthIn(max = 420.dp))
+    }
+}
+
+/** Who's in it and who made it, low on the right of a title's artwork. */
+@Composable
+private fun HeaderCredits(item: Item, modifier: Modifier = Modifier) {
+    fun names(role: String) = item.credits.filter { it.role == role }.take(3).map { it.name }
+    val lines = listOf(
+        stringResource(R.string.details_info_starring) to names("actor"),
+        stringResource(R.string.details_info_directors) to names("director"),
+    ).filter { it.second.isNotEmpty() }
+    if (lines.isEmpty()) return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lines.forEach { (label, people) ->
+            Text(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = ArcColors.Foreground.copy(alpha = 0.7f))) { append(label) }
+                    append(" ")
+                    withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)) { append(people.joinToString(", ")) }
+                },
+                style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
