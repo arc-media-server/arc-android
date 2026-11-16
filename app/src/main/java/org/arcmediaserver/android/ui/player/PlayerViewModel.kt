@@ -235,7 +235,8 @@ class PlayerViewModel(
             override fun onPlayerError(error: PlaybackException) = onStreamError(error)
         })
         val loadedPrefs = viewModelScope.async {
-            runCatching { api.prefs() }.onFailure { log.warn("preferences failed to load: ${it.javaClass.simpleName}") }.getOrNull() ?: Prefs()
+            runCatching { api.prefs() }.onFailure { log.warn("preferences failed to load: ${it.javaClass.simpleName}") }.getOrNull()
+                ?.also { container.hideSpoilers.value = it.hideSpoilers } ?: Prefs()
         }
         viewModelScope.launch {
             // The title, and the episode after it unless the profile turned Auto-Play off (as the

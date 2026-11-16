@@ -520,7 +520,7 @@ private fun HomeHero(card: MediaCard) {
                     }
                     org.arcmediaserver.android.ui.components.FormatBadges(org.arcmediaserver.android.ui.components.formatLabels(item))
                 }
-                item.overview?.takeIf { it.isNotBlank() }?.let {
+                org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
                     Spacer(Modifier.height(6.dp))
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
@@ -638,7 +638,7 @@ fun TitleSummary(item: Item, meta: List<String>, modifier: Modifier = Modifier, 
             org.arcmediaserver.android.ui.components.FormatBadges(shown)
         }
         Spacer(Modifier.height(8.dp))
-        item.overview?.takeIf { it.isNotBlank() }?.let {
+        org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
     }

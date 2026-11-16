@@ -136,7 +136,8 @@ fun FocusCard(
 private fun BackdropArt(card: MediaCard) {
     val title = cardTitle(card)
     Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
-        Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
+        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize())
+        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
         var failed by remember(card.logo) { mutableStateOf(false) }
         val logo = card.logo
@@ -263,6 +264,9 @@ fun MediaCardView(
                 BackdropArt(card)
             } else if (!landscape && card.mosaic.size >= 4) {
                 Mosaic(card.mosaic, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            } else if (landscape && card.item.isEpisode) {
+                // An episode's still keeps spoilers back while the profile hides them.
+                EpisodeArtwork(card.item, card.thumb, label = cardTitle(card), modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
             } else {
                 Artwork(
                     url = if (landscape) card.thumb else if (seasonPoster) card.seasonPoster ?: card.poster else card.poster,
