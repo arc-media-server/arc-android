@@ -128,7 +128,7 @@ object Fixtures {
 
     val homeRows: List<HomeRowState> = listOf(
         HomeRowState(
-            HomeRowSpec("continue", RowSource.Continue(true), CardStyle.Thumb),
+            HomeRowSpec("continue", RowSource.Continue(true), CardStyle.Backdrop),
             LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(movies[2].copy(userData = UserData(96 * 60_000))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
         ),
         HomeRowState(

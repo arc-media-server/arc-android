@@ -23,3 +23,12 @@ avoids redistributing them.
 
 **Logging.** None: test fixtures and a developer script only. The script prints which titles it
 fetched and never prints the key or request URLs.
+
+## Title page and Continue Watching (owner, 16 November)
+
+- **Title page:** the description, details and badges now sit under the logo and above the Play
+  button and round buttons, instead of beside them (the 31 October layout). The description is
+  capped at 600 dp wide so it reads as a block rather than one long line. MORE still opens the
+  whole text, and Up from the buttons reaches it when it's cut short.
+- **Screenshots:** Home's Continue Watching row uses the Backdrops card style (the title's
+  background art with its logo), which the app already offers as a row style.
