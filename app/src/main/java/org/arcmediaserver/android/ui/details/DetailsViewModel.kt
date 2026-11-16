@@ -67,6 +67,13 @@ suspend fun relatedRows(api: org.arcmediaserver.android.data.ArcApi, item: Item)
     (collections.map { it.await() } + similar.await()).filterNotNull().filter { it.items.isNotEmpty() }
 }
 
+/**
+ * What Shuffle plays: the episodes on disk of the season numbered [seasonNumber] (Shuffle Season),
+ * or of every season (a show's Shuffle). Episodes outside the show's order aren't included.
+ */
+fun shuffleCandidates(seasons: List<Season>, seasonNumber: Int? = null): List<Item> =
+    seasons.filter { seasonNumber == null || it.seasonNumber == seasonNumber }.flatMap { it.episodes }.filter { it.available }
+
 /** The episode to carry on with: one part-way through, else the first not watched, specials last. */
 fun nextEpisode(seasons: List<Season>): Item? {
     val ordered = seasons.filter { it.seasonNumber > 0 } + seasons.filter { it.seasonNumber <= 0 }
@@ -186,15 +193,15 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
     }
 
     /** Shuffle (a show): its available episodes in a random order, as a new queue; [play] starts it. */
-    fun shuffle(play: (Item, String) -> Unit) {
+    fun shuffle(play: (Item, String) -> Unit, seasonNumber: Int? = null) {
         val details = (_state.value as? LoadState.Ready)?.value ?: return
-        val episodes = details.seasons.flatMap { it.episodes }.filter { it.available }.shuffled()
+        val episodes = shuffleCandidates(details.seasons, seasonNumber).shuffled()
         if (episodes.isEmpty()) return
         viewModelScope.launch {
             val queue = container.queues.start(episodes.map { it.id })
             val first = queue?.entries?.firstOrNull { it.id == queue.currentEntryId && it.playable }
             if (queue == null || first?.item == null) {
-                ArcLog.Android.warn("shuffling a show failed")
+                ArcLog.Android.warn("shuffling a ${if (seasonNumber != null) "season" else "show"} failed")
                 return@launch
             }
             ArcLog.Android.debug("shuffled ${episodes.size} episodes")
