@@ -342,10 +342,18 @@ private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.
 
 /**
  * Pill tabs (a show's seasons, a library's Recommended / titles / Collections): moving the focus
- * along them switches what's shown, as Google TV's tabs do.
+ * along them switches what's shown, as Google TV's tabs do. [onClick] is OK on a tab (a season's
+ * menu); [selectedTab] goes on the selected tab (to return the focus to it, or to place a menu).
  */
 @Composable
-fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun PillTabs(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    onClick: ((Int) -> Unit)? = null,
+    selectedTab: Modifier = Modifier,
+) {
     // The Apple TV app's segmented control: a glass pill holding the tabs, the current one lighter
     // and the focused one white (owner, 1 November).
     androidx.tv.material3.TabRow(
@@ -365,6 +373,8 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
             Tab(
                 selected = i == selected,
                 onFocus = { onSelect(i) },
+                onClick = { onClick?.invoke(i) },
+                modifier = if (i == selected) selectedTab else Modifier,
                 colors = androidx.tv.material3.TabDefaults.pillIndicatorTabColors(
                     contentColor = ArcColors.Foreground.copy(alpha = 0.65f),
                     selectedContentColor = ArcColors.Foreground,
