@@ -417,6 +417,19 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showMissingEpisodes() = shot("show-missing-episodes") {
+        // Show Missing Episodes on: Season 2 gains two episodes with no file, dimmed and "Not on disk".
+        val season = Fixtures.seasons[1].let { s ->
+            s.copy(episodes = s.episodes + listOf(Fixtures.episode(2, 4, "Floodplain"), Fixtures.episode(2, 5, "High Water")).map { it.copy(available = false, userData = null) })
+        }
+        DetailsScreen(
+            Details(Fixtures.show, listOf(Fixtures.seasons[0], season, Fixtures.seasons[2]), next = Fixtures.seasons[0].episodes[2], initialSeason = 1, missing = true),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun show() = shot("show-episodes") {
         DetailsScreen(
             Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
