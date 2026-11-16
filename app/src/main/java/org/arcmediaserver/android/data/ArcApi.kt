@@ -230,8 +230,9 @@ class ArcApi(
 
     suspend fun collection(id: String): CollectionPage = get("collections/${enc(id)}", CollectionPage.serializer(), route = "collections/{id}")
 
-    suspend fun seasons(seriesId: String): SeasonsResponse =
-        get("series/${enc(seriesId)}/seasons", SeasonsResponse.serializer(), route = "series/{id}/seasons")
+    /** A show's seasons in its display order; with [missing], also the episodes it has no file for. */
+    suspend fun seasons(seriesId: String, missing: Boolean = false): SeasonsResponse =
+        get("series/${enc(seriesId)}/seasons${if (missing) "?missing=1" else ""}", SeasonsResponse.serializer(), route = "series/{id}/seasons")
 
     suspend fun startPlayback(itemId: String, request: PlaybackRequest): PlaybackPlan =
         send("POST", "items/${enc(itemId)}/playback", ArcJson.encodeToString(PlaybackRequest.serializer(), request), PlaybackPlan.serializer(), route = "items/{id}/playback")

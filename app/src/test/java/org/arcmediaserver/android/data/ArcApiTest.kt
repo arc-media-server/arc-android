@@ -212,6 +212,17 @@ class ArcApiTest {
     }
 
     @Test
+    fun `missing episodes are asked for with missing=1, and only then`() = runTest {
+        answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"seasons":[]}""")
+        answer(200, """{"series":{"id":"s","kind":"series","title":"S"},"seasons":[{"season_number":1,"episodes":[{"id":"m","kind":"episode","title":"Gone","available":false}]}]}""")
+        api.seasons("s")
+        assertEquals(null, server.takeRequest().url.queryParameter("missing"))
+        val withMissing = api.seasons("s", missing = true)
+        assertEquals("1", server.takeRequest().url.queryParameter("missing"))
+        assertEquals(false, withMissing.seasons[0].episodes[0].available)
+    }
+
+    @Test
     fun `watched and watchlist are PUTs that answer 204`() = runTest {
         answer(204, "")
         answer(204, "")

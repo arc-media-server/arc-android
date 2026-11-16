@@ -46,9 +46,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -121,7 +123,9 @@ fun DetailsRoute(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
                     onSeasonWatched = vm::toggleSeasonWatched,
                     onRate = vm::rate,
+                    onToggleMissing = vm::toggleMissing,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
+                    onShuffleSeason = if (canShuffle) { { n -> vm.shuffle(onPlayQueued, n) } } else null,
                     onPlayVersion = onPlayVersion,
                 ),
                 onPerson = onPerson,
@@ -140,12 +144,16 @@ data class TitleActions(
     val onProblemShown: () -> Unit = {},
     /** A show's Shuffle; null where it can't be shuffled. */
     val onShuffle: (() -> Unit)? = null,
+    /** Shuffle Season (a season's menu), by season number; null where it can't be shuffled. */
+    val onShuffleSeason: ((Int) -> Unit)? = null,
     /** Play Version…: plays the title from a point with a chosen file. */
     val onPlayVersion: ((Item, Long, Long) -> Unit)? = null,
     /** A show's Mark Season as Watched / Unwatched, by season number. */
     val onSeasonWatched: (Int) -> Unit = {},
     /** The profile's own rating, 1–10 (0 clears it). */
     val onRate: (Int) -> Unit = {},
+    /** Show / Hide Missing Episodes, staying on the season numbered. */
+    val onToggleMissing: (Int) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -255,6 +263,24 @@ fun DetailsScreen(
                         icon = ArcIcons.CircleCheck, focus = first,
                     ) {
                         actions.onSeasonWatched(number)
+                        close()
+                    }
+                    // Shuffle Season, as the web's show page: when there's more than one episode
+                    // on disk to shuffle and the server keeps play queues.
+                    val shuffleSeason = actions.onShuffleSeason
+                    if (shuffleSeason != null && shuffleCandidates(details.seasons, number).size > 1) {
+                        org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_shuffle_season), icon = ArcIcons.Shuffle) {
+                            seasonMenu = null
+                            shuffleSeason(number)
+                        }
+                    }
+                    // Show / Hide Missing Episodes, as the web's show page: the whole show's
+                    // episodes with no file, dimmed. The page stays on this season.
+                    org.arcmediaserver.android.ui.components.PopoverItem(
+                        stringResource(if (details.missing) R.string.action_hide_missing else R.string.action_show_missing),
+                        icon = ArcIcons.ListVideo,
+                    ) {
+                        actions.onToggleMissing(number)
                         close()
                     }
                 }
@@ -639,7 +665,8 @@ private fun Seasons(
         Text(stringResource(R.string.details_no_episodes), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = PageStart, top = 32.dp))
         return
     }
-    var selected by rememberSaveable(details.item.id) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
+    // Show Missing Episodes can add or drop seasons, so the tab starts again (on the season kept).
+    var selected by rememberSaveable(details.item.id, details.missing) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
     Column(Modifier.padding(top = 24.dp)) {
         val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
         val unplacedTab = selected >= details.seasons.size
@@ -652,7 +679,9 @@ private fun Seasons(
         Row(verticalAlignment = Alignment.CenterVertically) {
             PillTabs(
                 labels, selected, onSelect = { selected = it },
-                modifier = Modifier.padding(start = PageStart - 8.dp),
+                // Coming into the tabs (Down from Play, Up from the episodes) lands on the season
+                // shown, not whichever tab is nearest: landing on a tab switches season.
+                modifier = Modifier.padding(start = PageStart - 8.dp).focusRestorer(seasonTab),
                 onClick = { i -> details.seasons.getOrNull(i)?.let { onSeasonMenu(it, tabBounds) } },
                 selectedTab = Modifier.focusRequester(seasonTab).onGloballyPositioned { tabBounds = it.boundsInRoot() },
             )
@@ -706,8 +735,13 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
     Column(Modifier.width(EpisodeWidth)) {
-        FocusCard(onClick = onClick, onFocused = { focused = it }, modifier = modifier) {
-            org.arcmediaserver.android.ui.components.EpisodeArtwork(ep, card.thumb, label = ep.title, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+        // An episode with no file (Show Missing Episodes) is dimmed and doesn't play; it can still
+        // be focused, to read about it.
+        FocusCard(onClick = { if (ep.available) onClick() }, onFocused = { focused = it }, modifier = modifier) {
+            org.arcmediaserver.android.ui.components.EpisodeArtwork(
+                ep, card.thumb, label = ep.title,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).alpha(if (ep.available) 1f else 0.4f),
+            )
             WatchBadge(ep)
             ProgressLine(card.progress)
         }
