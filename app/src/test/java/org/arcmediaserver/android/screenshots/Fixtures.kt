@@ -35,84 +35,84 @@ import org.arcmediaserver.android.ui.components.LoadState
 import kotlin.math.abs
 
 /**
- * Real films and a cartoon series whose artwork is free to show: public-domain classics and the
- * Blender Studio open movies (Creative Commons), listed with their sources and licences in
- * `src/test/resources/artwork/SOURCES.md`. The synopses are our own. Artwork addresses are
- * "art:<kind>:<title>"; [art] loads them, or draws a stand-in when there's no file.
+ * Well-known films and a show, so the screenshots look like a real library. Titles, years, credits
+ * and running times are real; the synopses are our own. The artwork isn't in git: run
+ * `tools/fetch-screenshot-art.py` (it needs a TMDB API key) to download it from TMDB into
+ * `src/test/resources/artwork/`. Without it, [art] draws a stand-in for each "art:<kind>:<title>".
  */
 object Fixtures {
-    private fun images(title: String, logo: Boolean = false) = Images(
+    private fun images(title: String) = Images(
         primary = "art:poster:$title",
         backdrop = "art:backdrop:$title",
         backdropFull = "art:backdrop:$title",
-        logo = if (logo) "art:logo:$title" else null,
+        logo = "art:logo:$title",
     )
 
-    private fun movie(id: String, title: String, year: Int, minutes: Int, overview: String, genres: List<String>, pos: Long = 0, played: Boolean = false, rating: String = "PG") = Item(
+    private fun movie(id: String, title: String, year: Int, minutes: Int, overview: String, genres: List<String>, rating: String, pos: Long = 0, played: Boolean = false) = Item(
         id = id, libraryId = 1, kind = "movie", title = title, year = year, runtimeMin = minutes, overview = overview, contentRating = rating,
         images = images(title), userData = UserData(pos, played), genres = genres,
     )
 
     val movies = listOf(
-        movie("m1", "Metropolis", 1927, 153, "In a towering city split between the planners above and the workers below, the son of its master follows a young teacher into the depths and finds a revolution being built in her image.", listOf("Science Fiction", "Drama"), pos = 52 * 60_000),
-        movie("m2", "Big Buck Bunny", 2008, 10, "A gentle giant of a rabbit has his quiet morning spoiled by three bullying rodents, and decides it's time to get even.", listOf("Animation", "Comedy"), rating = "U"),
-        movie("m3", "Sintel", 2010, 15, "A lone traveller crosses a frozen wilderness to find the baby dragon that was taken from her.", listOf("Animation", "Fantasy"), rating = "12"),
-        movie("m4", "Night of the Living Dead", 1968, 96, "Strangers barricade themselves in a farmhouse as the recently dead rise and close in through the night.", listOf("Horror"), played = true, rating = "15"),
-        movie("m5", "The General", 1926, 79, "When Union spies steal his beloved locomotive, a Southern engineer gives chase alone, across a whole railway and through the war.", listOf("Comedy", "Action"), rating = "U"),
-        movie("m6", "Cosmos Laundromat", 2015, 12, "A sheep on a barren island, tired of living, meets a salesman who offers him every life he could want.", listOf("Animation", "Science Fiction"), rating = "12"),
-        movie("m7", "The Cabinet of Dr. Caligari", 1920, 76, "A travelling showman and his sleepwalking attraction arrive at a town fair, and the murders begin.", listOf("Horror", "Mystery")),
-        movie("m8", "Sprite Fright", 2021, 29, "A party of teenagers camping in the woods discovers that the forest's tiny guardians don't care for litter.", listOf("Animation", "Comedy", "Horror"), rating = "12"),
+        movie("m1", "Dune: Part Two", 2024, 167, "Paul Atreides joins the Fremen of the deep desert and fights to avenge his family, while visions warn him where that path leads.", listOf("Science Fiction", "Adventure"), "12A", pos = 52 * 60_000),
+        movie("m2", "Oppenheimer", 2023, 181, "The physicist who led the race to build the atomic bomb, and what it cost him once it was built.", listOf("Drama", "History"), "15"),
+        movie("m3", "Everything Everywhere All at Once", 2022, 140, "A laundromat owner in the middle of a tax audit finds she can borrow skills from every other life she might have lived.", listOf("Action", "Adventure", "Science Fiction"), "15"),
+        movie("m4", "Interstellar", 2014, 169, "With crops failing across the Earth, a former pilot leaves his family to search for a new home beyond a wormhole.", listOf("Adventure", "Drama", "Science Fiction"), "12A", played = true),
+        movie("m5", "Spider-Man: Across the Spider-Verse", 2023, 140, "Miles Morales is pulled across the multiverse and finds the other Spider-People have rules he won't follow.", listOf("Animation", "Action", "Adventure"), "PG"),
+        movie("m6", "Blade Runner 2049", 2017, 164, "A replicant hunter uncovers a buried secret that leads him to search for a blade runner missing for thirty years.", listOf("Science Fiction", "Drama"), "15"),
+        movie("m7", "The Grand Budapest Hotel", 2014, 100, "A legendary concierge and his lobby boy are caught up in a stolen painting and a family fortune.", listOf("Comedy", "Drama"), "15"),
+        movie("m8", "Mad Max: Fury Road", 2015, 121, "A warrior and a drifter flee across the wasteland with a tyrant's wives and his whole army behind them.", listOf("Action", "Adventure", "Science Fiction"), "15"),
     )
 
     /** Two more, so a library's grid fills out. */
     val moreMovies = listOf(
-        movie("m9", "Elephants Dream", 2006, 11, "Two men wander a vast, shifting machine; the older one insists he understands it, and the younger stops believing him.", listOf("Animation", "Science Fiction"), rating = "12"),
-        movie("m10", "Sherlock Jr.", 1924, 45, "A cinema projectionist who longs to be a detective dozes off and walks into the film on the screen.", listOf("Comedy"), rating = "U"),
+        movie("m9", "Arrival", 2016, 116, "A linguist is asked to talk to the visitors in one of twelve ships that have landed around the world.", listOf("Drama", "Science Fiction", "Mystery"), "12A"),
+        movie("m10", "Parasite", 2019, 133, "A struggling family talk their way, one by one, into jobs with a wealthy household.", listOf("Comedy", "Thriller", "Drama"), "15"),
     )
 
-    private val showImages = images("Superman", logo = true)
+    private val showImages = images("Severance")
 
     private val synopses = mapOf(
-        "The Mad Scientist" to "A scientist with an energy cannon threatens to wreck the city unless the Daily Planet stops printing about him.",
-        "The Mechanical Monsters" to "Flying robots raid banks and jewellers across the city, and Lois follows one home.",
-        "Billion Dollar Limited" to "Bandits go after a train carrying a fortune in gold to the mint, with Lois aboard.",
-        "The Arctic Giant" to "A dinosaur frozen in the Arctic thaws out in a museum and walks into the city.",
-        "The Bulleteers" to "A gang in a rocket car demands the city's treasury, or they'll keep smashing buildings.",
-        "The Magnetic Telescope" to "An astronomer's machine pulls comets towards the Earth, and the police want it switched off.",
-        "Electric Earthquake" to "A man who says Manhattan belongs to his people sets off quakes from under the river.",
-        "Volcano" to "A volcano island erupts as the press gathers to watch, and Lois gets too close.",
-        "Terror on the Midway" to "Escaped circus animals, a gorilla among them, run loose through the fairground.",
-        "Japoteurs" to "Saboteurs plan to steal the world's largest bomber on its first flight, with Lois hidden on board.",
-        "Showdown" to "A crook dressed as Superman goes on a robbery spree, and the real one sets things straight.",
-        "Eleventh Hour" to "Clark Kent is held in Japan, slipping out at night to sabotage the shipyards.",
+        "Good News About Hell" to "Mark's team at Lumon gets a new member, and she wants nothing more than to leave.",
+        "Half Loop" to "Mark meets a stranger who knows more about his job than he does.",
+        "In Perpetuity" to "The team visits the company's founder's wing, and Helly tries another way out.",
+        "The You You Are" to "Irving finds a department he's never heard of, and Mark goes to a dinner party.",
+        "The Grim Barbarity of Optics and Design" to "Two departments meet, and Mark's outie starts asking questions.",
+        "Hide and Seek" to "Helly's escape attempts come to a head, and Cobel takes a risk.",
+        "Defiant Jazz" to "A celebration on the severed floor turns up a way to reach the outside.",
+        "What's for Dinner?" to "Three innies wake up in the outside world for one night.",
+        "The We We Are" to "The innies have hours, at most, to tell someone what Lumon is.",
+        "Hello, Ms. Cobel" to "Mark returns to a changed severed floor, and new faces in the office.",
+        "Goodbye, Mrs. Selvig" to "Cobel looks for a way back in, and the team relearns its work.",
+        "Who Is Alive?" to "The team is sent to find out what happened to a department.",
     )
 
-    fun episode(s: Int, e: Int, title: String, pos: Long = 0, played: Boolean = false, minutes: Int = 9) = Item(
-        id = "ep:sm:$s:$e", libraryId = 2, kind = "episode", parentId = "sm", title = title, seriesTitle = "Superman",
+    fun episode(s: Int, e: Int, title: String, minutes: Int, pos: Long = 0, played: Boolean = false) = Item(
+        id = "ep:sv:$s:$e", libraryId = 2, kind = "episode", parentId = "sv", title = title, seriesTitle = "Severance",
         seasonNumber = s, episodeNumber = e, runtimeMin = minutes, userData = UserData(pos, played),
-        overview = synopses[title] ?: "Superman steps in when Metropolis faces a threat only he can stop.",
+        overview = synopses[title] ?: "Mark and his team at Lumon keep finding more than the job lets them know.",
         images = Images(primary = "art:still:$title", seriesPrimary = showImages.primary, seriesBackdrop = showImages.backdrop, seriesLogo = showImages.logo),
     )
 
     val show = Item(
-        id = "sm", libraryId = 2, kind = "series", title = "Superman", year = 1941, contentRating = "U",
-        overview = "The Fleischer and Famous Studios cartoons: mad scientists, giant robots and runaway trains, and the Man of Steel in glorious Technicolor.",
-        genres = listOf("Animation", "Action"), unwatchedCount = 13, images = showImages, rating = 7.9,
+        id = "sv", libraryId = 2, kind = "series", title = "Severance", year = 2022, contentRating = "15",
+        overview = "At Lumon Industries, some employees have their memories split in two: the people who go to work never know their lives outside, and the other way round.",
+        genres = listOf("Drama", "Mystery", "Science Fiction"), unwatchedCount = 13, images = showImages, rating = 8.4,
     )
 
     val seasons = listOf(
         Season(1, "Season 1", episodes = listOf(
-            episode(1, 1, "The Mad Scientist", played = true),
-            episode(1, 2, "The Mechanical Monsters", played = true),
-            episode(1, 3, "Billion Dollar Limited", pos = 4 * 60_000),
-            episode(1, 4, "The Arctic Giant"),
-            episode(1, 5, "The Bulleteers"),
-            episode(1, 6, "The Magnetic Telescope"),
-            episode(1, 7, "Electric Earthquake"),
-            episode(1, 8, "Volcano"),
-            episode(1, 9, "Terror on the Midway"),
+            episode(1, 1, "Good News About Hell", 59, played = true),
+            episode(1, 2, "Half Loop", 57, played = true),
+            episode(1, 3, "In Perpetuity", 60, pos = 21 * 60_000),
+            episode(1, 4, "The You You Are", 50),
+            episode(1, 5, "The Grim Barbarity of Optics and Design", 47),
+            episode(1, 6, "Hide and Seek", 44),
+            episode(1, 7, "Defiant Jazz", 53),
+            episode(1, 8, "What's for Dinner?", 50),
+            episode(1, 9, "The We We Are", 44),
         )),
-        Season(2, "Season 2", episodes = listOf(episode(2, 1, "Japoteurs"), episode(2, 2, "Showdown"), episode(2, 3, "Eleventh Hour"))),
+        Season(2, "Season 2", episodes = listOf(episode(2, 1, "Hello, Ms. Cobel", 54), episode(2, 2, "Goodbye, Mrs. Selvig", 49), episode(2, 3, "Who Is Alive?", 57))),
     )
 
     val libraries = listOf(Library(1, "Movies", "movies", 8), Library(2, "TV Shows", "shows", 5), Library(3, "Home Videos", "videos", 12))
@@ -129,7 +129,7 @@ object Fixtures {
     val homeRows: List<HomeRowState> = listOf(
         HomeRowState(
             HomeRowSpec("continue", RowSource.Continue(true), CardStyle.Thumb),
-            LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(movies[2].copy(userData = UserData(9 * 60_000))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
+            LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(movies[2].copy(userData = UserData(96 * 60_000))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
         ),
         HomeRowState(
             HomeRowSpec("recent:1", RowSource.Recent(libraries[0], false), CardStyle.Poster, seasonPosters = true),
@@ -137,17 +137,17 @@ object Fixtures {
         ),
         HomeRowState(
             HomeRowSpec("recent:2", RowSource.Recent(libraries[1], false), CardStyle.Poster, seasonPosters = true),
-            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Superman")))),
+            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Severance Season 2")))),
         ),
     )
 
     val plan = PlaybackPlan(
         method = "remux", reasons = listOf("MKV file"), url = "/api/transcode/s/index.m3u8", hls = true, sessionId = "s",
-        offsetMs = 0, durationMs = 9 * 60_000L, fileId = 1, audioStream = 1,
+        offsetMs = 0, durationMs = 60 * 60_000L, fileId = 1, audioStream = 1,
         audioTracks = listOf(AudioTrack(1, "eng", codec = "eac3", channels = 6, default = true), AudioTrack(2, "fra", codec = "aac", channels = 2)),
         subtitleTracks = listOf(SubtitleTrack("s:3", "eng"), SubtitleTrack("s:4", "eng", forced = true)),
-        chapters = listOf(Chapter(0, 60_000), Chapter(60_000, 240_000), Chapter(240_000, 420_000), Chapter(420_000, 540_000)),
-        markers = listOf(Marker("intro", 0, 45_000), Marker("credits", 510_000, 540_000)),
+        chapters = listOf(Chapter(0, 300_000), Chapter(300_000, 1_200_000), Chapter(1_200_000, 2_400_000), Chapter(2_400_000, 3_600_000)),
+        markers = listOf(Marker("intro", 150_000, 230_000), Marker("credits", 3_480_000, 3_600_000)),
         sourceKbps = 9000,
     )
 
@@ -156,13 +156,13 @@ object Fixtures {
         userData = UserData(52 * 60_000, watchlisted = true),
         files = listOf(
             MediaFile(
-                id = 11, durationMs = 153 * 60_000L, container = "mkv", size = 21_400_000_000, bitrate = 18_600_000,
-                path = "/media/Movies/Metropolis (1927)/Metropolis (1927) - 2160p.mkv",
+                id = 11, durationMs = 167 * 60_000L, container = "mkv", size = 61_200_000_000, bitrate = 18_600_000,
+                path = "/media/Movies/Dune Part Two (2024)/Dune Part Two (2024) - 2160p.mkv",
                 streams = listOf(
-                    MediaStream(0, "video", "hevc", "Main 10", width = 2880, height = 2160, aspectRatio = 1.33, frameRate = 23.976, bitDepth = 10, colorPrimaries = "bt2020", colorTransfer = "smpte2084", pixFmt = "yuv420p10le", bitrate = 15_200_000),
-                    MediaStream(1, "audio", "truehd", "Dolby TrueHD", language = "eng", channels = 6, title = "2010 orchestral score"),
-                    MediaStream(2, "audio", "ac3", language = "eng", channels = 2, bitrate = 192_000, title = "Commentary"),
-                    MediaStream(3, "audio", "flac", language = "zxx", channels = 2, title = "1927 score, piano"),
+                    MediaStream(0, "video", "hevc", "Main 10", width = 3840, height = 1608, aspectRatio = 2.39, frameRate = 23.976, bitDepth = 10, colorPrimaries = "bt2020", colorTransfer = "smpte2084", pixFmt = "yuv420p10le", bitrate = 15_200_000),
+                    MediaStream(1, "audio", "truehd", "Dolby TrueHD + Dolby Atmos", language = "eng", channels = 8),
+                    MediaStream(2, "audio", "ac3", language = "eng", channels = 6, bitrate = 640_000),
+                    MediaStream(3, "audio", "eac3", language = "fra", channels = 6, bitrate = 768_000),
                     MediaStream(4, "subtitle", "subrip", language = "eng"),
                     MediaStream(5, "subtitle", "hdmv_pgs_subtitle", language = "eng", forced = true),
                     MediaStream(6, "subtitle", "subrip", language = "spa"),
@@ -175,7 +175,7 @@ object Fixtures {
         movies = movies.take(3),
         shows = listOf(show),
         episodes = listOf(seasons[0].episodes[3], seasons[1].episodes[0]),
-        people = listOf(Person(1, "Buster Keaton", count = 2, knownFor = "actor"), Person(2, "Fritz Lang", count = 1, knownFor = "director"), Person(3, "Thea von Harbou", count = 1, knownFor = "writer")),
+        people = listOf(Person(1, "Timothée Chalamet", "art:person:Timothée Chalamet", 2, "actor"), Person(2, "Denis Villeneuve", "art:person:Denis Villeneuve", 3, "director"), Person(3, "Zendaya", "art:person:Zendaya", 2, "actor")),
     )
 
     /** Timeline thumbnails: 5x5 tiles of 320x180 to a sheet, one every 10 seconds. */
@@ -185,15 +185,17 @@ object Fixtures {
     )
 
     /**
-     * Artwork for an "art:" address. Titles with open-licence artwork (Creative Commons or public
-     * domain, listed in `src/test/resources/artwork/SOURCES.md`) use it, from
-     * `artwork/<kind>/<title-slug>.jpg`; the rest get a gradient in a colour from the title.
+     * Artwork for an "art:" address: the downloaded file `artwork/<kind>/<title-slug>.png` or
+     * `.jpg` when there is one (see the note on [Fixtures]); otherwise a stand-in, a gradient in a
+     * colour from the title.
      */
     fun art(url: String): Bitmap {
         val (kind, title) = url.removePrefix("art:").split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
         val slug = title.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
-        Fixtures::class.java.getResourceAsStream("/artwork/$kind/$slug.jpg")?.use { stream ->
-            android.graphics.BitmapFactory.decodeStream(stream)?.let { return it }
+        for (ext in listOf("png", "jpg")) {
+            Fixtures::class.java.getResourceAsStream("/artwork/$kind/$slug.$ext")?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream)?.let { return it }
+            }
         }
         if (kind == "logo") {
             // A clear logo: the title set in heavy serif capitals on transparency.
@@ -214,7 +216,7 @@ object Fixtures {
             // A sheet of timeline thumbnails: each tile its own frame of a made-up scene.
             val bmp = Bitmap.createBitmap(5 * 320, 5 * 180, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            val still = Fixtures::class.java.getResourceAsStream("/artwork/still/billion-dollar-limited.jpg")?.use { android.graphics.BitmapFactory.decodeStream(it) }
+            val still = Fixtures::class.java.getResourceAsStream("/artwork/still/in-perpetuity.jpg")?.use { android.graphics.BitmapFactory.decodeStream(it) }
             val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 34f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
             for (i in 0 until 25) {
                 val x = (i % 5) * 320f
@@ -233,7 +235,7 @@ object Fixtures {
             return bmp
         }
         val (w, h) = when (kind) {
-            "poster" -> 400 to 600
+            "poster", "person" -> 400 to 600
             "still" -> 640 to 360
             else -> 1280 to 720
         }

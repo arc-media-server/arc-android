@@ -262,7 +262,7 @@ class ScreenshotTest {
             BrowseUiState(
                 frame = LoadState.Ready(Fixtures.frame),
                 section = Section.Library(1),
-                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies + Fixtures.moreMovies).copy(letters = listOf(org.arcmediaserver.android.data.LetterCount("b", 1), org.arcmediaserver.android.data.LetterCount("c", 2), org.arcmediaserver.android.data.LetterCount("e", 1), org.arcmediaserver.android.data.LetterCount("g", 1), org.arcmediaserver.android.data.LetterCount("m", 1), org.arcmediaserver.android.data.LetterCount("n", 1), org.arcmediaserver.android.data.LetterCount("s", 3)))),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies + Fixtures.moreMovies).copy(letters = listOf(org.arcmediaserver.android.data.LetterCount("a", 1), org.arcmediaserver.android.data.LetterCount("b", 1), org.arcmediaserver.android.data.LetterCount("d", 1), org.arcmediaserver.android.data.LetterCount("e", 1), org.arcmediaserver.android.data.LetterCount("g", 1), org.arcmediaserver.android.data.LetterCount("i", 1), org.arcmediaserver.android.data.LetterCount("m", 1), org.arcmediaserver.android.data.LetterCount("o", 1), org.arcmediaserver.android.data.LetterCount("p", 1), org.arcmediaserver.android.data.LetterCount("s", 1)))),
                 libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Titles,
                 libraryExtras = libraryExtras,
             ),
@@ -273,13 +273,13 @@ class ScreenshotTest {
         recommended = LoadState.Ready(
             listOf(
                 org.arcmediaserver.android.data.RecommendedRow(type = "recently_added", items = Fixtures.movies),
-                org.arcmediaserver.android.data.RecommendedRow(type = "because_you_watched", name = "Metropolis", items = Fixtures.movies.reversed()),
+                org.arcmediaserver.android.data.RecommendedRow(type = "because_you_watched", name = "Dune: Part Two", items = Fixtures.movies.reversed()),
             ),
         ),
         collections = LoadState.Ready(
             listOf(
-                org.arcmediaserver.android.data.CollectionRef("c1", "Blender Open Movies", "manual", 6, org.arcmediaserver.android.data.Images(primary = "art:poster:Elephants Dream")),
-                org.arcmediaserver.android.data.CollectionRef("c2", "Silent Classics", "manual", 4, org.arcmediaserver.android.data.Images(primary = "art:poster:Sherlock Jr.")),
+                org.arcmediaserver.android.data.CollectionRef("c1", "Dune Collection", "auto", 2, org.arcmediaserver.android.data.Images(primary = "art:poster:Dune Collection")),
+                org.arcmediaserver.android.data.CollectionRef("c2", "Spider-Man: Spider-Verse Collection", "auto", 2, org.arcmediaserver.android.data.Images(primary = "art:poster:Spider-Man: Spider-Verse Collection")),
             ),
         ),
     )
@@ -373,19 +373,19 @@ class ScreenshotTest {
     fun movieAboutCards() = shot("movie-about-cards", keys = List(4) { androidx.compose.ui.input.key.Key.DirectionDown }) {
         // The foot of a film's page: About across the top, then Details, Crew and Playback.
         val credits = listOf(
-            org.arcmediaserver.android.data.Credit(1, "Brigitte Helm", "actor", "Maria"),
-            org.arcmediaserver.android.data.Credit(2, "Fritz Lang", "director"),
-            org.arcmediaserver.android.data.Credit(3, "Thea von Harbou", "writer"),
+            org.arcmediaserver.android.data.Credit(1, "Timothée Chalamet", "actor", "Paul Atreides", "art:person:Timothée Chalamet"),
+            org.arcmediaserver.android.data.Credit(2, "Denis Villeneuve", "director", image = "art:person:Denis Villeneuve"),
+            org.arcmediaserver.android.data.Credit(3, "Jon Spaihts", "writer", image = "art:person:Jon Spaihts"),
         )
-        val film = Fixtures.movieWithFile.copy(credits = credits, releaseDate = "1927-01-10", studio = "UFA", contentRating = "PG", genres = listOf("Science Fiction", "Drama"), runtimeMin = 153)
+        val film = Fixtures.movieWithFile.copy(credits = credits, releaseDate = "2024-03-01", studio = "Legendary Pictures", contentRating = "12A", genres = listOf("Science Fiction", "Adventure"), runtimeMin = 167)
         DetailsScreen(Details(film), onPlay = { _: Item, _: Long -> }, onOpen = {}, serverName = "Living Room Arc")
     }
 
     @Test
     fun movie() = shot("movie") {
         // With its cast, which should show on arrival under the buttons.
-        val cast = listOf("Brigitte Helm" to "Maria", "Gustav Fröhlich" to "Freder", "Alfred Abel" to "Joh Fredersen", "Rudolf Klein-Rogge" to "Rotwang", "Fritz Rasp" to "The Thin Man", "Theodor Loos" to "Josaphat")
-            .mapIndexed { i, (name, role) -> org.arcmediaserver.android.data.Credit(personId = i.toLong(), name = name, role = "actor", character = role) }
+        val cast = listOf("Timothée Chalamet" to "Paul Atreides", "Zendaya" to "Chani", "Rebecca Ferguson" to "Jessica", "Javier Bardem" to "Stilgar", "Josh Brolin" to "Gurney Halleck", "Austin Butler" to "Feyd-Rautha")
+            .mapIndexed { i, (name, role) -> org.arcmediaserver.android.data.Credit(personId = i.toLong(), name = name, role = "actor", character = role, image = "art:person:$name") }
         DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
     }
 
@@ -448,8 +448,8 @@ class ScreenshotTest {
         // Two files the show's order leaves out: the last tab, with the note and no episode numbers.
         val outside = listOf(
             // Arc numbers them season 0, episode 0: no number shows anywhere.
-            Fixtures.episode(0, 0, "The Lost Reel"),
-            Fixtures.episode(0, 0, "Deleted Scenes Cut", played = true).copy(id = "ep:hc:x:2"),
+            Fixtures.episode(0, 0, "Inside Severance", 30),
+            Fixtures.episode(0, 0, "Severance: The Lumon Orientation", 12, played = true).copy(id = "ep:sv:x:2"),
         )
         DetailsScreen(
             Details(
@@ -512,7 +512,7 @@ class ScreenshotTest {
     fun playerControls() = shot("player") {
         Box(Modifier.fillMaxSize()) {
             androidx.compose.foundation.Image(
-                bitmap = Fixtures.art("art:still:Billion Dollar Limited").asImageBitmap(),
+                bitmap = Fixtures.art("art:still:In Perpetuity").asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -523,9 +523,9 @@ class ScreenshotTest {
                     plan = Fixtures.plan,
                     loading = false,
                     playing = true,
-                    positionMs = 4 * 60_000L + 14_000,
+                    positionMs = 21 * 60_000L + 14_000,
                     durationMs = Fixtures.plan.durationMs,
-                    bufferedMs = 5 * 60_000L,
+                    bufferedMs = 26 * 60_000L,
                     next = Fixtures.seasons[0].episodes[3],
                 ),
                 visible = true,
@@ -539,13 +539,13 @@ class ScreenshotTest {
     fun playerSkipIntro() = shot("player-skip-intro") {
         Box(Modifier.fillMaxSize()) {
             androidx.compose.foundation.Image(
-                bitmap = Fixtures.art("art:still:Billion Dollar Limited").asImageBitmap(),
+                bitmap = Fixtures.art("art:still:In Perpetuity").asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             )
             PlayerControls(
-                state = PlayerUiState(item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true, positionMs = 20_000, durationMs = Fixtures.plan.durationMs),
+                state = PlayerUiState(item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true, positionMs = 160_000, durationMs = Fixtures.plan.durationMs),
                 visible = false,
                 scrubMs = null,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
@@ -576,7 +576,7 @@ class ScreenshotTest {
                         text = "drama", query = "drama",
                         sections = searchSections(
                             org.arcmediaserver.android.data.SearchResults(
-                                collections = listOf(org.arcmediaserver.android.data.CollectionRef("c1", "Blender Open Movies", count = 6, overview = "Short films made in the open by Blender Studio, with every file shared under a Creative Commons licence.")),
+                                collections = listOf(org.arcmediaserver.android.data.CollectionRef("c1", "Dune Collection", count = 2, overview = "Denis Villeneuve's adaptation of Frank Herbert's novel, in two parts.", images = org.arcmediaserver.android.data.Images(primary = "art:poster:Dune Collection"))),
                                 genres = listOf(
                                     org.arcmediaserver.android.data.GenreMatch("Drama", 1, "Movies", 12),
                                     org.arcmediaserver.android.data.GenreMatch("Drama", 2, "TV", 4),
@@ -595,7 +595,7 @@ class ScreenshotTest {
         // The rows under a title's page, as they appear once the page is scrolled down.
         androidx.compose.foundation.layout.Column(Modifier.padding(top = 24.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp)) {
             org.arcmediaserver.android.ui.components.Shelf("Cast", start = 56.dp) {
-                items(Fixtures.profiles.size) { i -> org.arcmediaserver.android.ui.components.PersonCard(Fixtures.profiles[i].name, null, "Maria") {} }
+                items(Fixtures.profiles.size) { i -> org.arcmediaserver.android.ui.components.PersonCard(Fixtures.profiles[i].name, null, "Paul Atreides") {} }
             }
             org.arcmediaserver.android.ui.components.Shelf("More Like This", start = 56.dp) {
                 items(Fixtures.movies.size) { i -> org.arcmediaserver.android.ui.components.MediaCardView(org.arcmediaserver.android.data.cardFor(Fixtures.movies[i]), landscape = false, onClick = {}) }
@@ -632,7 +632,7 @@ class ScreenshotTest {
     fun collectionPlay() = shot("collection-play") {
         // A collection's page on a server with play queues: Play (focused) and Shuffle.
         org.arcmediaserver.android.ui.browse.CollectionScreen(
-            LoadState.Ready(org.arcmediaserver.android.data.CollectionPage(org.arcmediaserver.android.data.CollectionRef("c1", "Blender Open Movies", count = 6, overview = "Short films made in the open by Blender Studio, with every file shared under a Creative Commons licence."), Fixtures.movies.take(3))),
+            LoadState.Ready(org.arcmediaserver.android.data.CollectionPage(org.arcmediaserver.android.data.CollectionRef("c1", "Dune Collection", count = 2, overview = "Denis Villeneuve's adaptation of Frank Herbert's novel, in two parts.", images = org.arcmediaserver.android.data.Images(primary = "art:poster:Dune Collection")), Fixtures.movies.take(3))),
             onOpen = {}, onRetry = {}, onPlay = {},
         )
     }
@@ -702,11 +702,11 @@ class ScreenshotTest {
 
     @Test
     fun scrubbing() = shot("player-scrubbing") {
-        playerOver("art:still:Billion Dollar Limited") {
+        playerOver("art:still:In Perpetuity") {
             PlayerControls(
                 state = PlayerUiState(
                     item = Fixtures.seasons[0].episodes[2], plan = osdState().plan, loading = false, playing = true,
-                    positionMs = 21 * 60_000L, durationMs = Fixtures.plan.durationMs, bufferedMs = 5 * 60_000L, trickplay = Fixtures.trickplay,
+                    positionMs = 21 * 60_000L, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L, trickplay = Fixtures.trickplay,
                 ),
                 visible = true,
                 scrubMs = 33 * 60_000L + 20_000,
@@ -729,7 +729,7 @@ class ScreenshotTest {
         )
         return PlayerUiState(
             item = episode, plan = Fixtures.plan.copy(chapters = chapters), loading = false, playing = true,
-            positionMs = 4 * 60_000L + 14_000, durationMs = Fixtures.plan.durationMs, bufferedMs = 5 * 60_000L,
+            positionMs = 21 * 60_000L + 14_000, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L,
             trickplay = Fixtures.trickplay, episodes = Fixtures.seasons[0].episodes,
             cast = listOf(
                 org.arcmediaserver.android.data.Credit(1, "Mara Ellison", "actor", "Nell Hart", "art:poster:Mara Ellison"),
@@ -741,7 +741,7 @@ class ScreenshotTest {
     }
 
     private fun osdShot(name: String, tab: org.arcmediaserver.android.playback.PlayerOsd.Tab) = shot(name) {
-        playerOver("art:still:Billion Dollar Limited") {
+        playerOver("art:still:In Perpetuity") {
             PlayerControls(
                 state = osdState(), visible = true, scrubMs = null, initialTab = tab,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
@@ -763,7 +763,7 @@ class ScreenshotTest {
 
     @Test
     fun playerPlaybackMenu() = shot("player-menu-playback") {
-        playerOver("art:still:Billion Dollar Limited") {
+        playerOver("art:still:In Perpetuity") {
             val state = osdState()
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.Playback,
