@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -180,7 +181,7 @@ fun DetailsScreen(
             LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
-                        Modifier.fillParentMaxHeight(0.88f).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
+                        (if (item.isSeries) Modifier.fillParentMaxHeight(0.88f) else Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More }, about = about, onAbout = { panel = DetailsPanel.About })
@@ -297,142 +298,174 @@ private fun Header(
     onAbout: () -> Unit = {},
 ) {
     val item = details.item
-    // As the Apple TV app: the logo low on the artwork, then the Play button and round buttons on
-    // one line with the description and details beside them (owner, 31 October).
-    Column(Modifier.padding(start = PageStart, end = PageStart, bottom = 8.dp)) {
-        org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 100.dp, maxWidth = 380.dp, textStyle = MaterialTheme.typography.displayMedium)
+    // The artwork fills the screen with everything low on it (owner, 16 November): the logo, the
+    // age rating and genres, the description, the year and running time with the quality
+    // capsules, then the Play button and round buttons; who's in it and who made it at the right.
+    Row(Modifier.padding(start = PageStart, end = PageStart, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+    Column(Modifier.weight(1f)) {
+        org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 120.dp, maxWidth = 460.dp, textStyle = MaterialTheme.typography.displayMedium)
         if (item.isEpisode) {
             Spacer(Modifier.height(8.dp))
             Text(listOfNotNull(episodeCode(item), item.title).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
         }
-        Spacer(Modifier.height(18.dp))
-        var focusedLabel by remember { mutableStateOf<String?>(null) }
-        Row(verticalAlignment = Alignment.Top) {
-            Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val round = Color.White.copy(alpha = 0.16f)
-                    // A button's name shows below the row while it has the focus.
-                    fun labelled(label: String, base: Modifier = Modifier) = base.onFocusChanged {
-                        focusedLabel = if (it.isFocused) label else focusedLabel.takeIf { l -> l != label }
-                    }
-                    val target = if (item.isSeries) details.next else item
-                    if (target != null) {
-                        val resume = target.resumeMs
-                        val duration = target.durationMs
-                        val s = target.seasonNumber
-                        val e = target.episodeNumber
-                        // Outside the show's order (Arc's 0 and 0) an episode has no number to show.
-                        val numbered = target.isEpisode && target.orderNumbers != null
-                        val left = if (resume > 0 && duration > resume) runtimeText(((duration - resume) / 60_000).toInt().coerceAtLeast(1)) else null
-                        // What will play, as the Apple TV app's labels: part watched shows a bar and
-                        // what's left ("S5 E12 · 43 min" or "1 h 2 min").
-                        val label = when {
-                            resume > 0 && numbered -> stringResource(R.string.action_left_episode, s!!, e!!, left ?: clock(resume))
-                            resume > 0 -> left ?: stringResource(R.string.action_resume, clock(resume))
-                            item.isSeries && numbered && e == 1 -> stringResource(R.string.action_start_watching, s!!, e)
-                            numbered -> stringResource(R.string.action_play_se, s!!, e!!)
-                            else -> stringResource(R.string.action_play)
-                        }
-                        val progress = if (resume > 0 && duration > 0) (resume.toFloat() / duration).coerceIn(0f, 1f) else null
-                        PlayPill(label, Modifier.focusRequester(primary), progress) { onPlay(target, resume) }
-                        if (resume > 0) {
-                            val fromStart = stringResource(R.string.action_play_from_start)
-                            RoundIconButton(ArcIcons.RotateCcw, fromStart, { onPlay(target, 0) }, size = 44.dp, containerColor = round, modifier = labelled(fromStart))
-                        }
-                    }
-                    // Shuffle, after Play as on the web's show page.
-                    if (item.isSeries && actions.onShuffle != null && details.seasons.any { s -> s.episodes.any { it.available } }) {
-                        val shuffle = stringResource(R.string.action_shuffle)
-                        RoundIconButton(ArcIcons.Shuffle, shuffle, { actions.onShuffle.invoke() }, size = 44.dp, containerColor = round, modifier = labelled(shuffle))
-                    }
-                    if (item.isEpisode && item.parentId != null) {
-                        val show = stringResource(R.string.action_go_to_show)
-                        RoundIconButton(ArcIcons.Tv, show, { onOpen(item.parentId) }, size = 44.dp, containerColor = round, modifier = labelled(show))
-                    }
-                    val watchedLabel = stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched)
-                    RoundIconButton(
-                        ArcIcons.CircleCheck, watchedLabel, actions.onWatched,
-                        size = 44.dp, containerColor = round, iconTint = if (item.watched) ArcColors.Accent else null,
-                        modifier = labelled(watchedLabel),
-                    )
-                    if (item.canWatchlist) {
-                        val watchlistLabel = stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist)
-                        RoundIconButton(
-                            if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark, watchlistLabel, actions.onWatchlist,
-                            size = 44.dp, containerColor = round, iconTint = if (item.onWatchlist) ArcColors.Accent else null,
-                            modifier = labelled(watchlistLabel),
-                        )
-                    }
-                    val moreLabel = stringResource(R.string.action_more)
-                    var moreBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-                    RoundIconButton(
-                        ArcIcons.More, moreLabel, { onMore(moreBounds) }, size = 44.dp, containerColor = round,
-                        modifier = labelled(moreLabel, Modifier.focusRequester(more).onGloballyPositioned { moreBounds = it.boundsInRoot() }),
-                    )
-                }
-                // The focused round button's name, or what couldn't be saved.
-                Box(Modifier.height(28.dp).padding(top = 8.dp)) {
-                    // A season's problem shows beside its own button, in the seasons below.
-                    val problem = actions.problem?.takeIf { it != ActionProblem.Season }
-                    if (problem != null) {
-                        Text(
-                            stringResource(if (problem == ActionProblem.Watched) R.string.action_watched_failed else R.string.action_watchlist_failed),
-                            style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning,
-                        )
-                        LaunchedEffect(problem) {
-                            kotlinx.coroutines.delay(5_000)
-                            actions.onProblemShown()
-                        }
-                    } else {
-                        focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f)) }
-                    }
-                }
+        Spacer(Modifier.height(16.dp))
+        val rating = item.contentRating?.takeIf { it.isNotBlank() }
+        val genres = item.genres.take(3)
+        if (rating != null || genres.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                rating?.let { org.arcmediaserver.android.ui.components.AgeRating(it) }
+                if (genres.isNotEmpty()) Text(genres.joinToString(" · "), style = MaterialTheme.typography.titleSmall, color = ArcColors.Foreground, maxLines = 1)
             }
-            Spacer(Modifier.width(24.dp))
-            // The description: three lines, and when that cuts it short, MORE under it and the
-            // whole thing focusable to open the full text, as the Apple TV app (owner, 1 November).
-            var cut by remember { mutableStateOf(false) }
-            androidx.tv.material3.Surface(
-                onClick = onAbout,
-                // Only focusable when there's more to read (a disabled Surface would dim the text).
-                modifier = Modifier.weight(1f).offset(x = (-10).dp, y = (-8).dp).focusProperties { canFocus = cut }.focusRequester(about),
-                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
-                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                    containerColor = Color.Transparent, contentColor = ArcColors.Foreground,
-                    focusedContainerColor = Color.White.copy(alpha = 0.14f), focusedContentColor = ArcColors.Foreground,
-                ),
-            ) {
-              Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
-                    Text(
-                        it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis,
-                        onTextLayout = { layout -> cut = layout.hasVisualOverflow },
-                    )
-                }
-                if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
-                val unwatched = item.unwatchedCount ?: 0
-                val meta = listOfNotNull(
-                    item.genres.firstOrNull(),
-                    item.year?.toString()?.takeIf { !item.isEpisode },
-                    item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
-                    if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
-                    item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
-                ).filter { it.isNotBlank() }
-                Spacer(Modifier.height(8.dp))
+        }
+        Spacer(Modifier.height(2.dp))
+        // The description: three lines, and when that cuts it short, MORE under it and the
+        // whole thing focusable to open the full text, as the Apple TV app (owner, 1 November).
+        var cut by remember { mutableStateOf(false) }
+        androidx.tv.material3.Surface(
+            onClick = onAbout,
+            // Only focusable when there's more to read (a disabled Surface would dim the text).
+            modifier = Modifier.widthIn(max = 600.dp).offset(x = (-10).dp).focusProperties { canFocus = cut }.focusRequester(about),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = Color.Transparent, contentColor = ArcColors.Foreground,
+                focusedContainerColor = Color.White.copy(alpha = 0.14f), focusedContentColor = ArcColors.Foreground,
+            ),
+        ) {
+          Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            org.arcmediaserver.android.ui.components.spoilerSafeOverview(item)?.let {
+                Text(
+                    it, style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { layout -> cut = layout.hasVisualOverflow },
+                )
+            }
+            if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
+            val unwatched = item.unwatchedCount ?: 0
+            val meta = listOfNotNull(
+                item.year?.toString()?.takeIf { !item.isEpisode },
+                item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
+                if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
+                item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
+            ).filter { it.isNotBlank() }
+            // The year and running time, then the quality capsules, on one line.
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (meta.isNotEmpty()) {
-                    Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = ArcColors.Foreground.copy(alpha = 0.7f), maxLines = 1)
+                    Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground.copy(alpha = 0.85f), maxLines = 1)
                 }
-                // The age rating and the quality capsules, on a line of their own so none is squeezed.
-                Spacer(Modifier.height(8.dp))
-                org.arcmediaserver.android.ui.components.TitleBadges(item)
-              }
+                org.arcmediaserver.android.ui.components.TitleBadges(item, showRating = false)
             }
+          }
+        }
+        Spacer(Modifier.height(6.dp))
+        var focusedLabel by remember { mutableStateOf<String?>(null) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            val round = Color.White.copy(alpha = 0.16f)
+            // A button's name shows below the row while it has the focus.
+            fun labelled(label: String, base: Modifier = Modifier) = base.onFocusChanged {
+                focusedLabel = if (it.isFocused) label else focusedLabel.takeIf { l -> l != label }
+            }
+            val target = if (item.isSeries) details.next else item
+            if (target != null) {
+                val resume = target.resumeMs
+                val duration = target.durationMs
+                val s = target.seasonNumber
+                val e = target.episodeNumber
+                // Outside the show's order (Arc's 0 and 0) an episode has no number to show.
+                val numbered = target.isEpisode && target.orderNumbers != null
+                val left = if (resume > 0 && duration > resume) runtimeText(((duration - resume) / 60_000).toInt().coerceAtLeast(1)) else null
+                // What will play, as the Apple TV app's labels: part watched shows a bar and
+                // what's left ("S5 E12 · 43 min" or "1 h 2 min").
+                val label = when {
+                    resume > 0 && numbered -> stringResource(R.string.action_left_episode, s!!, e!!, left ?: clock(resume))
+                    resume > 0 -> left ?: stringResource(R.string.action_resume, clock(resume))
+                    item.isSeries && numbered && e == 1 -> stringResource(R.string.action_start_watching, s!!, e)
+                    numbered -> stringResource(R.string.action_play_se, s!!, e!!)
+                    else -> stringResource(R.string.action_play)
+                }
+                val progress = if (resume > 0 && duration > 0) (resume.toFloat() / duration).coerceIn(0f, 1f) else null
+                PlayPill(label, Modifier.focusRequester(primary), progress) { onPlay(target, resume) }
+                if (resume > 0) {
+                    val fromStart = stringResource(R.string.action_play_from_start)
+                    RoundIconButton(ArcIcons.RotateCcw, fromStart, { onPlay(target, 0) }, size = 44.dp, containerColor = round, modifier = labelled(fromStart))
+                }
+            }
+            // Shuffle, after Play as on the web's show page.
+            if (item.isSeries && actions.onShuffle != null && details.seasons.any { s -> s.episodes.any { it.available } }) {
+                val shuffle = stringResource(R.string.action_shuffle)
+                RoundIconButton(ArcIcons.Shuffle, shuffle, { actions.onShuffle.invoke() }, size = 44.dp, containerColor = round, modifier = labelled(shuffle))
+            }
+            if (item.isEpisode && item.parentId != null) {
+                val show = stringResource(R.string.action_go_to_show)
+                RoundIconButton(ArcIcons.Tv, show, { onOpen(item.parentId) }, size = 44.dp, containerColor = round, modifier = labelled(show))
+            }
+            val watchedLabel = stringResource(if (item.watched) R.string.action_mark_unwatched else R.string.action_mark_watched)
+            RoundIconButton(
+                ArcIcons.CircleCheck, watchedLabel, actions.onWatched,
+                size = 44.dp, containerColor = round, iconTint = if (item.watched) ArcColors.Accent else null,
+                modifier = labelled(watchedLabel),
+            )
+            if (item.canWatchlist) {
+                val watchlistLabel = stringResource(if (item.onWatchlist) R.string.action_remove_watchlist else R.string.action_add_watchlist)
+                RoundIconButton(
+                    if (item.onWatchlist) ArcIcons.BookmarkCheck else ArcIcons.Bookmark, watchlistLabel, actions.onWatchlist,
+                    size = 44.dp, containerColor = round, iconTint = if (item.onWatchlist) ArcColors.Accent else null,
+                    modifier = labelled(watchlistLabel),
+                )
+            }
+            val moreLabel = stringResource(R.string.action_more)
+            var moreBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+            RoundIconButton(
+                ArcIcons.More, moreLabel, { onMore(moreBounds) }, size = 44.dp, containerColor = round,
+                modifier = labelled(moreLabel, Modifier.focusRequester(more).onGloballyPositioned { moreBounds = it.boundsInRoot() }),
+            )
+        }
+        // The focused round button's name, or what couldn't be saved.
+        Box(Modifier.height(28.dp).padding(top = 8.dp)) {
+            // A season's problem shows beside its own button, in the seasons below.
+            val problem = actions.problem?.takeIf { it != ActionProblem.Season }
+            if (problem != null) {
+                Text(
+                    stringResource(if (problem == ActionProblem.Watched) R.string.action_watched_failed else R.string.action_watchlist_failed),
+                    style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning,
+                )
+                LaunchedEffect(problem) {
+                    kotlinx.coroutines.delay(5_000)
+                    actions.onProblemShown()
+                }
+            } else {
+                focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f)) }
+            }
+        }
+    }
+    HeaderCredits(item, Modifier.padding(start = 32.dp, bottom = 40.dp).widthIn(max = 420.dp))
+    }
+}
+
+/** Who's in it and who made it, low on the right of a title's artwork. */
+@Composable
+private fun HeaderCredits(item: Item, modifier: Modifier = Modifier) {
+    fun names(role: String) = item.credits.filter { it.role == role }.take(3).map { it.name }
+    val lines = listOf(
+        stringResource(R.string.details_info_starring) to names("actor"),
+        stringResource(R.string.details_info_directors) to names("director"),
+    ).filter { it.second.isNotEmpty() }
+    if (lines.isEmpty()) return
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lines.forEach { (label, people) ->
+            Text(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = ArcColors.Foreground.copy(alpha = 0.7f))) { append(label) }
+                    append(" ")
+                    withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)) { append(people.joinToString(", ")) }
+                },
+                style = MaterialTheme.typography.bodyMedium, color = ArcColors.Foreground, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
-/** A title's whole description, opened from MORE beside its buttons. */
+/** A title's whole description, opened from MORE above its buttons. */
 @Composable
 private fun AboutPanel(item: Item, onClose: () -> Unit) {
     val first = remember { FocusRequester() }
