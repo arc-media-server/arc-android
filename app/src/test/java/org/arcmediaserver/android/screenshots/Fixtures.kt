@@ -35,66 +35,90 @@ import org.arcmediaserver.android.ui.components.LoadState
 import kotlin.math.abs
 
 /**
- * Made-up titles with generated artwork, so screenshots show what a library looks like without
- * anyone's real media or metadata. Artwork addresses are "art:<kind>:<title>"; [art] draws them.
+ * Well-known films and a show, so the screenshots look like a real library. Titles, years, credits
+ * and running times are real; the synopses are our own. The artwork isn't in git: run
+ * `tools/fetch-screenshot-art.py` (it needs a TMDB API key) to download it from TMDB into
+ * `src/test/resources/artwork/`. Without it, [art] draws a stand-in for each "art:<kind>:<title>".
  */
 object Fixtures {
     private fun images(title: String) = Images(
         primary = "art:poster:$title",
         backdrop = "art:backdrop:$title",
         backdropFull = "art:backdrop:$title",
-        // Some titles have a clear logo, as most matched ones do; the rest show their name.
-        logo = if (title.length % 2 == 0) "art:logo:$title" else null,
+        logo = "art:logo:$title",
     )
 
-    private fun movie(id: String, title: String, year: Int, minutes: Int, overview: String, pos: Long = 0, played: Boolean = false, rating: String = "15") = Item(
+    private fun movie(id: String, title: String, year: Int, minutes: Int, overview: String, genres: List<String>, rating: String, pos: Long = 0, played: Boolean = false) = Item(
         id = id, libraryId = 1, kind = "movie", title = title, year = year, runtimeMin = minutes, overview = overview, contentRating = rating,
-        images = images(title), userData = UserData(pos, played), genres = listOf("Science Fiction", "Drama"),
+        images = images(title), userData = UserData(pos, played), genres = genres,
     )
 
     val movies = listOf(
-        movie("m1", "The Long Orbit", 2019, 132, "A salvage crew drifting past Neptune answers a distress call that was sent forty years ago, from their own ship.", pos = 52 * 60_000),
-        movie("m2", "Paper Lanterns", 2021, 104, "Two sisters reopen their grandmother's lantern shop for one last festival night."),
-        movie("m3", "Northbound", 2016, 118, "A snowplough driver and a runaway share the last road out before the pass closes.", played = true),
-        movie("m4", "Glass Harbour", 2023, 141, "A harbour town's lighthouse keeper finds the sea has started giving things back."),
-        movie("m5", "Signal Fire", 2018, 97, "Hikers lost on a ridge must decide whom to trust when the rescue doesn't come."),
-        movie("m6", "Saltwater Kings", 2020, 126, "The rise and fall of a family of oyster farmers, told over three summers."),
-        movie("m7", "Quiet Machines", 2022, 109, "An engineer teaches the factory robots to paint. The factory notices."),
-        movie("m8", "Last Light on Vela", 2017, 150, "Colonists on a tidally locked world race the terminator line."),
+        movie("m1", "Dune: Part Two", 2024, 167, "Paul Atreides joins the Fremen of the deep desert and fights to avenge his family, while visions warn him where that path leads.", listOf("Science Fiction", "Adventure"), "12A", pos = 52 * 60_000),
+        movie("m2", "Oppenheimer", 2023, 181, "The physicist who led the race to build the atomic bomb, and what it cost him once it was built.", listOf("Drama", "History"), "15"),
+        movie("m3", "Everything Everywhere All at Once", 2022, 140, "A laundromat owner in the middle of a tax audit finds she can borrow skills from every other life she might have lived.", listOf("Action", "Adventure", "Science Fiction"), "15"),
+        movie("m4", "Interstellar", 2014, 169, "With crops failing across the Earth, a former pilot leaves his family to search for a new home beyond a wormhole.", listOf("Adventure", "Drama", "Science Fiction"), "12A", played = true),
+        movie("m5", "Spider-Man: Across the Spider-Verse", 2023, 140, "Miles Morales is pulled across the multiverse and finds the other Spider-People have rules he won't follow.", listOf("Animation", "Action", "Adventure"), "PG"),
+        movie("m6", "Blade Runner 2049", 2017, 164, "A replicant hunter uncovers a buried secret that leads him to search for a blade runner missing for thirty years.", listOf("Science Fiction", "Drama"), "15"),
+        movie("m7", "The Grand Budapest Hotel", 2014, 100, "A legendary concierge and his lobby boy are caught up in a stolen painting and a family fortune.", listOf("Comedy", "Drama"), "15"),
+        movie("m8", "Mad Max: Fury Road", 2015, 121, "A warrior and a drifter flee across the wasteland with a tyrant's wives and his whole army behind them.", listOf("Action", "Adventure", "Science Fiction"), "15"),
     )
 
-    private val showImages = images("Hollow Creek")
+    /** Two more, so a library's grid fills out. */
+    val moreMovies = listOf(
+        movie("m9", "Arrival", 2016, 116, "A linguist is asked to talk to the visitors in one of twelve ships that have landed around the world.", listOf("Drama", "Science Fiction", "Mystery"), "12A"),
+        movie("m10", "Parasite", 2019, 133, "A struggling family talk their way, one by one, into jobs with a wealthy household.", listOf("Comedy", "Thriller", "Drama"), "15"),
+    )
 
-    fun episode(s: Int, e: Int, title: String, pos: Long = 0, played: Boolean = false, minutes: Int = 52) = Item(
-        id = "ep:hc:$s:$e", libraryId = 2, kind = "episode", parentId = "hc", title = title, seriesTitle = "Hollow Creek",
+    private val showImages = images("Severance")
+
+    private val synopses = mapOf(
+        "Good News About Hell" to "Mark's team at Lumon gets a new member, and she wants nothing more than to leave.",
+        "Half Loop" to "Mark meets a stranger who knows more about his job than he does.",
+        "In Perpetuity" to "The team visits the company's founder's wing, and Helly tries another way out.",
+        "The You You Are" to "Irving finds a department he's never heard of, and Mark goes to a dinner party.",
+        "The Grim Barbarity of Optics and Design" to "Two departments meet, and Mark's outie starts asking questions.",
+        "Hide and Seek" to "Helly's escape attempts come to a head, and Cobel takes a risk.",
+        "Defiant Jazz" to "A celebration on the severed floor turns up a way to reach the outside.",
+        "What's for Dinner?" to "Three innies wake up in the outside world for one night.",
+        "The We We Are" to "The innies have hours, at most, to tell someone what Lumon is.",
+        "Hello, Ms. Cobel" to "Mark returns to a changed severed floor, and new faces in the office.",
+        "Goodbye, Mrs. Selvig" to "Cobel looks for a way back in, and the team relearns its work.",
+        "Who Is Alive?" to "The team is sent to find out what happened to a department.",
+    )
+
+    fun episode(s: Int, e: Int, title: String, minutes: Int, pos: Long = 0, played: Boolean = false) = Item(
+        id = "ep:sv:$s:$e", libraryId = 2, kind = "episode", parentId = "sv", title = title, seriesTitle = "Severance",
         seasonNumber = s, episodeNumber = e, runtimeMin = minutes, userData = UserData(pos, played),
-        overview = "The town meeting goes badly when the old mill's owner turns up with a plan.",
-        images = Images(primary = "art:still:$title", seriesPrimary = showImages.primary, seriesBackdrop = showImages.backdrop, seriesLogo = "art:logo:Hollow Creek"),
+        overview = synopses[title] ?: "Mark and his team at Lumon keep finding more than the job lets them know.",
+        images = Images(primary = "art:still:$title", seriesPrimary = showImages.primary, seriesBackdrop = showImages.backdrop, seriesLogo = showImages.logo),
     )
 
     val show = Item(
-        id = "hc", libraryId = 2, kind = "series", title = "Hollow Creek", year = 2022, contentRating = "12",
-        overview = "In a valley town where the river runs backwards one night a year, a returning deputy reopens the case that made her leave.",
-        genres = listOf("Mystery", "Drama"), unwatchedCount = 13, images = showImages, rating = 8.1,
+        id = "sv", libraryId = 2, kind = "series", title = "Severance", year = 2022, contentRating = "15",
+        overview = "At Lumon Industries, some employees have their memories split in two: the people who go to work never know their lives outside, and the other way round.",
+        genres = listOf("Drama", "Mystery", "Science Fiction"), unwatchedCount = 13, images = showImages, rating = 8.4,
     )
 
     val seasons = listOf(
         Season(1, "Season 1", episodes = listOf(
-            episode(1, 1, "The River Turns", played = true),
-            episode(1, 2, "Low Water", played = true),
-            episode(1, 3, "Mill Road", pos = 21 * 60_000),
-            episode(1, 4, "Fog Signals"),
-            episode(1, 5, "The Backwards Night"),
-            episode(1, 6, "Undertow"),
+            episode(1, 1, "Good News About Hell", 59, played = true),
+            episode(1, 2, "Half Loop", 57, played = true),
+            episode(1, 3, "In Perpetuity", 60, pos = 21 * 60_000),
+            episode(1, 4, "The You You Are", 50),
+            episode(1, 5, "The Grim Barbarity of Optics and Design", 47),
+            episode(1, 6, "Hide and Seek", 44),
+            episode(1, 7, "Defiant Jazz", 53),
+            episode(1, 8, "What's for Dinner?", 50),
+            episode(1, 9, "The We We Are", 44),
         )),
-        Season(2, "Season 2", episodes = listOf(episode(2, 1, "Thaw"), episode(2, 2, "Headwaters"), episode(2, 3, "Silt"))),
-        Season(0, "Specials", episodes = listOf(episode(0, 1, "Making the Valley"))),
+        Season(2, "Season 2", episodes = listOf(episode(2, 1, "Hello, Ms. Cobel", 54), episode(2, 2, "Goodbye, Mrs. Selvig", 49), episode(2, 3, "Who Is Alive?", 57))),
     )
 
     val libraries = listOf(Library(1, "Movies", "movies", 8), Library(2, "TV Shows", "shows", 5), Library(3, "Home Videos", "videos", 12))
 
     val profiles = listOf(
-        Profile("p1", "Jonathan", "violet", isAdmin = true),
+        Profile("p1", "Alex", "violet", isAdmin = true),
         Profile("p2", "Sam", "teal", hasPin = true),
         Profile("p3", "Kids", "amber"),
         Profile("p4", "Guest", "slate"),
@@ -104,8 +128,8 @@ object Fixtures {
 
     val homeRows: List<HomeRowState> = listOf(
         HomeRowState(
-            HomeRowSpec("continue", RowSource.Continue(true), CardStyle.Thumb),
-            LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(episode(3, 4, "The Ferry", pos = 10 * 60_000).copy(seriesTitle = "Brightwater", images = images("Brightwater").copy(primary = "art:still:The Ferry"))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
+            HomeRowSpec("continue", RowSource.Continue(true), CardStyle.Backdrop),
+            LoadState.Ready(listOf(cardFor(movies[0]), cardFor(seasons[0].episodes[2]), cardFor(movies[2].copy(userData = UserData(96 * 60_000))), cardFor(movies[3].copy(userData = UserData(80 * 60_000))))),
         ),
         HomeRowState(
             HomeRowSpec("recent:1", RowSource.Recent(libraries[0], false), CardStyle.Poster, seasonPosters = true),
@@ -113,17 +137,17 @@ object Fixtures {
         ),
         HomeRowState(
             HomeRowSpec("recent:2", RowSource.Recent(libraries[1], false), CardStyle.Poster, seasonPosters = true),
-            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Hollow Creek S2")))),
+            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Severance Season 2")))),
         ),
     )
 
     val plan = PlaybackPlan(
         method = "remux", reasons = listOf("MKV file"), url = "/api/transcode/s/index.m3u8", hls = true, sessionId = "s",
-        offsetMs = 0, durationMs = 52 * 60_000L, fileId = 1, audioStream = 1,
+        offsetMs = 0, durationMs = 60 * 60_000L, fileId = 1, audioStream = 1,
         audioTracks = listOf(AudioTrack(1, "eng", codec = "eac3", channels = 6, default = true), AudioTrack(2, "fra", codec = "aac", channels = 2)),
         subtitleTracks = listOf(SubtitleTrack("s:3", "eng"), SubtitleTrack("s:4", "eng", forced = true)),
-        chapters = listOf(Chapter(0, 300_000), Chapter(300_000, 1_200_000), Chapter(1_200_000, 2_400_000), Chapter(2_400_000, 3_120_000)),
-        markers = listOf(Marker("intro", 60_000, 150_000), Marker("credits", 3_000_000, 3_120_000)),
+        chapters = listOf(Chapter(0, 300_000), Chapter(300_000, 1_200_000), Chapter(1_200_000, 2_400_000), Chapter(2_400_000, 3_600_000)),
+        markers = listOf(Marker("intro", 150_000, 230_000), Marker("credits", 3_480_000, 3_600_000)),
         sourceKbps = 9000,
     )
 
@@ -132,12 +156,12 @@ object Fixtures {
         userData = UserData(52 * 60_000, watchlisted = true),
         files = listOf(
             MediaFile(
-                id = 11, durationMs = 132 * 60_000L, container = "mkv", size = 18_400_000_000, bitrate = 18_600_000,
-                path = "/media/Movies/The Long Orbit (2019)/The Long Orbit (2019) - 2160p.mkv",
+                id = 11, durationMs = 167 * 60_000L, container = "mkv", size = 61_200_000_000, bitrate = 18_600_000,
+                path = "/media/Movies/Dune Part Two (2024)/Dune Part Two (2024) - 2160p.mkv",
                 streams = listOf(
-                    MediaStream(0, "video", "hevc", "Main 10", width = 3840, height = 1600, aspectRatio = 2.4, frameRate = 23.976, bitDepth = 10, colorPrimaries = "bt2020", colorTransfer = "smpte2084", pixFmt = "yuv420p10le", bitrate = 15_200_000),
+                    MediaStream(0, "video", "hevc", "Main 10", width = 3840, height = 1608, aspectRatio = 2.39, frameRate = 23.976, bitDepth = 10, colorPrimaries = "bt2020", colorTransfer = "smpte2084", pixFmt = "yuv420p10le", bitrate = 15_200_000),
                     MediaStream(1, "audio", "truehd", "Dolby TrueHD + Dolby Atmos", language = "eng", channels = 8),
-                    MediaStream(2, "audio", "ac3", language = "eng", channels = 6, bitrate = 640_000, title = "Commentary"),
+                    MediaStream(2, "audio", "ac3", language = "eng", channels = 6, bitrate = 640_000),
                     MediaStream(3, "audio", "eac3", language = "fra", channels = 6, bitrate = 768_000),
                     MediaStream(4, "subtitle", "subrip", language = "eng"),
                     MediaStream(5, "subtitle", "hdmv_pgs_subtitle", language = "eng", forced = true),
@@ -151,7 +175,7 @@ object Fixtures {
         movies = movies.take(3),
         shows = listOf(show),
         episodes = listOf(seasons[0].episodes[3], seasons[1].episodes[0]),
-        people = listOf(Person(1, "Mara Ellison", count = 3, knownFor = "actor"), Person(2, "Theo Lund", count = 2, knownFor = "director"), Person(3, "June Okafor", "art:poster:June Okafor", 1)),
+        people = listOf(Person(1, "Timothée Chalamet", "art:person:Timothée Chalamet", 2, "actor"), Person(2, "Denis Villeneuve", "art:person:Denis Villeneuve", 3, "director"), Person(3, "Zendaya", "art:person:Zendaya", 2, "actor")),
     )
 
     /** Timeline thumbnails: 5x5 tiles of 320x180 to a sheet, one every 10 seconds. */
@@ -160,9 +184,19 @@ object Fixtures {
         sheets = (0 until 13).map { "art:sheet:$it" },
     )
 
-    /** Draws artwork for an "art:" address: a gradient in a colour from the title, and the title. */
+    /**
+     * Artwork for an "art:" address: the downloaded file `artwork/<kind>/<title-slug>.png` or
+     * `.jpg` when there is one (see the note on [Fixtures]); otherwise a stand-in, a gradient in a
+     * colour from the title.
+     */
     fun art(url: String): Bitmap {
         val (kind, title) = url.removePrefix("art:").split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+        val slug = title.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        for (ext in listOf("png", "jpg")) {
+            Fixtures::class.java.getResourceAsStream("/artwork/$kind/$slug.$ext")?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream)?.let { return it }
+            }
+        }
         if (kind == "logo") {
             // A clear logo: the title set in heavy serif capitals on transparency.
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -182,6 +216,7 @@ object Fixtures {
             // A sheet of timeline thumbnails: each tile its own frame of a made-up scene.
             val bmp = Bitmap.createBitmap(5 * 320, 5 * 180, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
+            val still = Fixtures::class.java.getResourceAsStream("/artwork/still/in-perpetuity.jpg")?.use { android.graphics.BitmapFactory.decodeStream(it) }
             val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 34f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
             for (i in 0 until 25) {
                 val x = (i % 5) * 320f
@@ -190,13 +225,17 @@ object Fixtures {
                 val a = android.graphics.Color.HSVToColor(floatArrayOf(hue % 360, 0.5f, 0.6f))
                 val b = android.graphics.Color.HSVToColor(floatArrayOf((hue + 60) % 360, 0.6f, 0.2f))
                 canvas.drawRect(x, y, x + 320, y + 180, Paint().apply { shader = LinearGradient(x, y, x + 320, y + 180, a, b, Shader.TileMode.CLAMP) })
-                canvas.drawCircle(x + 70 + i * 7, y + 120, 46f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66FFFFFF })
-                canvas.drawText("Mill Road", x + 16, y + 44, label)
+                // The episode's still, panned a little further across for each tile.
+                still?.let { st ->
+                    val sw = st.width * 0.7f
+                    val sx = (st.width - sw) * (i / 24f)
+                    canvas.drawBitmap(st, android.graphics.Rect(sx.toInt(), 0, (sx + sw).toInt(), (sw * 9 / 16).toInt().coerceAtMost(st.height)), android.graphics.RectF(x, y, x + 320, y + 180), null)
+                } ?: canvas.drawText("${i * 10}s", x + 16, y + 44, label)
             }
             return bmp
         }
         val (w, h) = when (kind) {
-            "poster" -> 400 to 600
+            "poster", "person" -> 400 to 600
             "still" -> 640 to 360
             else -> 1280 to 720
         }

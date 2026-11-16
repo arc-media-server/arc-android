@@ -123,9 +123,12 @@ You need JDK 21 and the Android SDK (platform 37, platform-tools). Then:
 ./gradlew recordRoborazziDebug   # renders every screen at 1920x1080 into app/screenshots/
 ```
 
-`recordRoborazziDebug` renders the screens on the JVM (Robolectric) with made-up titles and
-generated artwork, so no emulator is needed; look at them after changing the UI. The pictures in
-this README come from it.
+`recordRoborazziDebug` renders the screens on the JVM (Robolectric), so no emulator is needed;
+look at them after changing the UI. The pictures in this README come from it. The screens show
+real films and a show; their artwork comes from TMDB and isn't kept in git. Download it once with
+`TMDB_API_KEY=<your key> python3 tools/fetch-screenshot-art.py` (it lands in
+`app/src/test/resources/artwork/`, which git ignores); without it, the screens show drawn
+stand-ins, which is fine for checking a layout.
 
 ### Setting up the SDK
 
@@ -194,3 +197,7 @@ app/src/test/                          unit tests, screenshot tests, and the liv
 ## Licence
 
 AGPL-3.0-only, copyright "The Arc Media Server Authors". See [LICENSE](LICENSE).
+
+The film and TV artwork in the screenshots belongs to its owners and comes from
+[TMDB](https://www.themoviedb.org). This product uses the TMDB API but is not endorsed or
+certified by TMDB.
