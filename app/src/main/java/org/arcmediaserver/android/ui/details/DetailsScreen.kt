@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -120,6 +121,7 @@ fun DetailsRoute(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
                     onSeasonWatched = vm::toggleSeasonWatched,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
+                    onShuffleSeason = if (canShuffle) { { n -> vm.shuffle(onPlayQueued, n) } } else null,
                     onPlayVersion = onPlayVersion,
                 ),
                 onPerson = onPerson,
@@ -138,6 +140,8 @@ data class TitleActions(
     val onProblemShown: () -> Unit = {},
     /** A show's Shuffle; null where it can't be shuffled. */
     val onShuffle: (() -> Unit)? = null,
+    /** Shuffle Season (a season's menu), by season number; null where it can't be shuffled. */
+    val onShuffleSeason: ((Int) -> Unit)? = null,
     /** Play Version…: plays the title from a point with a chosen file. */
     val onPlayVersion: ((Item, Long, Long) -> Unit)? = null,
     /** A show's Mark Season as Watched / Unwatched, by season number. */
@@ -252,6 +256,15 @@ fun DetailsScreen(
                     ) {
                         actions.onSeasonWatched(number)
                         close()
+                    }
+                    // Shuffle Season, as the web's show page: when there's more than one episode
+                    // on disk to shuffle and the server keeps play queues.
+                    val shuffleSeason = actions.onShuffleSeason
+                    if (shuffleSeason != null && shuffleCandidates(details.seasons, number).size > 1) {
+                        org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.action_shuffle_season), icon = ArcIcons.Shuffle) {
+                            seasonMenu = null
+                            shuffleSeason(number)
+                        }
                     }
                 }
                 org.arcmediaserver.android.ui.components.FocusOnOpen(first)
@@ -608,7 +621,9 @@ private fun Seasons(
         Row(verticalAlignment = Alignment.CenterVertically) {
             PillTabs(
                 labels, selected, onSelect = { selected = it },
-                modifier = Modifier.padding(start = PageStart - 8.dp),
+                // Coming into the tabs (Down from Play, Up from the episodes) lands on the season
+                // shown, not whichever tab is nearest: landing on a tab switches season.
+                modifier = Modifier.padding(start = PageStart - 8.dp).focusRestorer(seasonTab),
                 onClick = { i -> details.seasons.getOrNull(i)?.let { onSeasonMenu(it, tabBounds) } },
                 selectedTab = Modifier.focusRequester(seasonTab).onGloballyPositioned { tabBounds = it.boundsInRoot() },
             )
