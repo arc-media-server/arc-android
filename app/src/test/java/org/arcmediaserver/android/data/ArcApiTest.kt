@@ -200,6 +200,20 @@ class ArcApiTest {
     }
 
     @Test
+    fun `adding to a playlist posts the titles and reads how many were added`() = runTest {
+        answer(200, """[{"id":"p1","title":"Movie Night","count":6},{"id":"p2","title":"Unwatched 4K","count":31,"smart_filter":{"resolution":"4k"}}]""")
+        answer(200, """{"added":8}""")
+        val lists = api.playlists()
+        assertEquals(listOf(true, false), lists.map { it.editable })
+        server.takeRequest()
+        assertEquals(8, api.addToPlaylist("p1", listOf("s1")))
+        val post = server.takeRequest()
+        assertEquals("POST", post.method)
+        assertEquals("/api/v1/playlists/p1/items", post.url.encodedPath)
+        assertEquals("""{"item_ids":["s1"]}""", post.body?.utf8())
+    }
+
+    @Test
     fun `watched and watchlist are PUTs that answer 204`() = runTest {
         answer(204, "")
         answer(204, "")

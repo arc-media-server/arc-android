@@ -256,6 +256,19 @@
     </plurals>
     <string name="playlists_empty">No playlists yet. Make one in Arc on the web, and it shows here.</string>
     <string name="playlist_empty">This playlist is empty.</string>
+    <string name="playlist_add">Add to Playlist…</string>
+    <string name="playlist_add_title">Add to Playlist</string>
+    <string name="playlist_add_to">Add “%1$s” to:</string>
+    <string name="playlist_add_show_to">Add every episode of “%1$s” to:</string>
+    <string name="playlist_loading">Loading your playlists…</string>
+    <string name="playlist_load_failed">Couldn\'t load your playlists.</string>
+    <string name="playlist_none_editable">You have no playlists to add to yet. Make one in Arc on the web, then add to it here.</string>
+    <string name="playlist_added">Added “%1$s” to %2$s</string>
+    <string name="playlist_add_failed">Couldn\'t add “%1$s” to %2$s.</string>
+    <plurals name="playlist_title_count">
+        <item quantity="one">%1$d title</item>
+        <item quantity="other">%1$d titles</item>
+    </plurals>
     <string name="watchlist_show_all">All</string>
     <string name="watchlist_show_movies">Movies</string>
     <string name="watchlist_show_shows">TV Shows</string>
