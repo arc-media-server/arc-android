@@ -52,6 +52,7 @@ import org.arcmediaserver.android.data.PlayerCaps
 import org.arcmediaserver.android.data.ProgressReport
 import org.arcmediaserver.android.data.SubtitleTrack
 import org.arcmediaserver.android.playback.PlaybackClock
+import org.arcmediaserver.android.playback.SubtitleTiming
 import org.arcmediaserver.android.data.Prefs
 import org.arcmediaserver.android.data.Trickplay
 import org.arcmediaserver.android.playback.UpNext
@@ -72,6 +73,8 @@ data class PlayerUiState(
     val durationMs: Long = 0,
     val bufferedMs: Long = 0,
     val subtitle: SubtitleTrack? = null,
+    /** Subtitle timing chosen this playback, by file and track (SubtitleTiming.key). */
+    val subtitleOffsets: Map<String, Long> = emptyMap(),
     val error: UiError? = null,
     /** Arc stopped this playback (from its Dashboard), with the admin's message. */
     val stopped: String? = null,
@@ -470,7 +473,9 @@ class PlayerViewModel(
         while (currentCoroutineContextActive()) {
             delay(100)
             val subs = textSubtitles
-            val now = if (subs == null) emptyList() else subs.cuesAt(player.currentPosition.coerceAtLeast(0) * 1000)
+            val offset = plan?.let { SubtitleTiming.offsetFor(_state.value.subtitleOffsets, it.fileId, _state.value.subtitle) } ?: 0
+            val at = SubtitleTiming.cueTimeMs(player.currentPosition.coerceAtLeast(0), offset)
+            val now = if (subs == null || at < 0) emptyList() else subs.cuesAt(at * 1000)
             if (now != _cues.value) _cues.value = now
         }
     }
@@ -523,6 +528,18 @@ class PlayerViewModel(
         // Between text subtitles (or off), only the drawn cues change: the film carries on.
         if ((before == null || !isAss(before)) && (track == null || !isAss(track))) loadText(p, track)
         else install(p, position(), track)
+    }
+
+    /**
+     * Subtitle timing, as the web player's: [deltaMs] earlier (negative) or later, or null to
+     * reset. Only for text subtitles the app draws; the film carries on.
+     */
+    fun shiftSubtitles(deltaMs: Long?) {
+        val p = plan ?: return
+        val track = _state.value.subtitle?.takeIf { SubtitleTiming.adjustable(it) } ?: return
+        val key = SubtitleTiming.key(p.fileId, track)
+        _state.update { s -> s.copy(subtitleOffsets = s.subtitleOffsets + (key to SubtitleTiming.shifted(s.subtitleOffsets[key] ?: 0, deltaMs))) }
+        log.debug("subtitle timing now ${_state.value.subtitleOffsets[key]} ms")
     }
 
     /** Quality as the web player offers it: -1 Automatic, 0 Original, or a limit in kbit/s. */
