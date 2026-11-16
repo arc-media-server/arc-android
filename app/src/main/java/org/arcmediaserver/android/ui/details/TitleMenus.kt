@@ -58,7 +58,7 @@ import java.util.Locale
 /** What a queue entry's menu can do: move it earlier or later, or take it out (null where it can't). */
 data class QueueMoves(val earlier: (() -> Unit)? = null, val later: (() -> Unit)? = null, val remove: (() -> Unit)? = null)
 
-enum class DetailsPanel { None, More, MediaInfo, About, Version }
+enum class DetailsPanel { None, More, MediaInfo, About, Version, Rating }
 
 /**
  * A panel over the page with a dimmed backdrop; the focus stays inside it until Back (or a choice)
@@ -105,6 +105,8 @@ fun MoreMenu(
     queueMoves: QueueMoves? = null,
     /** Add to Playlist…, for what a playlist can hold (films, episodes, shows). */
     onAddToPlaylist: (() -> Unit)? = null,
+    /** Rate…: the profile's own stars; given on a title's page. */
+    onRate: (() -> Unit)? = null,
 ) {
     val first = remember { FocusRequester() }
     // The Apple TV app's floating menu beside the opener (owner, 31 October).
@@ -136,6 +138,13 @@ fun MoreMenu(
         }
         if (onPlayVersion != null) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.details_play_version), ArcIcons.Film) { onPlayVersion() }
+        }
+        // Rate…, with the stars given so far, as Plex's Rate in its ⋯ menu.
+        if (onRate != null) {
+            org.arcmediaserver.android.ui.components.PopoverItem(
+                stringResource(R.string.rating_rate), ArcIcons.Star,
+                detail = item.myRating.takeIf { it > 0 }?.let { org.arcmediaserver.android.data.Ratings.stars(it) },
+            ) { onRate() }
         }
         if (item.files.isNotEmpty()) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.media_info), ArcIcons.Info) { onMediaInfo() }
@@ -248,6 +257,32 @@ fun PlaylistPicker(
         }
     }
     LaunchedEffect(playlists is org.arcmediaserver.android.ui.components.LoadState.Ready, playlists is org.arcmediaserver.android.ui.components.LoadState.Failed) { first.requestWhenReady() }
+}
+
+/**
+ * Rate…: five stars in halves, best first, then Clear Rating when it has one, as the web's
+ * StarRating. The current rating is ticked and has the focus; choosing saves it.
+ */
+@Composable
+fun RatingMenu(item: Item, onClose: () -> Unit, onRate: (Int) -> Unit) {
+    val first = remember { FocusRequester() }
+    val current = item.myRating
+    org.arcmediaserver.android.ui.components.Popover(anchor = null, onClose = onClose, place = org.arcmediaserver.android.ui.components.PopoverPlace.Center, title = stringResource(R.string.rating_your), width = 300.dp) {
+        org.arcmediaserver.android.ui.components.PopoverList(maxHeight = 380.dp) {
+            org.arcmediaserver.android.data.Ratings.choices.forEach { r ->
+                org.arcmediaserver.android.ui.components.PopoverItem(
+                    org.arcmediaserver.android.data.Ratings.stars(r),
+                    icon = if (r == current) ArcIcons.Check else null,
+                    detail = stringResource(R.string.rating_out_of_five, org.arcmediaserver.android.data.Ratings.outOfFive(r)),
+                    focus = if (r == current || (current == 0 && r == 10)) first else null,
+                ) { onRate(r) }
+            }
+            if (current > 0) {
+                org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.rating_clear), ArcIcons.Close) { onRate(0) }
+            }
+        }
+    }
+    org.arcmediaserver.android.ui.components.FocusOnOpen(first)
 }
 
 /** A title's versions to choose from: its files on disk (a multi-part file counts once). */

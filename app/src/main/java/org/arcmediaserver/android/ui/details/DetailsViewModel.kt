@@ -82,7 +82,7 @@ fun withSeasonWatched(seasons: List<Season>, seasonNumber: Int, played: Boolean)
     seasons.map { s -> if (s.seasonNumber != seasonNumber) s else s.copy(episodes = s.episodes.map { it.withWatched(played) }) }
 
 /** A title action's outcome to tell the viewer about: it couldn't be saved, so it was put back. */
-enum class ActionProblem { Watched, Watchlist, Season }
+enum class ActionProblem { Watched, Watchlist, Season, Rating }
 
 /**
  * Changes a title on screen straight away, then asks Arc; if Arc says no (or can't be reached),
@@ -158,6 +158,20 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
                     _state.value = LoadState.Ready(cur.copy(seasons = cur.seasons.map { s -> if (s.seasonNumber == seasonNumber) season else s }))
                 }
                 _problem.value = ActionProblem.Season
+            }
+        }
+    }
+
+    /** The profile's own rating (1–10, 0 clears it), as the web's stars: shown at once, put back if Arc says no. */
+    fun rate(rating: Int) {
+        val api = container.api() ?: return
+        val item = (_state.value as? LoadState.Ready)?.value?.item ?: return
+        if (rating == item.myRating) return
+        viewModelScope.launch {
+            val ok = optimistic(item, item.withRating(rating), ::showItem) { api.setRating(item.id, rating) }
+            if (!ok) {
+                ArcLog.Android.warn("${if (rating == 0) "clearing" else "saving"} a rating failed")
+                _problem.value = ActionProblem.Rating
             }
         }
     }

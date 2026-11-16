@@ -349,6 +349,11 @@
     <string name="action_more">More</string>
     <string name="action_watched_failed">Couldn\'t change whether it\'s watched. Try again.</string>
     <string name="action_watchlist_failed">Couldn\'t change your watchlist. Try again.</string>
+    <string name="action_rating_failed">Couldn\'t save your rating. Try again.</string>
+    <string name="rating_rate">Rate…</string>
+    <string name="rating_your">Your Rating</string>
+    <string name="rating_out_of_five">%1$s of 5</string>
+    <string name="rating_clear">Clear Rating</string>
     <string name="action_season_watched">Mark Season as Watched</string>
     <string name="action_season_unwatched">Mark Season as Unwatched</string>
     <string name="action_season_watched_failed">Couldn\'t change the season. Try again.</string>

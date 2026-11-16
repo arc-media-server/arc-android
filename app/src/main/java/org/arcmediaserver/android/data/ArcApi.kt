@@ -155,6 +155,10 @@ class ArcApi(
         if (status !in 200..299) throw failure(status, body, "home/continue/{id}")
     }
 
+    /** The profile's own rating of a movie, show or episode: 1–10 (half stars out of five), 0 clears it. */
+    suspend fun setRating(itemId: String, rating: Int) =
+        put("items/${enc(itemId)}/rating", JsonObject(mapOf("rating" to JsonPrimitive(rating.coerceIn(0, 10)))).toString(), "items/{id}/rating")
+
     /** Puts a movie or show on the profile's watchlist, or takes it off. */
     suspend fun setWatchlist(itemId: String, on: Boolean) =
         put("items/${enc(itemId)}/watchlist", JsonObject(mapOf("on" to JsonPrimitive(on))).toString(), "items/{id}/watchlist")
