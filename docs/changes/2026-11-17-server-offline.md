@@ -39,6 +39,10 @@ is and keeps trying by itself, and this screen now does the same.
   (2) passed when run with JUnit directly. Robolectric's jar can't download in this session, so
   screenshots are recorded elsewhere.
 - New screenshot test: `server-offline` ("Living room", unreachable, 8 s to the next try).
+- Full check, run where Maven works: `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug` passed (248 tests, 1 skipped (the live-server test), 0 failed;
+  `RetryRulesTest` 2 of 2). The `server-offline` screenshot was looked at; it's in
+  `2026-11-17-server-offline/` (full size and a small JPEG).
 
 ## Logging
 
