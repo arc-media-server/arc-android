@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import org.arcmediaserver.android.R
+import org.arcmediaserver.android.data.Facet
 import org.arcmediaserver.android.data.Facets
+import org.arcmediaserver.android.ui.components.channelsName
+import org.arcmediaserver.android.ui.components.codecName
 import org.arcmediaserver.android.ui.components.ArcIcons
 import org.arcmediaserver.android.ui.components.requestWhenReady
 import org.arcmediaserver.android.ui.components.Popover
@@ -85,58 +90,94 @@ fun SortPanel(query: LibraryQuery, onChoose: (LibraryQuery) -> Unit, onClose: ()
     LaunchedEffect(Unit) { first.requestWhenReady() }
 }
 
-private enum class FilterPage { Main, Genre, Decade, Quality }
+private enum class FilterPage { Main, Genre, Decade, Quality, WatchState, Hdr, Video, Audio, Channels }
 
 /**
- * The web's library filters that suit a remote: unwatched only, and a genre, decade or quality
- * (from what the library has). Each choice applies at once; Clear Filters turns them all off.
+ * Whether to offer a video or audio filter, as the web's Filters panel: when the library has more
+ * than one value (one value would filter nothing out), or one is already chosen.
+ */
+fun offered(values: List<Facet>, chosen: Any?): Boolean = values.size > 1 || chosen != null
+
+/** Audio channel counts, most first (7.1 before 5.1 before Stereo), as the web lists them. */
+fun channelChoices(values: List<Facet>): List<Int> = values.mapNotNull { it.value.toIntOrNull() }.distinct().sortedDescending()
+
+/**
+ * The web's library filters that suit a remote: unwatched only, a genre, decade or quality, a
+ * watch status, and the video and audio filters the library has (HDR, video format, audio format,
+ * channels). Each choice applies at once; Clear Filters turns them all off.
  */
 @Composable
 fun FilterPanel(query: LibraryQuery, facets: Facets, onChoose: (LibraryQuery) -> Unit, onClose: () -> Unit, anchor: androidx.compose.ui.geometry.Rect? = null) {
     var page by remember { mutableStateOf(FilterPage.Main) }
     val first = remember(page) { FocusRequester() }
     val back = { if (page == FilterPage.Main) onClose() else page = FilterPage.Main }
+    val any = stringResource(R.string.filter_any)
+    // A page of choices: Any first, then each value; choosing goes back to the main list.
+    fun <T> LazyListScope.choices(heading: Int, values: List<T>, chosen: T?, name: @Composable (T) -> String, choose: (T?) -> LibraryQuery) {
+        item { Heading(stringResource(heading)) }
+        item { MenuItem(if (chosen == null) ArcIcons.Check else null, any, Modifier.focusRequester(first)) { onChoose(choose(null)); page = FilterPage.Main } }
+        items(values.size) { i ->
+            val v = values[i]
+            MenuItem(if (chosen == v) ArcIcons.Check else null, name(v)) { onChoose(choose(v)); page = FilterPage.Main }
+        }
+    }
     Popover(anchor, onClose = back, place = PopoverPlace.Below, width = 320.dp) {
-        LazyColumn {
+        LazyColumn(Modifier.heightIn(max = 420.dp)) {
             when (page) {
                 FilterPage.Main -> {
                     item { Heading(stringResource(R.string.library_filters)) }
                     item {
                         MenuItem(if (query.unwatched) ArcIcons.Check else null, stringResource(R.string.filter_unwatched), Modifier.focusRequester(first)) {
-                            onChoose(query.copy(unwatched = !query.unwatched))
+                            onChoose(query.withUnwatched(!query.unwatched))
                         }
                     }
-                    if (facets.genres.isNotEmpty()) item { Choice(stringResource(R.string.filter_genre), query.genre ?: stringResource(R.string.filter_any)) { page = FilterPage.Genre } }
-                    if (facets.decades.isNotEmpty()) item { Choice(stringResource(R.string.filter_decade), query.decade?.let { stringResource(R.string.filter_decade_value, it) } ?: stringResource(R.string.filter_any)) { page = FilterPage.Decade } }
-                    if (facets.resolutions.isNotEmpty()) item { Choice(stringResource(R.string.filter_quality), query.resolution?.let { qualityName(it) } ?: stringResource(R.string.filter_any)) { page = FilterPage.Quality } }
+                    item { Choice(stringResource(R.string.filter_watch_state), query.watchState?.let { watchStateName(it) } ?: any) { page = FilterPage.WatchState } }
+                    if (facets.genres.isNotEmpty()) item { Choice(stringResource(R.string.filter_genre), query.genre ?: any) { page = FilterPage.Genre } }
+                    if (facets.decades.isNotEmpty()) item { Choice(stringResource(R.string.filter_decade), query.decade?.let { stringResource(R.string.filter_decade_value, it) } ?: any) { page = FilterPage.Decade } }
+                    if (facets.resolutions.isNotEmpty()) item { Choice(stringResource(R.string.filter_quality), query.resolution?.let { qualityName(it) } ?: any) { page = FilterPage.Quality } }
+                    if (offered(facets.dynamicRanges, query.dynamicRange)) item { Choice(stringResource(R.string.filter_hdr), query.dynamicRange?.let { dynamicRangeName(it) } ?: any) { page = FilterPage.Hdr } }
+                    if (offered(facets.videoCodecs, query.videoCodec)) item { Choice(stringResource(R.string.filter_video_format), query.videoCodec?.let { codecName(it).orEmpty() } ?: any) { page = FilterPage.Video } }
+                    if (offered(facets.audioCodecs, query.audioCodec)) item { Choice(stringResource(R.string.filter_audio_format), query.audioCodec?.let { codecName(it).orEmpty() } ?: any) { page = FilterPage.Audio } }
+                    if (offered(facets.audioChannels, query.audioChannels)) item { Choice(stringResource(R.string.filter_channels), query.audioChannels?.let { channelsName(it) } ?: any) { page = FilterPage.Channels } }
                     if (query.filterCount > 0) {
                         item {
                             Spacer(Modifier.height(10.dp))
-                            MenuItem(ArcIcons.Close, stringResource(R.string.filter_clear)) { onChoose(query.copy(unwatched = false, genre = null, decade = null, resolution = null)) }
+                            MenuItem(ArcIcons.Close, stringResource(R.string.filter_clear)) { onChoose(query.cleared()) }
                         }
                     }
                 }
-                FilterPage.Genre -> {
-                    item { Heading(stringResource(R.string.filter_genre)) }
-                    item { MenuItem(if (query.genre == null) ArcIcons.Check else null, stringResource(R.string.filter_any), Modifier.focusRequester(first)) { onChoose(query.copy(genre = null)); page = FilterPage.Main } }
-                    items(facets.genres, key = { it.value }) { g -> MenuItem(if (query.genre == g.value) ArcIcons.Check else null, g.value) { onChoose(query.copy(genre = g.value)); page = FilterPage.Main } }
-                }
-                FilterPage.Decade -> {
-                    item { Heading(stringResource(R.string.filter_decade)) }
-                    item { MenuItem(if (query.decade == null) ArcIcons.Check else null, stringResource(R.string.filter_any), Modifier.focusRequester(first)) { onChoose(query.copy(decade = null)); page = FilterPage.Main } }
-                    items(facets.decades.mapNotNull { it.value.toIntOrNull() }.sortedDescending(), key = { it }) { d ->
-                        MenuItem(if (query.decade == d) ArcIcons.Check else null, stringResource(R.string.filter_decade_value, d)) { onChoose(query.copy(decade = d)); page = FilterPage.Main }
-                    }
-                }
-                FilterPage.Quality -> {
-                    item { Heading(stringResource(R.string.filter_quality)) }
-                    item { MenuItem(if (query.resolution == null) ArcIcons.Check else null, stringResource(R.string.filter_any), Modifier.focusRequester(first)) { onChoose(query.copy(resolution = null)); page = FilterPage.Main } }
-                    items(facets.resolutions, key = { it.value }) { r -> MenuItem(if (query.resolution == r.value) ArcIcons.Check else null, qualityName(r.value)) { onChoose(query.copy(resolution = r.value)); page = FilterPage.Main } }
-                }
+                FilterPage.Genre -> choices(R.string.filter_genre, facets.genres.map { it.value }, query.genre, { it }) { query.copy(genre = it) }
+                FilterPage.Decade -> choices(
+                    R.string.filter_decade, facets.decades.mapNotNull { it.value.toIntOrNull() }.sortedDescending(), query.decade,
+                    { stringResource(R.string.filter_decade_value, it) },
+                ) { query.copy(decade = it) }
+                FilterPage.Quality -> choices(R.string.filter_quality, facets.resolutions.map { it.value }, query.resolution, { qualityName(it) }) { query.copy(resolution = it) }
+                FilterPage.WatchState -> choices(R.string.filter_watch_state, listOf("played", "unstarted"), query.watchState, { watchStateName(it) }) { query.withWatchState(it) }
+                // A value already chosen stays in its list, even when the library no longer has it.
+                FilterPage.Hdr -> choices(R.string.filter_hdr, (facets.dynamicRanges.map { it.value } + listOfNotNull(query.dynamicRange)).distinct(), query.dynamicRange, { dynamicRangeName(it) }) { query.copy(dynamicRange = it) }
+                FilterPage.Video -> choices(R.string.filter_video_format, (facets.videoCodecs.map { it.value } + listOfNotNull(query.videoCodec)).distinct(), query.videoCodec, { codecName(it).orEmpty() }) { query.copy(videoCodec = it) }
+                FilterPage.Audio -> choices(R.string.filter_audio_format, (facets.audioCodecs.map { it.value } + listOfNotNull(query.audioCodec)).distinct(), query.audioCodec, { codecName(it).orEmpty() }) { query.copy(audioCodec = it) }
+                FilterPage.Channels -> choices(R.string.filter_channels, (channelChoices(facets.audioChannels) + listOfNotNull(query.audioChannels)).distinct(), query.audioChannels, { channelsName(it).orEmpty() }) { query.copy(audioChannels = it) }
             }
         }
     }
     LaunchedEffect(page) { first.requestWhenReady() }
+}
+
+/** Watched or Not started (the web's watch status names). */
+@Composable
+private fun watchStateName(value: String) = stringResource(if (value == "played") R.string.filter_watched else R.string.filter_not_started)
+
+/** Dolby Vision, HDR10+, HLG, HDR10, SDR, or "Not known yet" (the web's dynamicRangeLabel). */
+@Composable
+fun dynamicRangeName(value: String): String = when (value) {
+    "dolby_vision" -> "Dolby Vision"
+    "hdr10_plus" -> "HDR10+"
+    "hlg" -> "HLG"
+    "hdr10" -> "HDR10"
+    "sdr" -> "SDR"
+    "unknown" -> stringResource(R.string.filter_hdr_unknown)
+    else -> value
 }
 
 private fun qualityName(value: String) = when (value) {
