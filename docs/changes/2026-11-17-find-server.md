@@ -59,6 +59,11 @@ in, only on the home network, and gives only the server's identity, name and ver
     nothing listening ignored.
 - **Screenshots:** a new `server-found` shot (two servers found, still searching). The existing
   `server` and `server-error` shots are drawn without the section, so they don't change.
+- Full check, run where Maven works: `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug` passed (239 tests, 1 skipped (the live-server test), 0 failed;
+  `DiscoveryTest` 5 of 5). The new `server-found` screenshot (a copy is in
+  `2026-11-17-find-server/`) shows two servers under "On your network"; `server` and
+  `server-error` are unchanged. Not tried on a TV or a real network.
 
 ## Logging
 
