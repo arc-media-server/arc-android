@@ -631,3 +631,7 @@ data class PlayQueueEntry(
 ) {
     val playable: Boolean get() = available && item != null
 }
+
+/** A pre-roll video (Settings → Pre-roll on the web): played before a film, as Plex's cinema trailers. */
+@Serializable
+data class PrerollClip(val title: String = "", val url: String)

@@ -403,6 +403,8 @@
     <string name="player_skip_intro">Skip Intro</string>
     <string name="player_skip_recap">Skip Recap</string>
     <string name="player_skip_credits">Skip Credits</string>
+    <!-- Skips a pre-roll video before a film (the web player's Skip). -->
+    <string name="player_skip_preroll">Skip</string>
     <string name="player_play_next">Play Next</string>
     <string name="player_version">Version</string>
     <string name="player_quality">Quality</string>

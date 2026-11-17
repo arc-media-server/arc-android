@@ -245,6 +245,10 @@ class ArcApi(
         send("POST", "items/${enc(itemId)}/playback", ArcJson.encodeToString(PlaybackRequest.serializer(), request), PlaybackPlan.serializer(), route = "items/{id}/playback")
 
     /** The episode that follows in the profile's order, or null (204) for none. */
+    /** The pre-roll videos to play before a film started from the beginning (none for anything else). */
+    suspend fun preroll(itemId: String): List<PrerollClip> =
+        get("items/${enc(itemId)}/preroll", kotlinx.serialization.builtins.ListSerializer(PrerollClip.serializer()), route = "items/{id}/preroll")
+
     suspend fun next(itemId: String): Item? {
         val (status, body) = raw("GET", "items/${enc(itemId)}/next", null, route = "items/{id}/next")
         return when (status) {
