@@ -38,7 +38,10 @@ It now has the rest, from the same answers (arc-media-server#347, `FILTER-DISCOV
 - Here: `./gradlew assembleDebug` passed, and the unit tests compiled
   (`compileDebugUnitTestKotlin`). Running them was blocked: Robolectric's runtime jar redirects to
   a Maven mirror this session's network refuses (403).
-- The full check is in the PR.
+- Full check, run where Maven works: `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug` passed (207 tests, 1 skipped (the live-server test), 0 failed).
+  `tv-library-filters-media` shows Watch Status: Not Started, HDR: Dolby Vision and Audio
+  Channels: 7.1 with no Video Format row; `tv-library-filters` gains Watch Status: Any.
 - New tests:
   - `LibraryQueryTest`: parameters, the Unwatched / watch status rule, Clear Filters, when a row
     is offered, channel order;
