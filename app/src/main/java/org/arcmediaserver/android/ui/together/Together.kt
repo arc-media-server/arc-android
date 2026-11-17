@@ -20,6 +20,9 @@ data class RoomCode(val roomId: String, val code: String, val expiresAtMs: Long)
 /** A room on Home's Watch Together row and page, with its title's details once they're loaded. */
 data class RoomCard(val room: ListedRoom, val item: Item?)
 
+/** How inviting went: done, too many rooms waiting (429), or failed. */
+enum class InviteResult { Done, TooManyRooms, Failed }
+
 /** Why joining didn't work, in the web's words (player.json together.*). */
 enum class JoinProblem { CodeNotFound, TooManyTries, Failed }
 
@@ -99,6 +102,52 @@ class Together(private val container: AppContainer) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             log.warn("watch together: starting a room failed (${(e as? ApiException)?.status ?: e.javaClass.simpleName})")
             false
+        }
+    }
+
+    /** Who this profile may invite to watch [itemId]; null when the list didn't load. */
+    suspend fun people(itemId: String?): List<org.arcmediaserver.android.data.WatchPerson>? {
+        val api = container.api() ?: return null
+        return try {
+            api.roomPeople(itemId)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            log.warn("watch together: who to invite didn't load (${(e as? ApiException)?.status ?: e.javaClass.simpleName})")
+            null
+        }
+    }
+
+    /**
+     * A room for [item] made for [profileIds], as the web's Done: nobody's in it yet, and it waits
+     * on Home's Watch Together row for everyone (this profile too). Returns the room on success.
+     */
+    suspend fun invite(item: Item, startMs: Long, profileIds: List<String>): Pair<InviteResult, ListedRoom?> {
+        val api = container.api() ?: return InviteResult.Failed to null
+        return try {
+            val made = api.createInvitedRoom(item.id, startMs, profileIds)
+            log.info("watch together: made a room for ${profileIds.size} invited")
+            refreshRooms()
+            InviteResult.Done to made.room
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            val status = (e as? ApiException)?.status
+            log.warn("watch together: inviting failed (${status ?: e.javaClass.simpleName})")
+            (if (status == 429) InviteResult.TooManyRooms else InviteResult.Failed) to null
+        }
+    }
+
+    /** Invites more people to the room this TV hosts. */
+    suspend fun inviteMore(profileIds: List<String>): InviteResult {
+        val s = _session.value ?: return InviteResult.Failed
+        val api = container.api() ?: return InviteResult.Failed
+        return try {
+            s.adopt(api.inviteToRoom(s.room.value.id, profileIds))
+            log.info("watch together: invited ${profileIds.size} more")
+            InviteResult.Done
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            log.warn("watch together: inviting more failed (${(e as? ApiException)?.status ?: e.javaClass.simpleName})")
+            InviteResult.Failed
         }
     }
 

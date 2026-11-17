@@ -750,6 +750,20 @@ class ScreenshotTest {
     }
 
     @Test
+    fun togetherInvite() = shot("together-invite") {
+        // Choosing people for a room: one ticked, one who can't watch this title, a friend.
+        val people = listOf(
+            org.arcmediaserver.android.data.WatchPerson("p2", "Sam"),
+            org.arcmediaserver.android.data.WatchPerson("p3", "Kids", canWatch = false),
+            org.arcmediaserver.android.data.WatchPerson("f1", "Robin", friend = true),
+        )
+        org.arcmediaserver.android.ui.together.InvitePickerContent(
+            title = Fixtures.movies[0].title, people = people, failed = false, chosen = setOf("p2"), busy = false, problem = null,
+            onToggle = {}, onRetry = {}, onDone = {}, onUseCode = {}, onClose = {},
+        )
+    }
+
+    @Test
     fun mediaInfo() = shot("movie-media-info") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.MediaInfo)
     }

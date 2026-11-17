@@ -167,4 +167,35 @@ class WatchTogetherTest {
         assertNull(RoomSession.conflictRoom(ApiException(400, "bad", body = """{"room":${json(2, "paused")}}""")))
         assertEquals(2L, RoomSession.conflictRoom(ApiException(409, "conflict", body = """{"room":${json(2, "paused")}}"""))?.revision)
     }
+
+    @Test
+    fun `who to invite is asked for the title, and who can't watch it is marked`() = runTest {
+        answer(200, """{"people":[{"id":"p1","name":"Jo","color":"#fff","friend":false,"can_watch":true},{"id":"p2","name":"Kim","friend":true,"can_watch":false}]}""")
+        val people = api.roomPeople("m 1")
+        assertEquals("/api/v1/watch-together/people", server.takeRequest().url.encodedPath)
+        assertEquals(listOf(true, false), people.map { it.canWatch })
+        assertTrue(people[1].friend)
+    }
+
+    @Test
+    fun `Done makes a room for the chosen people from the resume point`() = runTest {
+        answer(201, """{"room":{"id":"r9","state":"paused","host_name":"Sam","hosting":true,"joined":false,"item":{"id":"m1","title":"Film"},"participants":[],"invited":["Jo"]},"invite_code":"ABCD1234","invite_expires_at_ms":5}""")
+        val made = api.createInvitedRoom("m1", 90_000, listOf("p1", "p3"))
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/v1/watch-together/rooms", request.url.encodedPath)
+        assertEquals("""{"item_id":"m1","start_ms":90000,"profile_ids":["p1","p3"]}""", request.body?.utf8())
+        assertEquals("r9", made.room.id)
+        assertEquals(listOf("Jo"), made.room.invited)
+    }
+
+    @Test
+    fun `the host invites more people to the room it's in`() = runTest {
+        answer(200, """{"id":"r1","revision":4,"host_id":"me","self_id":"me","invited":[{"name":"Jo"}],"participants":[]}""")
+        val room = api.inviteToRoom("r1", listOf("p1"))
+        val request = server.takeRequest()
+        assertEquals("/api/v1/watch-together/r1/people", request.url.encodedPath)
+        assertEquals("""{"profile_ids":["p1"]}""", request.body?.utf8())
+        assertEquals("Jo", room.invited.single().name)
+    }
 }

@@ -510,5 +510,21 @@
     <string name="together_decline">Decline</string>
     <string name="together_cancel_room">Cancel</string>
     <string name="together_no_episode">There\'s no episode of this show to watch yet.</string>
+    <string name="together_invite_people">Invite People…</string>
+    <string name="together_invite_body">Choose who to watch %1$s with. They\'ll find it on Home under Watch Together.</string>
+    <string name="together_invite_more_body">Choose who else to invite. They\'ll find it on Home under Watch Together.</string>
+    <string name="together_use_code">Use a Code Instead</string>
+    <string name="together_done">Done</string>
+    <string name="together_inviting">Inviting…</string>
+    <string name="together_friend">Friend</string>
+    <string name="together_household">Profile on this server</string>
+    <string name="together_cant_watch">Can\'t watch this title</string>
+    <string name="together_nobody_to_invite">There\'s nobody else to invite yet. You can use a code instead.</string>
+    <string name="together_people_failed">Couldn\'t load who you can invite. Try again</string>
+    <string name="together_invite_failed">Couldn\'t invite them. Check your connection and try again.</string>
+    <string name="together_too_many_rooms">You already have rooms waiting. Join or cancel one on Home first.</string>
+    <string name="together_room_made">Your Watch Together room for %1$s is ready. It\'s on Home under Watch Together.</string>
+    <string name="together_join_now">Join Now</string>
+    <string name="together_not_now">Not Now</string>
     <string name="together_start_failed">Couldn\'t start Watch Together. Check your connection and try again.</string>
 </resources>
