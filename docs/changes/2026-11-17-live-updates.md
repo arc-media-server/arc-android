@@ -53,7 +53,10 @@ screens showing that kind of data reload in place.
 
 - Here: `./gradlew assembleDebug compileDebugUnitTestKotlin` passed. The tests couldn't run in this
   session (a Robolectric jar comes from a mirror its network refuses).
-- The full check is in the PR.
+- Full check, run where Maven works: `./gradlew assembleDebug testDebugUnitTest
+  recordRoborazziDebug` passed (206 tests, 1 skipped (the live-server test), 0 failed). No
+  screenshot test changed. `LiveUpdatesTest` run 5 more times: 6 of 6 each time, about 3.4 s in
+  all (the two stream cases about 1.5 s each).
 - New `LiveUpdatesTest`:
   - the stream reader (whole events, heartbeats skipped, the cursor kept);
   - hint topics, and which screens they touch;
