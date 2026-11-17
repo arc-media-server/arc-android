@@ -187,7 +187,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                     val status = async { api.authStatus() }
                     Triple(libs.await(), prefs.await(), status.await())
                 }
-                container.hideSpoilers.value = prefs.hideSpoilers
+                container.applyPrefs(prefs)
                 val order = prefs.libraryOrder
                 val sorted = libraries.sortedBy { lib -> order.indexOf(lib.id).let { if (it < 0) Int.MAX_VALUE else it } }
                 _state.update {

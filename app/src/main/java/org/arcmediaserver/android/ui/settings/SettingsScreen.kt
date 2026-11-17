@@ -114,7 +114,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(prefs = LoadState.Loading) }
         viewModelScope.launch {
             val result = try {
-                LoadState.Ready(api.prefs().also { container.hideSpoilers.value = it.hideSpoilers })
+                LoadState.Ready(api.prefs().also { container.applyPrefs(it) })
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ArcLog.Android.warn("settings failed to load: ${e.javaClass.simpleName}")
@@ -128,7 +128,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun change(before: Prefs, after: Prefs, changes: JsonObject) {
         val api = container.api() ?: return
         _state.update { it.copy(prefs = LoadState.Ready(after), failed = false) }
-        container.hideSpoilers.value = after.hideSpoilers
+        container.applyPrefs(after)
         viewModelScope.launch {
             try {
                 api.updatePrefs(changes)
@@ -137,7 +137,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ArcLog.Android.warn("settings: saving ${changes.keys.joinToString()} failed: ${e.javaClass.simpleName}")
                 _state.update { it.copy(prefs = LoadState.Ready(before), failed = true) }
-                container.hideSpoilers.value = before.hideSpoilers
+                container.applyPrefs(before)
             }
         }
     }
@@ -250,6 +250,11 @@ fun SettingsContent(
                 item {
                     SettingsRow(stringResource(R.string.settings_auto_skip), if (p.autoSkip) on else off) {
                         onChange(p, p.copy(autoSkip = !p.autoSkip), buildJsonObject { put("auto_skip", !p.autoSkip) })
+                    }
+                }
+                item {
+                    SettingsRow(stringResource(R.string.settings_theme_music), if (p.themeMusic) on else off) {
+                        onChange(p, p.copy(themeMusic = !p.themeMusic), buildJsonObject { put("theme_music", !p.themeMusic) })
                     }
                 }
                 item {

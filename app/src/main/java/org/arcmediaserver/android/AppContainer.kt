@@ -85,9 +85,19 @@ class AppContainer(private val context: Context) {
     /** The profile's Hide Spoilers, as last read from (or saved to) its preferences. */
     val hideSpoilers = kotlinx.coroutines.flow.MutableStateFlow(false)
 
+    /** The profile's Theme Music, as last read from (or saved to) its preferences. */
+    val themeMusic = kotlinx.coroutines.flow.MutableStateFlow(true)
+
+    /** Takes up the profile's preferences that every screen follows. */
+    fun applyPrefs(prefs: org.arcmediaserver.android.data.Prefs) {
+        hideSpoilers.value = prefs.hideSpoilers
+        themeMusic.value = prefs.themeMusic
+    }
+
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
     fun profileChanged() {
         hideSpoilers.value = false
+        themeMusic.value = true
         palettes.clear()
         itemChanges.clear()
         offContinue.clear()
