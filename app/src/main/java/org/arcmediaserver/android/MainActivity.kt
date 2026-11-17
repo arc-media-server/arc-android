@@ -23,10 +23,18 @@ class MainActivity : ComponentActivity() {
         resumeFrom(intent)
     }
 
-    /** Leaving the app: Google TV's Continue watching row shows where things were left. */
+    /** On screen: Arc's live updates keep what's shown current. */
+    override fun onStart() {
+        super.onStart()
+        (application as ArcApplication).container.live.start()
+    }
+
+    /** Leaving the app: Google TV's Continue watching row shows where things were left; no live updates. */
     override fun onStop() {
         super.onStop()
-        (application as ArcApplication).container.syncWatchNext()
+        val container = (application as ArcApplication).container
+        container.live.stop()
+        container.syncWatchNext()
     }
 
     /** A title chosen in Google TV's Continue watching row: it plays once the app is ready. */
