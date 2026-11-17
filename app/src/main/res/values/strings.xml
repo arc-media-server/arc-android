@@ -11,7 +11,7 @@
     <string name="offline_title_named">Can\'t connect to %1$s</string>
     <string name="offline_try_again">Try Again</string>
     <string name="offline_trying">Trying again…</string>
-    <string name="offline_trying_in">Trying again in %1$d s</string>
+    <string name="offline_trying_in">Trying again in %1$ds</string>
     <string name="error_title">Something went wrong</string>
     <string name="error_server">The server answered with an error (%1$d).</string>
     <string name="error_unreachable">Can\'t reach your Arc server. Check that it\'s running and that this TV is on the same network.</string>

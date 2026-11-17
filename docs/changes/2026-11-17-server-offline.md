@@ -14,7 +14,7 @@ is and keeps trying by itself, and this screen now does the same.
   certificate problem, or a server error.
 - **Buttons:** **Try Again** (focused) and **Use Another Server** (the Connect screen).
 - **Tries again by itself:** while the server is down, slow or answering with a 5xx error, the
-  screen counts down ("Trying again in 8 s") and tries every 10 seconds.
+  screen counts down ("Trying again in 8s") and tries every 10 seconds.
   - It moves on to the profile picker or Home as soon as Arc answers. A server coming back after
     a reboot needs no one at the TV.
   - While a try runs, the screen stays up with "Trying again…", rather than flashing back to the
@@ -38,7 +38,7 @@ is and keeps trying by itself, and this screen now does the same.
 - Here: `./gradlew assembleDebug compileDebugUnitTestKotlin` passed, and the new `RetryRulesTest`
   (2) passed when run with JUnit directly. Robolectric's jar can't download in this session, so
   screenshots are recorded elsewhere.
-- New screenshot test: `server-offline` ("Living room", unreachable, 8 s to the next try).
+- New screenshot test: `server-offline` ("Living room", unreachable, 8s to the next try).
 - Full check, run where Maven works: `./gradlew assembleDebug testDebugUnitTest
   recordRoborazziDebug` passed (248 tests, 1 skipped (the live-server test), 0 failed;
   `RetryRulesTest` 2 of 2). The `server-offline` screenshot was looked at; it's in
