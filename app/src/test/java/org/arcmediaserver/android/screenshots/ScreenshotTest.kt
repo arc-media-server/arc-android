@@ -958,4 +958,12 @@ class ScreenshotTest {
             serverNow = { 0 }, onStart = {}, onLeave = {}, onNewCode = {},
         )
     }
+
+    @Test
+    fun serverOffline() = shot("server-offline") {
+        org.arcmediaserver.android.ui.launch.ServerOffline(
+            serverName = "Living room", address = "http://192.168.1.20:8099", error = UiError.Unreachable,
+            retrying = false, secondsLeft = 8, onRetry = {}, onChangeServer = {},
+        )
+    }
 }

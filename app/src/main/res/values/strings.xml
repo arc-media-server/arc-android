@@ -6,6 +6,12 @@
     <string name="action_retry">Try Again</string>
     <string name="action_cancel">Cancel</string>
     <string name="watched">Watched</string>
+    <!-- Arc can't be reached as the app opens (Plex's "Unable to connect"). -->
+    <string name="offline_title">Can\'t connect to your Arc server</string>
+    <string name="offline_title_named">Can\'t connect to %1$s</string>
+    <string name="offline_try_again">Try Again</string>
+    <string name="offline_trying">Trying again…</string>
+    <string name="offline_trying_in">Trying again in %1$d s</string>
     <string name="error_title">Something went wrong</string>
     <string name="error_server">The server answered with an error (%1$d).</string>
     <string name="error_unreachable">Can\'t reach your Arc server. Check that it\'s running and that this TV is on the same network.</string>

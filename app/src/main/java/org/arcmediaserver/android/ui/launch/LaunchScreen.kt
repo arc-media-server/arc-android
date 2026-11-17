@@ -1,6 +1,24 @@
 package org.arcmediaserver.android.ui.launch
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextAlign
+import androidx.tv.material3.Button
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.OutlinedButton
+import androidx.tv.material3.Text
+import org.arcmediaserver.android.data.display
+import org.arcmediaserver.android.ui.components.UiError
+import org.arcmediaserver.android.ui.components.text
+import org.arcmediaserver.android.ui.components.requestWhenReady
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -58,41 +76,146 @@ class LaunchViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<Destination>>(LoadState.Loading)
     val state: StateFlow<LoadState<Destination>> = _state
 
+    private val _retrying = MutableStateFlow(false)
+    /** Trying again while the "can't connect" screen stays up (it doesn't flash back to the logo). */
+    val retrying: StateFlow<Boolean> = _retrying
+    private var failures = 0
+
+    /** The server this TV connects to, for the "can't connect" screen. */
+    val serverName: String? get() = container.session.serverName
+    val serverAddress: String? get() = container.session.server?.display()
+
     init {
         load()
     }
 
-    fun load() {
-        _state.value = LoadState.Loading
+    /** Asks Arc where to go; [quiet] keeps the error up while trying again (automatic or Retry). */
+    fun load(quiet: Boolean = _state.value is LoadState.Failed) {
+        if (_retrying.value) return
+        if (quiet) _retrying.value = true else _state.value = LoadState.Loading
         viewModelScope.launch {
-            _state.value = try {
+            val next = try {
                 LoadState.Ready(whereNext(container))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 LoadState.Failed(e.toUiError())
             }
+            if (next is LoadState.Failed) {
+                failures++
+                // Once when it starts failing; the automatic tries after that only at debug.
+                if (failures == 1) ArcLog.Android.warn("can't connect to Arc at launch: ${next.error.javaClass.simpleName}")
+                else ArcLog.Android.debug("still can't connect to Arc (try $failures)")
+            } else if (failures > 0) {
+                ArcLog.Android.info("connected to Arc after ${failures + 1} tries")
+                failures = 0
+            }
+            _state.value = next
+            _retrying.value = false
         }
     }
 }
+
+/** Whether a launch failure is worth trying again by itself: the server down, slow or failing. */
+fun retriesItself(error: UiError): Boolean = when (error) {
+    UiError.Unreachable, UiError.Timeout -> true
+    is UiError.Server -> error.status >= 500 || error.status == 0
+    else -> false
+}
+
+/** Seconds between automatic tries while the server can't be reached (Plex keeps trying too). */
+const val RETRY_EVERY_SECONDS = 10
 
 @Composable
 fun LaunchRoute(onDestination: (Destination) -> Unit, onChangeServer: () -> Unit) {
     val vm = arcViewModel { LaunchViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val retrying by vm.retrying.collectAsStateWithLifecycle()
     LaunchedEffect(state) { (state as? LoadState.Ready)?.let { onDestination(it.value) } }
-    Box(Modifier.fillMaxSize().background(ArcColors.Background), contentAlignment = Alignment.Center) {
-        when (val s = state) {
-            is LoadState.Failed -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                ErrorPane(s.error, onRetry = vm::load, modifier = Modifier.height(320.dp))
-                androidx.tv.material3.OutlinedButton(onClick = onChangeServer) {
-                    androidx.tv.material3.Text(androidx.compose.ui.res.stringResource(R.string.signin_change_server))
+    when (val s = state) {
+        is LoadState.Failed -> {
+            // Counts down to the next automatic try, while the server is down or slow.
+            var secondsLeft by remember { mutableStateOf<Int?>(null) }
+            LaunchedEffect(s, retrying) {
+                secondsLeft = null
+                if (retrying || !retriesItself(s.error)) return@LaunchedEffect
+                for (n in RETRY_EVERY_SECONDS downTo 1) {
+                    secondsLeft = n
+                    kotlinx.coroutines.delay(1_000)
                 }
+                secondsLeft = null
+                vm.load(quiet = true)
             }
-            else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            ServerOffline(
+                serverName = vm.serverName,
+                address = vm.serverAddress,
+                error = s.error,
+                retrying = retrying,
+                secondsLeft = secondsLeft,
+                onRetry = { vm.load(quiet = true) },
+                onChangeServer = onChangeServer,
+            )
+        }
+        else -> Box(Modifier.fillMaxSize().background(ArcColors.Background), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo_stacked), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(140.dp).aspectRatio(65.42f / 69.16f))
                 Spacer(Modifier.height(24.dp))
                 Spinner(size = 28.dp)
             }
         }
     }
+}
+
+/**
+ * Arc can't be reached as the app opens, as Plex's "Unable to connect": which server (its name and
+ * address), why, Try Again (focused) and Use Another Server. While the server is down or slow it
+ * tries again every [RETRY_EVERY_SECONDS] seconds by itself, and moves on once it answers.
+ */
+@Composable
+fun ServerOffline(
+    serverName: String?,
+    address: String?,
+    error: UiError,
+    retrying: Boolean,
+    secondsLeft: Int?,
+    onRetry: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    Box(Modifier.fillMaxSize().background(ArcColors.Background), contentAlignment = Alignment.Center) {
+        org.arcmediaserver.android.ui.profiles.AuthGlow()
+        Column(Modifier.widthIn(max = 600.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.foundation.Image(painterResource(R.drawable.arc_logo_stacked), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(72.dp).aspectRatio(65.42f / 69.16f))
+            Spacer(Modifier.height(28.dp))
+            Text(
+                if (serverName.isNullOrBlank()) stringResource(R.string.offline_title) else stringResource(R.string.offline_title_named, serverName),
+                style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
+            )
+            if (!address.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(address, style = MaterialTheme.typography.titleMedium, color = ArcColors.Muted, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(error.text(), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(28.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Button(onClick = onRetry, enabled = !retrying, modifier = Modifier.focusRequester(focus)) {
+                    Text(stringResource(R.string.offline_try_again))
+                }
+                OutlinedButton(onClick = onChangeServer) { Text(stringResource(R.string.signin_change_server)) }
+            }
+            Spacer(Modifier.height(18.dp))
+            // "Trying again in 8 s" (or "Trying again…"), so it's clear the TV will carry on by itself.
+            Row(Modifier.height(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    retrying -> {
+                        Spinner(size = 16.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(R.string.offline_trying), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Subtle)
+                    }
+                    secondsLeft != null -> Text(stringResource(R.string.offline_trying_in, secondsLeft), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Subtle)
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) { focus.requestWhenReady() }
 }
