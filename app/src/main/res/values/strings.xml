@@ -477,6 +477,8 @@
     <string name="together_end_for_everyone">End for Everyone</string>
     <string name="together_waiting">Waiting for everyone…</string>
     <string name="together_waiting_for">Waiting for %1$s…</string>
+    <!-- The waiting note with the seconds left before the room carries on: "Waiting for Alex… 7s". -->
+    <string name="together_waiting_seconds">%1$s %2$ds</string>
     <string name="together_paused_by">Paused by %1$s</string>
     <string name="together_played_by">Played by %1$s</string>
     <string name="together_moved_by">%1$s moved the room</string>

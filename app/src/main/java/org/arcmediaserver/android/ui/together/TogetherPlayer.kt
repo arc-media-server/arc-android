@@ -126,7 +126,7 @@ private fun WaitingPill(room: WatchRoom, serverNow: () -> Long, modifier: Modifi
     val slow = RoomSync.waitingFor(room)
     val seconds = room.waitUntilMs?.let { maxOf(0L, (it - serverNow() + 999) / 1000) }?.takeIf { tick >= 0 } ?: 0
     val text = if (slow.isNotEmpty()) stringResource(R.string.together_waiting_for, slow.joinToString(", ")) else stringResource(R.string.together_waiting)
-    Pill(if (seconds > 0) "$text  $seconds" else text, modifier)
+    Pill(if (seconds > 0) stringResource(R.string.together_waiting_seconds, text, seconds.toInt()) else text, modifier)
 }
 
 /**
