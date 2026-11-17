@@ -18,6 +18,8 @@ import java.util.concurrent.TimeUnit
 
 /** The app's long-lived objects, made once in [ArcApplication]. */
 class AppContainer(private val context: Context) {
+    /** The application context, for system services (the network, for finding Arc on it). */
+    val appContext: Context get() = context
     val session: SessionStore = sessionStore(context)
 
     /** Work that must finish even when its screen has gone (telling Arc playback stopped). */

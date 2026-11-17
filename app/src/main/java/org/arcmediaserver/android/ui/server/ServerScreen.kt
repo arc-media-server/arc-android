@@ -71,6 +71,11 @@ data class ServerUiState(
     val checking: Boolean = false,
     val problem: ServerProblem? = null,
     val connected: Boolean = false,
+    /** Arc servers found on the home network; [scanning] while it looks. */
+    val found: List<org.arcmediaserver.android.data.FoundServer> = emptyList(),
+    val scanning: Boolean = false,
+    /** Whether a home network could be searched at all (false off Wi-Fi/Ethernet, or on a public one). */
+    val canScan: Boolean = true,
 )
 
 class ServerViewModel(private val container: AppContainer) : ViewModel() {
@@ -80,6 +85,51 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
     fun edit(text: String) = _state.update { it.copy(address = text, problem = null) }
 
     fun navigated() = _state.update { it.copy(connected = false) }
+
+    init {
+        scan()
+    }
+
+    /**
+     * Looks for Arc on the home network (`GET /discover` on Arc's port across this TV's /24), so
+     * it can be chosen rather than typed, as Plex finds its servers.
+     */
+    fun scan() {
+        if (_state.value.scanning) return
+        val local = homeAddress()
+        if (local == null) {
+            _state.update { it.copy(canScan = false, scanning = false) }
+            return
+        }
+        val hosts = org.arcmediaserver.android.data.Discovery.candidates(local.first, local.second)
+        _state.update { it.copy(scanning = true, canScan = true, found = emptyList()) }
+        viewModelScope.launch {
+            val started = System.currentTimeMillis()
+            val all = org.arcmediaserver.android.data.Discovery.scan(hosts, okhttp3.OkHttpClient()) { found ->
+                _state.update { s -> s.copy(found = (s.found + found).sortedBy { it.name.lowercase() }) }
+            }
+            ArcLog.Android.info("server discovery: ${all.size} found among ${hosts.size} addresses in ${System.currentTimeMillis() - started} ms")
+            _state.update { it.copy(scanning = false) }
+        }
+    }
+
+    /** Connects to a server found on the network. */
+    fun choose(server: org.arcmediaserver.android.data.FoundServer) {
+        _state.update { it.copy(address = server.address, problem = null) }
+        connect()
+    }
+
+    /** This TV's private IPv4 address and network prefix, from the active network's link. */
+    private fun homeAddress(): Pair<ByteArray, Int>? = try {
+        val cm = container.appContext.getSystemService(android.net.ConnectivityManager::class.java)
+        val link = cm?.getLinkProperties(cm.activeNetwork)
+        link?.linkAddresses
+            ?.firstOrNull { it.address is java.net.Inet4Address && !it.address.isLoopbackAddress && org.arcmediaserver.android.data.Discovery.isPrivate(it.address.address) }
+            ?.let { it.address.address to it.prefixLength }
+    } catch (e: Exception) {
+        ArcLog.Android.debug("server discovery: no network address (${e.javaClass.simpleName})")
+        null
+    }
 
     fun connect() {
         val url = normalizeServerAddress(_state.value.address)
@@ -116,12 +166,19 @@ fun ServerRoute(onConnected: () -> Unit) {
             onConnected()
         }
     }
-    ServerScreen(state, onEdit = vm::edit, onConnect = vm::connect)
+    ServerScreen(state, onEdit = vm::edit, onConnect = vm::connect, onChoose = vm::choose, onScan = vm::scan)
 }
 
 @Composable
-fun ServerScreen(state: ServerUiState, onEdit: (String) -> Unit, onConnect: () -> Unit) {
+fun ServerScreen(
+    state: ServerUiState,
+    onEdit: (String) -> Unit,
+    onConnect: () -> Unit,
+    onChoose: (org.arcmediaserver.android.data.FoundServer) -> Unit = {},
+    onScan: () -> Unit = {},
+) {
     val fieldFocus = remember { FocusRequester() }
+    val firstFound = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(ArcColors.Background), contentAlignment = Alignment.Center) {
         BackdropGlow()
         Column(Modifier.width(560.dp), horizontalAlignment = Alignment.Start) {
@@ -156,9 +213,17 @@ fun ServerScreen(state: ServerUiState, onEdit: (String) -> Unit, onConnect: () -
                 )
                 else -> Text(stringResource(R.string.server_port_note), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Subtle)
             }
+            if (state.canScan) {
+                Spacer(Modifier.height(28.dp))
+                FoundOnNetwork(state, onChoose, onScan, firstFound)
+            }
         }
     }
     LaunchedEffect(Unit) { fieldFocus.requestWhenReady() }
+    // The first server found takes the focus, unless an address is being typed: one press of OK
+    // connects (as Plex lists its servers).
+    val firstId = state.found.firstOrNull()?.id
+    LaunchedEffect(firstId) { if (firstId != null && state.address.isEmpty()) firstFound.requestWhenReady() }
 }
 
 @Composable
@@ -194,3 +259,50 @@ private fun AddressField(value: String, onEdit: (String) -> Unit, onDone: () -> 
 fun BackdropGlow() {
     org.arcmediaserver.android.ui.profiles.AuthGlow()
 }
+
+/**
+ * "On your network": the Arc servers found, each a button with its name, address and version;
+ * while looking, a spinner; when none answer, a note and Search Again.
+ */
+@Composable
+private fun FoundOnNetwork(
+    state: ServerUiState,
+    onChoose: (org.arcmediaserver.android.data.FoundServer) -> Unit,
+    onScan: () -> Unit,
+    firstFound: FocusRequester,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.server_on_network), style = MaterialTheme.typography.titleMedium, color = ArcColors.Foreground)
+            if (state.scanning) {
+                Spacer(Modifier.width(12.dp))
+                Spinner(size = 16.dp)
+            }
+        }
+        state.found.forEachIndexed { i, server ->
+            Button(
+                onClick = { onChoose(server) },
+                enabled = !state.checking,
+                modifier = Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstFound) else Modifier),
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(server.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    Text(
+                        stringResource(R.string.server_found_detail, displayAddress(server.address), server.version),
+                        style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                    )
+                }
+            }
+        }
+        if (!state.scanning && state.found.isEmpty()) {
+            Text(stringResource(R.string.server_none_found), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
+            Button(onClick = onScan) { Text(stringResource(R.string.server_search_again)) }
+        } else if (state.scanning && state.found.isEmpty()) {
+            Text(stringResource(R.string.server_looking), style = MaterialTheme.typography.bodyMedium, color = ArcColors.Muted)
+        }
+    }
+}
+
+/** "192.168.1.20" for a found server's "http://192.168.1.20:8099" (Arc's port goes without saying). */
+private fun displayAddress(address: String): String = address.removePrefix("http://").removeSuffix(":${org.arcmediaserver.android.data.Discovery.PORT}")
+
