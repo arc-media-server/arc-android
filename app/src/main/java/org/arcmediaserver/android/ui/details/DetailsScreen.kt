@@ -107,6 +107,9 @@ fun DetailsRoute(
     val serverName = remember { (context.applicationContext as? org.arcmediaserver.android.ArcApplication)?.container?.session?.serverName }
     val state by vm.state.collectAsStateWithLifecycle()
     val canShuffle by vm.canShuffle.collectAsStateWithLifecycle()
+    // Theme Music: the film's or show's tune, quietly, once per visit (the profile can turn it off).
+    val themeOn by remember { (context.applicationContext as? org.arcmediaserver.android.ArcApplication)?.container?.themeMusic ?: kotlinx.coroutines.flow.MutableStateFlow(false) }.collectAsStateWithLifecycle()
+    ThemeMusicEffect(itemId, ThemeTune.urlFor((state as? org.arcmediaserver.android.ui.components.LoadState.Ready)?.value?.item, themeOn))
     var resumed by remember { mutableStateOf(false) }
     // Coming back from the player: show the new resume point and watched state.
     LifecycleResumeEffect(Unit) {
