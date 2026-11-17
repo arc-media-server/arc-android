@@ -51,6 +51,12 @@ from elsewhere already appeared on Home's Watch Together row (#39).
   `WatchTogetherTest`, `ArcApiTest`, `PlayQueuesTest` and `LiveUpdatesTest`, 56 tests, all passed.
 - New in `WatchTogetherTest`: the people list (and who can't watch), Done's request body
   (`item_id`, `start_ms`, `profile_ids`) and its room, and inviting more to a room.
+- Full check, run where Maven works, with main (#38 and #39) merged in: `./gradlew assembleDebug
+  testDebugUnitTest recordRoborazziDebug` passed (237 tests, 1 skipped (the live-server test), 0
+  failed; `WatchTogetherTest` 16 of 16).
+- The picker's drawing is split into `InvitePickerContent` (no loading or sending), so a new
+  screenshot `together-invite` shows it: Sam ticked, Kids "Can't watch this title", a friend, Done
+  and Use a Code Instead. A copy is in `2026-11-17-watch-together-invitations/`.
 
 ## Logging
 

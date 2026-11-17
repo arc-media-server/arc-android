@@ -67,8 +67,53 @@ fun InvitePicker(container: AppContainer, target: InviteTarget, onUseCode: (() -
         RoomMade(container, room, onClose)
         return
     }
+    InvitePickerContent(
+        title = (target as? InviteTarget.NewRoom)?.item?.title,
+        people = people, failed = failed, chosen = chosen, busy = busy, problem = problem,
+        onToggle = { p -> chosen = if (p.id in chosen) chosen - p.id else chosen + p.id },
+        onRetry = { loads++ },
+        onDone = {
+            if (!busy) {
+                busy = true
+                problem = null
+                scope.launch {
+                    when (target) {
+                        is InviteTarget.NewRoom -> {
+                            val (result, room) = container.together.invite(target.item, target.startMs, chosen.toList())
+                            if (room != null) made = room else problem = problemFor(result)
+                        }
+                        is InviteTarget.MoreTo -> {
+                            val result = container.together.inviteMore(chosen.toList())
+                            if (result == InviteResult.Done) onClose() else problem = problemFor(result)
+                        }
+                    }
+                    busy = false
+                }
+            }
+        },
+        onUseCode = onUseCode, onClose = onClose,
+    )
+}
+
+/**
+ * What the invite picker shows, without loading or sending anything (so screenshots can draw it):
+ * the people, ticked when [chosen], with who can't watch the title, then Done and Use a Code.
+ */
+@Composable
+fun InvitePickerContent(
+    title: String?,
+    people: List<WatchPerson>?,
+    failed: Boolean,
+    chosen: Set<String>,
+    busy: Boolean,
+    problem: Int?,
+    onToggle: (WatchPerson) -> Unit,
+    onRetry: () -> Unit,
+    onDone: () -> Unit,
+    onUseCode: (() -> Unit)?,
+    onClose: () -> Unit,
+) {
     val first = remember { FocusRequester() }
-    val title = (target as? InviteTarget.NewRoom)?.item?.title
     val body = listOfNotNull(
         if (title != null) stringResource(R.string.together_invite_body, title) else stringResource(R.string.together_invite_more_body),
         problem?.let { stringResource(it) },
@@ -77,7 +122,7 @@ fun InvitePicker(container: AppContainer, target: InviteTarget, onUseCode: (() -
         val list = people
         when {
             failed -> {
-                PopoverItem(stringResource(R.string.together_people_failed), ArcIcons.RotateCw, focus = first) { loads++ }
+                PopoverItem(stringResource(R.string.together_people_failed), ArcIcons.RotateCw, focus = first) { onRetry() }
             }
             list == null -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { Spinner(size = 28.dp) }
             list.isEmpty() -> androidx.tv.material3.Text(
@@ -101,30 +146,13 @@ fun InvitePicker(container: AppContainer, target: InviteTarget, onUseCode: (() -
                         ),
                         focus = if (i == 0) first else null,
                     ) {
-                        if (p.canWatch) chosen = if (on) chosen - p.id else chosen + p.id
+                        if (p.canWatch) onToggle(p)
                     }
                 }
             }
         }
         if (chosen.isNotEmpty()) {
-            PopoverItem(stringResource(if (busy) R.string.together_inviting else R.string.together_done), ArcIcons.Users) {
-                if (busy) return@PopoverItem
-                busy = true
-                problem = null
-                scope.launch {
-                    when (target) {
-                        is InviteTarget.NewRoom -> {
-                            val (result, room) = container.together.invite(target.item, target.startMs, chosen.toList())
-                            if (room != null) made = room else problem = problemFor(result)
-                        }
-                        is InviteTarget.MoreTo -> {
-                            val result = container.together.inviteMore(chosen.toList())
-                            if (result == InviteResult.Done) onClose() else problem = problemFor(result)
-                        }
-                    }
-                    busy = false
-                }
-            }
+            PopoverItem(stringResource(if (busy) R.string.together_inviting else R.string.together_done), ArcIcons.Users) { onDone() }
         }
         if (onUseCode != null) {
             PopoverItem(stringResource(R.string.together_use_code), ArcIcons.Play, focus = if (list.isNullOrEmpty() && !failed) first else null) { onUseCode() }
