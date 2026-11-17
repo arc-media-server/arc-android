@@ -218,6 +218,13 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
     init {
         load()
         viewModelScope.launch { _canShuffle.value = container.queues.supported() }
+        // Live updates: the page reloads in place (as when coming back from playing) when Arc says
+        // its details, watched state or artwork may have changed.
+        viewModelScope.launch {
+            container.live.changes.collect { topics ->
+                if (org.arcmediaserver.android.data.LiveTopics.touches(topics, org.arcmediaserver.android.data.LiveTopics.title)) load(quiet = true)
+            }
+        }
     }
 
     /** Shuffle (a show): its available episodes in a random order, as a new queue; [play] starts it. */

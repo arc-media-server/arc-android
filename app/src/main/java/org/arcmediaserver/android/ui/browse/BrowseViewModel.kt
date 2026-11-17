@@ -162,6 +162,21 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         load()
+        // Live updates: Home (and the Watchlist / Playlists page if open) reload in place when Arc
+        // says something they show changed. The library grid isn't reloaded under the viewer (it
+        // would lose their place); it's current when opened again.
+        viewModelScope.launch {
+            container.live.changes.collect { topics ->
+                if (!org.arcmediaserver.android.data.LiveTopics.touches(topics, org.arcmediaserver.android.data.LiveTopics.home)) return@collect
+                ArcLog.Android.debug("live updates: refreshing Home (${topics.joinToString()})")
+                load()
+                when (_state.value.section) {
+                    Section.Watchlist -> loadWatchlist()
+                    Section.Playlists -> loadPlaylists()
+                    else -> Unit
+                }
+            }
+        }
         // Play Next and Add to Queue (from any card's menu) show in the Queue row at once.
         viewModelScope.launch {
             container.queues.queue.collect { q ->

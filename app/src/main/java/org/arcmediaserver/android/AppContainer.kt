@@ -82,6 +82,17 @@ class AppContainer(private val context: Context) {
     /** This TV's play queue on Arc, for the profile. */
     val queues = org.arcmediaserver.android.data.PlayQueues(::api)
 
+    /** Live updates from Arc while the app is on screen (MainActivity starts and stops them). */
+    val live = org.arcmediaserver.android.data.LiveUpdates(::api, mediaClient, appScope).also { live ->
+        // The profile's preferences changed elsewhere (the web, another TV): follow Hide Spoilers.
+        appScope.launch {
+            live.changes.collect { topics ->
+                if (!org.arcmediaserver.android.data.LiveTopics.touches(topics, org.arcmediaserver.android.data.LiveTopics.prefs)) return@collect
+                runCatching { api()?.prefs() }.getOrNull()?.let { hideSpoilers.value = it.hideSpoilers }
+            }
+        }
+    }
+
     /** The profile's Hide Spoilers, as last read from (or saved to) its preferences. */
     val hideSpoilers = kotlinx.coroutines.flow.MutableStateFlow(false)
 
@@ -96,6 +107,7 @@ class AppContainer(private val context: Context) {
 
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
     fun profileChanged() {
+        live.reset()
         hideSpoilers.value = false
         themeMusic.value = true
         palettes.clear()
