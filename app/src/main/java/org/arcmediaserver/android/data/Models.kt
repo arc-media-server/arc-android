@@ -204,6 +204,14 @@ data class Facets(
     val genres: List<Facet> = emptyList(),
     val decades: List<Facet> = emptyList(),
     val resolutions: List<Facet> = emptyList(),
+    /** dolby_vision, hdr10_plus, hlg, hdr10, sdr or unknown, with title counts. */
+    @SerialName("dynamic_ranges") val dynamicRanges: List<Facet> = emptyList(),
+    /** Lower-case ffprobe names (hevc, h264, av1…). */
+    @SerialName("video_codecs") val videoCodecs: List<Facet> = emptyList(),
+    /** Lower-case ffprobe names (truehd, eac3, dts…). */
+    @SerialName("audio_codecs") val audioCodecs: List<Facet> = emptyList(),
+    /** Channel counts as strings ("6" is 5.1). */
+    @SerialName("audio_channels") val audioChannels: List<Facet> = emptyList(),
 )
 
 @Serializable
