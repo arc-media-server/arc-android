@@ -62,6 +62,8 @@ fun TogetherOverlays(
     onStart: () -> Unit,
     onLeave: () -> Unit,
     onNewCode: () -> Unit,
+    /** Invite People… (host), when the room can take invitations. */
+    onInvite: (() -> Unit)? = null,
 ) {
     // A note when someone else changes the shared timeline: "Paused by Jo".
     var before by remember { mutableStateOf<WatchRoom?>(null) }
@@ -85,7 +87,7 @@ fun TogetherOverlays(
     }
     Box(Modifier.fillMaxSize()) {
         when {
-            room != null && lobby -> TogetherLobby(room, code?.takeIf { it.roomId == room.id }, onStart, onLeave, onNewCode)
+            room != null && lobby -> TogetherLobby(room, code?.takeIf { it.roomId == room.id }, onStart, onLeave, onNewCode, onInvite)
             room != null && !room.available -> Pill(stringResource(R.string.together_unavailable), Modifier.align(Alignment.TopCenter))
             room?.state == "waiting" -> WaitingPill(room, serverNow, Modifier.align(Alignment.TopCenter))
             notice != null -> Pill(notice!!, Modifier.align(Alignment.TopCenter))
@@ -135,7 +137,7 @@ private fun WaitingPill(room: WatchRoom, serverNow: () -> Long, modifier: Modifi
  * Sam to start…". Back leaves, as Leave does.
  */
 @Composable
-fun TogetherLobby(room: WatchRoom, code: RoomCode?, onStart: () -> Unit, onLeave: () -> Unit, onNewCode: () -> Unit) {
+fun TogetherLobby(room: WatchRoom, code: RoomCode?, onStart: () -> Unit, onLeave: () -> Unit, onNewCode: () -> Unit, onInvite: (() -> Unit)? = null) {
     BackHandler(onBack = onLeave)
     val first = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
@@ -168,6 +170,7 @@ fun TogetherLobby(room: WatchRoom, code: RoomCode?, onStart: () -> Unit, onLeave
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (room.hosting) {
                     LobbyButton(stringResource(R.string.together_start), ArcIcons.Play, Modifier.focusRequester(first), filled = true, onClick = onStart)
+                    if (onInvite != null) LobbyButton(stringResource(R.string.together_invite_people), ArcIcons.Users, onClick = onInvite)
                     if (code != null) LobbyButton(stringResource(R.string.together_new_code), ArcIcons.RotateCw, onClick = onNewCode)
                     LobbyButton(stringResource(R.string.together_leave), null, onClick = onLeave)
                 } else {

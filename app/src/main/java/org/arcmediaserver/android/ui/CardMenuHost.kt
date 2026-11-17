@@ -78,21 +78,27 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     // Watch Together, when this server and profile have it (asked once per profile).
     val together by container.together.available.collectAsState()
     androidx.compose.runtime.LaunchedEffect(open) { container.together.check() }
-    // Starts a room; the player then opens on its lobby (ArcNavHost follows the room). A show's
-    // room starts on the episode its Play would start (part-way through, else the next unwatched).
-    fun watchTogether(item: Item) {
+    // Watch Together, as the web's: choose people to invite (Done makes a room waiting on their
+    // Home rows), or Use a Code Instead, which starts a room now and opens the player's lobby
+    // (ArcNavHost follows the room). A show's room is for the episode its Play would start
+    // (part-way through, else the next unwatched).
+    var inviting by remember { mutableStateOf<Pair<Item, () -> Unit>?>(null) }
+    fun watchTogether(item: Item, onClose: () -> Unit) {
         container.appScope.launch {
             val target = if (!item.isSeries) item else runCatching {
                 container.api()?.seasons(item.id)?.seasons?.filter { it.episodes.isNotEmpty() }
                     ?.let { org.arcmediaserver.android.ui.details.nextEpisode(it) }
             }.getOrNull()
-            val problem = when {
-                target == null -> org.arcmediaserver.android.R.string.together_no_episode
-                !container.together.start(target, target.resumeMs) -> org.arcmediaserver.android.R.string.together_start_failed
-                else -> null
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (target == null) notice = context.getString(org.arcmediaserver.android.R.string.together_no_episode)
+                else inviting = target to onClose
             }
-            if (problem != null) {
-                val text = context.getString(problem)
+        }
+    }
+    fun startWithCode(item: Item) {
+        container.appScope.launch {
+            if (!container.together.start(item, item.resumeMs)) {
+                val text = context.getString(org.arcmediaserver.android.R.string.together_start_failed)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
             }
         }
@@ -120,7 +126,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     val menu = remember(queueable, together) {
         object : CardMenu {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
-            override val watchTogether: ((Item) -> Unit)? = if (together) ::watchTogether else null
+            override val watchTogether: ((Item, () -> Unit) -> Unit)? = if (together) ::watchTogether else null
             override fun current(item: Item) = container.withChanges(item)
             override fun offContinue(id: String) = container.offContinue[id] == true
             override fun addToPlaylist(item: Item, onClose: () -> Unit) {
@@ -159,6 +165,19 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalCardMenu provides menu) { content() }
         notice?.let { QueueNotice(it, Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) }
+        inviting?.let { (item, restore) ->
+            val done = {
+                inviting = null
+                restore()
+            }
+            org.arcmediaserver.android.ui.together.InvitePicker(
+                container,
+                org.arcmediaserver.android.ui.together.InviteTarget.NewRoom(item, item.resumeMs),
+                onUseCode = { inviting = null; startWithCode(item) },
+                onClose = done,
+            )
+            return@Box
+        }
         picking?.let { (item, restore) ->
             val done = {
                 picking = null
@@ -189,7 +208,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onMediaInfo = { info = true },
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
-                onWatchTogether = menu.watchTogether?.let { w -> { w(item) } },
+                onWatchTogether = menu.watchTogether?.let { w -> { w(item, restore) } },
                 // The menu gives way to the playlist list; closing that puts the focus back on the card.
                 onAddToPlaylist = {
                     open = null

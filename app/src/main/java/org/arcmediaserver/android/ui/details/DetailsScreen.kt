@@ -301,7 +301,7 @@ fun DetailsScreen(
                     anchor = moreAnchor,
                     onPlayVersion = if (!item.isSeries && actions.onPlayVersion != null && versionsOf(item).size > 1) { { panel = DetailsPanel.Version } } else null,
                     onRate = { panel = DetailsPanel.Rating },
-                    onWatchTogether = cardMenu?.watchTogether?.let { w -> { w(if (item.isSeries) details.next ?: item else item) } },
+                    onWatchTogether = cardMenu?.watchTogether?.let { w -> { w(if (item.isSeries) details.next ?: item else item) { runCatching { more.requestFocus() } } } },
                 )
             }
             DetailsPanel.Rating -> RatingMenu(item, onClose = closePanel) { rating -> actions.onRate(rating); closePanel() }

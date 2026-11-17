@@ -64,6 +64,29 @@ data class WatchInvite(
     @SerialName("invite_expires_at_ms") val inviteExpiresAtMs: Long = 0,
 )
 
+/** Someone this profile may invite (`GET /watch-together/people`). */
+@Serializable
+data class WatchPerson(
+    val id: String,
+    val name: String = "",
+    val color: String? = null,
+    /** A friend's profile, rather than one on this server. */
+    val friend: Boolean = false,
+    /** May play the title asked about; everyone invited must be able to. */
+    @SerialName("can_watch") val canWatch: Boolean = true,
+)
+
+@Serializable
+data class WatchPeople(val people: List<WatchPerson> = emptyList())
+
+/** A room made for chosen people (nobody in it yet), and its code. */
+@Serializable
+data class InvitedRoom(
+    val room: ListedRoom,
+    @SerialName("invite_code") val inviteCode: String = "",
+    @SerialName("invite_expires_at_ms") val inviteExpiresAtMs: Long = 0,
+)
+
 /** A room in this profile's list (Home's Watch Together row). */
 @Serializable
 data class ListedRoom(

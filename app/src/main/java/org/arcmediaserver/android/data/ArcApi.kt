@@ -340,6 +340,26 @@ class ArcApi(
     suspend fun createRoom(itemId: String, startMs: Long = 0): WatchInvite =
         send("POST", "watch-together", JsonObject(mapOf("item_id" to JsonPrimitive(itemId), "start_ms" to JsonPrimitive(startMs.coerceAtLeast(0)))).toString(), WatchInvite.serializer(), route = "watch-together")
 
+    /** Who this profile may invite; with [itemId], whether each may play it. */
+    suspend fun roomPeople(itemId: String?): List<WatchPerson> =
+        get("watch-together/people" + (itemId?.let { "?item_id=${enc(it)}" } ?: ""), WatchPeople.serializer(), route = "watch-together/people").people
+
+    /** A room for [itemId] made for [profileIds], listed on their Home rows; nobody's in it until they join. */
+    suspend fun createInvitedRoom(itemId: String, startMs: Long, profileIds: List<String>): InvitedRoom {
+        val body = JsonObject(mapOf(
+            "item_id" to JsonPrimitive(itemId),
+            "start_ms" to JsonPrimitive(startMs.coerceAtLeast(0)),
+            "profile_ids" to kotlinx.serialization.json.JsonArray(profileIds.map { JsonPrimitive(it) }),
+        ))
+        return send("POST", "watch-together/rooms", body.toString(), InvitedRoom.serializer(), route = "watch-together/rooms")
+    }
+
+    /** Invites more people to the room this TV hosts. */
+    suspend fun inviteToRoom(id: String, profileIds: List<String>): WatchRoom {
+        val body = JsonObject(mapOf("profile_ids" to kotlinx.serialization.json.JsonArray(profileIds.map { JsonPrimitive(it) })))
+        return send("POST", "${roomPath(id)}/people", body.toString(), WatchRoom.serializer(), route = "watch-together/{id}/people")
+    }
+
     /** Joins with a code the host shared ("ABCD-1234" or "abcd1234"). */
     suspend fun joinRoom(code: String): WatchRoom =
         send("POST", "watch-together/join", JsonObject(mapOf("code" to JsonPrimitive(WatchCode.normalize(code)))).toString(), WatchRoom.serializer(), route = "watch-together/join")

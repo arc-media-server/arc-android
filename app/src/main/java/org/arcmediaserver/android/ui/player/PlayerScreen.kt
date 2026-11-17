@@ -152,6 +152,8 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
     // In a Watch Together room, the host's next title moves the whole room on (ArcNavHost follows).
     val onPlayNext: (Item) -> Unit = { next -> if (state.room != null) vm.playNextInRoom(next) else onPlayNextEntry(next, state.nextEntryId) }
     val roomCode by container.together.code.collectAsStateWithLifecycle()
+    // Invite People… from the lobby or the Watch Together menu (host).
+    var invitingMore by remember { mutableStateOf(false) }
     // Watch Together's lobby shows until the room first plays (or it was under way on joining).
     var lobbyDone by remember(state.room?.id) { mutableStateOf(false) }
     state.room?.let { if (org.arcmediaserver.android.data.RoomSync.startedOnce(it)) lobbyDone = true }
@@ -345,6 +347,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onLeaveRoom = { menu = PlayerMenu.None; onClose() },
                         onEndRoom = { menu = PlayerMenu.None; vm.endRoom() },
                         onNewCode = roomCode?.takeIf { it.roomId == state.room?.id }?.let { { vm.newRoomCode() } },
+                        onInvite = { menu = PlayerMenu.None; invitingMore = true },
                         roomCode = roomCode?.takeIf { it.roomId == state.room?.id }?.code,
                     )
                 }
@@ -364,6 +367,15 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onStart = vm::togglePlay,
                         onLeave = onClose,
                         onNewCode = vm::newRoomCode,
+                        onInvite = { invitingMore = true },
+                    )
+                }
+                if (invitingMore && state.room?.hosting == true) {
+                    org.arcmediaserver.android.ui.together.InvitePicker(
+                        container,
+                        org.arcmediaserver.android.ui.together.InviteTarget.MoreTo(state.room?.itemId),
+                        onUseCode = null,
+                        onClose = { invitingMore = false },
                     )
                 }
             }
@@ -521,6 +533,8 @@ internal fun PlayerMenuPanel(
     onLeaveRoom: () -> Unit = {},
     onEndRoom: () -> Unit = {},
     onNewCode: (() -> Unit)? = null,
+    /** Invite People… (host). */
+    onInvite: (() -> Unit)? = null,
     /** The code to share, for the room this TV hosts. */
     roomCode: String? = null,
 ) {
@@ -569,6 +583,7 @@ internal fun PlayerMenuPanel(
                         add(Option(name, if (p.id == room.hostId) stringResource(R.string.together_host) + " · " + status else status, false) {})
                     }
                     if (room.hosting && roomCode != null) add(Option(stringResource(R.string.together_code), org.arcmediaserver.android.data.WatchCode.format(roomCode), false) {})
+                    if (room.hosting && onInvite != null) add(Option(stringResource(R.string.together_invite_people), null, false, onInvite))
                     if (room.hosting && onNewCode != null) add(Option(stringResource(R.string.together_new_code), null, false, onNewCode))
                     add(Option(stringResource(R.string.together_leave), null, false, onLeaveRoom))
                     if (room.hosting) add(Option(stringResource(R.string.together_end_for_everyone), null, false, onEndRoom))
