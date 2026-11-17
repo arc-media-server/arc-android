@@ -43,7 +43,8 @@ private fun detailsFor(item: Item) =
     if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
 /** The player: [entryId] plays on through the queue from that entry; [carryOn] adds Auto-Play's episode to it. */
 /** [together]: played in this TV's Watch Together room, which decides where and whether it plays. */
-@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false, val fileId: Long? = null, val together: Boolean = false)
+/** [preroll]: a film started from the beginning gets the pre-roll videos first (not when playing on). */
+@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false, val fileId: Long? = null, val together: Boolean = false, val preroll: Boolean = true)
 @Serializable data class PersonDest(val personId: Long)
 
 /** A collection's page. */
@@ -134,6 +135,13 @@ fun ArcNavHost() {
                 }
                 composable<PlayerDest> { entry ->
                     val dest = entry.toRoute<PlayerDest>()
+                    // As the web player: pre-rolls only before a film started from the beginning,
+                    // never when resuming, in Watch Together or playing on to the next title.
+                    org.arcmediaserver.android.ui.player.PrerollGate(
+                        itemId = dest.itemId,
+                        enabled = dest.preroll && dest.startMs <= 0 && !dest.together,
+                        onClose = { nav.popBackStack() },
+                    ) {
                     PlayerRoute(
                         dest.itemId,
                         dest.startMs,
@@ -144,9 +152,10 @@ fun ArcNavHost() {
                         onClose = { nav.popBackStack() },
                         // The next title replaces this one, so Back still returns to where play began.
                         onPlayNextEntry = { next, entry ->
-                            nav.navigate(PlayerDest(next.id, next.resumeMs, entryId = entry, carryOn = entry == null)) { popUpTo<PlayerDest> { inclusive = true } }
+                            nav.navigate(PlayerDest(next.id, next.resumeMs, entryId = entry, carryOn = entry == null, preroll = false)) { popUpTo<PlayerDest> { inclusive = true } }
                         },
                     )
+                    }
                 }
             }
         }
