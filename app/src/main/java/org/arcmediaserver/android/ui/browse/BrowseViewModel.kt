@@ -118,6 +118,8 @@ sealed interface Section {
     data object Watchlist : Section
     data object Playlists : Section
     data object Settings : Section
+    /** Watch Together: Join with a Code, and the rooms (when this server and profile have it). */
+    data object WatchTogether : Section
 }
 
 data class BrowseUiState(
@@ -131,6 +133,8 @@ data class BrowseUiState(
     val playlists: LoadState<List<org.arcmediaserver.android.data.PlaylistInfo>> = LoadState.Loading,
     /** The profile's watchlist, while it's shown from the sidebar. */
     val watchlist: LoadState<List<Item>> = LoadState.Loading,
+    /** Watch Together is there to use (the sidebar's page and the ⋯ menus' choice). */
+    val together: Boolean = false,
 )
 
 /** Loads one Home row's cards. */
@@ -146,6 +150,7 @@ suspend fun loadRow(api: ArcApi, spec: HomeRowSpec): List<MediaCard> = when (val
     is RowSource.Collection -> api.collection(s.id).items.map { cardFor(it) }
     is RowSource.Playlist -> api.playlist(s.id).entries.map { cardFor(it.item, key = "entry:${it.entryId}") }
     RowSource.Queue -> emptyList() // BrowseViewModel follows the queue itself
+    RowSource.WatchTogether -> emptyList() // and the rooms
 }
 
 fun libraryQuery(library: Library, sort: String, limit: Int, offset: Int = 0): Map<String, String> = buildMap {
@@ -174,6 +179,19 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                     Section.Watchlist -> loadWatchlist()
                     Section.Playlists -> loadPlaylists()
                     else -> Unit
+                }
+            }
+        }
+        // Watch Together's rooms, first on Home while there are any (Arc says when they change).
+        viewModelScope.launch {
+            container.together.available.collect { on -> _state.update { it.copy(together = on) } }
+        }
+        viewModelScope.launch {
+            container.together.rooms.collect { list ->
+                val cards = org.arcmediaserver.android.ui.together.roomCards(list, container)
+                _state.update { s ->
+                    val rows = s.rows.filter { it.spec.source != RowSource.WatchTogether }
+                    s.copy(rows = if (cards.isEmpty() || rows.isEmpty()) rows else listOf(HomeRowState(org.arcmediaserver.android.data.WatchTogetherRow, LoadState.Ready(cards))) + rows)
                 }
             }
         }
@@ -215,6 +233,10 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                 val current = _state.value.rows.associateBy { it.spec.id }
                 _state.update { s -> s.copy(rows = specs.map { spec -> current[spec.id]?.copy(spec = spec) ?: HomeRowState(spec, LoadState.Loading) }) }
                 if (queue != null) setRow(QueueRow, LoadState.Ready(queueCards(container.queues.queue.value)))
+                // Kept across reloads; read again in the background (it adds itself to Home).
+                val rooms = org.arcmediaserver.android.ui.together.roomCards(container.together.rooms.value, container)
+                if (rooms.isNotEmpty()) _state.update { s -> s.copy(rows = listOf(HomeRowState(org.arcmediaserver.android.data.WatchTogetherRow, LoadState.Ready(rooms))) + s.rows) }
+                launch { container.together.refreshRooms() }
                 specs.filter { it.source != RowSource.Queue }.map { spec -> async { loadRowInto(api, spec) } }.awaitAll()
                 ArcLog.Android.debug("home loaded: ${specs.size} rows in ${System.currentTimeMillis() - started} ms")
             } catch (e: Exception) {

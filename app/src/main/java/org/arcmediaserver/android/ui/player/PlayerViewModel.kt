@@ -105,6 +105,10 @@ data class PlayerUiState(
     val episodesUnplaced: Boolean = false,
     /** Zoom Mode: the picture fills the screen, cropping its edges. */
     val zoom: Boolean = false,
+    /** Watch Together: the room this player follows, while it's in one. */
+    val room: org.arcmediaserver.android.data.WatchRoom? = null,
+    /** Watch Together ended while this player was in the room (it plays on alone). */
+    val roomEnded: org.arcmediaserver.android.data.RoomEnd? = null,
 )
 
 /**
@@ -166,6 +170,8 @@ class PlayerViewModel(
     private val carryOn: Boolean = false,
     /** The version (file) chosen with Play Version… on the title's page, or null for Arc's choice. */
     private val fileId: Long? = null,
+    /** Played in this TV's Watch Together room: the room decides where and whether it plays. */
+    private val together: Boolean = false,
 ) : ViewModel() {
     private val api: ArcApi = container.api() ?: error("no server")
     private val log = ArcLog.Android
@@ -180,6 +186,15 @@ class PlayerViewModel(
     private var retried = false
     private var loadJob: Job? = null
     private var maxKbps: Int? = null
+
+    // --- Watch Together: declared before the init blocks that read them ---
+    /** This TV's room, while this player follows it. */
+    @Volatile private var roomSession: org.arcmediaserver.android.data.RoomSession? =
+        if (together) container.together.session.value?.takeIf { it.room.value.itemId == itemId } else null
+    /** Auto-Play's next episode in a room: offered to the host only, and moves everyone on. */
+    private var roomNext: Item? = null
+    /** What this player last told the room (read from the room's heartbeat thread). */
+    @Volatile private var roomReport: org.arcmediaserver.android.data.PlayerReport? = null
 
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
@@ -228,6 +243,8 @@ class PlayerViewModel(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) _state.update { it.copy(loading = false) }
                 if (playbackState == Player.STATE_BUFFERING) _state.update { it.copy(loading = true) }
+                // The room hears at once when this player starts or stops buffering.
+                if (playbackState == Player.STATE_READY || playbackState == Player.STATE_BUFFERING) roomSession?.reportNow()
                 if (playbackState == Player.STATE_ENDED) {
                     val p = plan ?: return
                     report("stopped", position = p.durationMs)
@@ -250,6 +267,12 @@ class PlayerViewModel(
             _state.update { it.copy(item = item) }
             if (item != null) launch { loadCastAndEpisodes(item) }
             val autoPlay = loadedPrefs.await().autoPlay
+            // In a room, the room is the queue: Up Next is the host's, and moves everyone on.
+            if (roomSession != null) {
+                roomNext = if (item?.isEpisode == true && autoPlay) runCatching { api.next(itemId) }.getOrNull() else null
+                showRoomNext()
+                return@launch
+            }
             // The play queue follows what's playing: this title's entry, or a new queue of it.
             val queues = container.queues
             val entry = when {
@@ -271,6 +294,7 @@ class PlayerViewModel(
             load(startMs, fileId = fileId)
         }
         viewModelScope.launch { tick() }
+        if (roomSession != null) followRoom()
         viewModelScope.launch { drawCues() }
         viewModelScope.launch { keepAlive() }
     }
@@ -410,7 +434,8 @@ class PlayerViewModel(
             .build()
         player.setMediaItem(builder.build(), PlaybackClock.playerStart(p, fileMs))
         player.prepare()
-        player.playWhenReady = true
+        // In a room the player starts paused: the room says when to play.
+        player.playWhenReady = roomSession == null
     }
 
     private fun isAss(t: SubtitleTrack) = t.codec == "ass" || t.codec == "ssa"
@@ -495,11 +520,30 @@ class PlayerViewModel(
     }
 
     fun togglePlay() {
+        val s = roomSession
+        if (s != null) {
+            // In a room, Play and Pause go to the room, and this player follows it.
+            val playing = s.room.value.state != "paused"
+            viewModelScope.launch { runCatching { if (playing) s.pause() else s.play() }.onFailure { log.debug("watch together: play/pause refused (${it.javaClass.simpleName})") } }
+            return
+        }
         if (player.isPlaying) player.pause() else player.play()
     }
 
-    /** Seeks to a point in the file, asking for a new stream when the converted one doesn't reach it. */
+    /**
+     * Seeks to a point in the file. In a room it moves everyone: this player goes there at once
+     * (so repeated presses add up) and the room brings the others; if the room refuses, following
+     * it brings this one back.
+     */
     fun seekTo(fileMs: Long) {
+        val p = plan ?: return
+        val target = fileMs.coerceIn(0, (p.durationMs - 1_000).coerceAtLeast(0))
+        seekLocal(target)
+        roomSession?.let { s -> viewModelScope.launch { runCatching { s.seek(target) }.onFailure { log.debug("watch together: seek refused (${it.javaClass.simpleName})") } } }
+    }
+
+    /** Seeks this player only, asking for a new stream when the converted one doesn't reach it. */
+    private fun seekLocal(fileMs: Long) {
         val p = plan ?: return
         val target = fileMs.coerceIn(0, (p.durationMs - 1_000).coerceAtLeast(0))
         _state.update { it.copy(positionMs = target) }
@@ -558,6 +602,8 @@ class PlayerViewModel(
     }
 
     fun setSpeed(speed: Float) {
+        // In a room everyone plays at the room's speed (the player only nudges it to keep in step).
+        if (roomSession != null) return
         player.setPlaybackSpeed(speed)
         _state.update { it.copy(speed = speed) }
     }
@@ -615,8 +661,106 @@ class PlayerViewModel(
         }
     }
 
+    // --- Watch Together ---
+
+    /** Play (the remote's Play key): in a room, plays the room if it's paused. */
+    fun play() {
+        val s = roomSession ?: return player.play()
+        if (s.room.value.state == "paused") togglePlay()
+    }
+
+    /** Pause (the remote's Pause key): in a room, pauses the room if it's playing. */
+    fun pause() {
+        val s = roomSession ?: return player.pause()
+        if (s.room.value.state != "paused") togglePlay()
+    }
+
+    /** The room's clock, for the waiting countdown. */
+    fun serverNow(): Long = roomSession?.serverNow() ?: System.currentTimeMillis()
+
+    /** Ends Watch Together for everyone (host); everyone plays on alone. */
+    fun endRoom() {
+        viewModelScope.launch { container.together.end() }
+    }
+
+    /** A new code to share (host). */
+    fun newRoomCode() {
+        viewModelScope.launch { container.together.renewCode() }
+    }
+
+    private fun showRoomNext() {
+        val room = roomSession?.room?.value ?: return
+        _state.update { it.copy(next = roomNext?.takeIf { room.hosting }, nextEntryId = null) }
+    }
+
+    /** The host's Up Next in a room: the room moves on to it, and every player follows. */
+    fun playNextInRoom(next: Item) {
+        val s = roomSession ?: return
+        viewModelScope.launch { runCatching { s.changeItem(next.id) }.onFailure { log.warn("watch together: moving the room on failed (${it.javaClass.simpleName})") } }
+    }
+
+    /**
+     * Follows the room, as the web player: plays or pauses with it, and stays within half a
+     * second of where it should be (a small speed change for small drift, a jump for large)
+     * (docs/WATCH-TOGETHER-API.md, "Client sync algorithm"). Room changes come from the room, never
+     * from this player's own events, so nothing echoes back.
+     */
+    private fun followRoom() {
+        val s = roomSession ?: return
+        s.setReporter { roomReport }
+        viewModelScope.launch {
+            s.room.collect { room ->
+                _state.update { it.copy(room = room) }
+                showRoomNext()
+            }
+        }
+        // The room ended, or this TV is no longer in it: play on alone.
+        viewModelScope.launch {
+            container.together.session.collect { current ->
+                if (current === s || roomSession == null) return@collect
+                roomSession = null
+                player.setPlaybackSpeed(1f)
+                _state.update { it.copy(room = null, roomEnded = container.together.ended.value, next = null) }
+            }
+        }
+        viewModelScope.launch {
+            while (currentCoroutineContextActive()) {
+                delay(500)
+                val session = roomSession ?: break
+                val loading = _state.value.loading || plan == null
+                roomReport = org.arcmediaserver.android.data.PlayerReport(
+                    positionMs = position(),
+                    state = if (loading) "waiting" else if (player.isPlaying) "playing" else "paused",
+                    ready = !loading,
+                )
+                val room = session.room.value
+                if (loading || !room.available || room.itemId != itemId) continue
+                val expected = session.expected()
+                val local = position()
+                if (room.state == "playing") {
+                    if (!player.playWhenReady) player.play()
+                    when (val c = org.arcmediaserver.android.data.RoomSync.correction(local, expected)) {
+                        is org.arcmediaserver.android.data.RoomSync.Correction.Seek -> { player.setPlaybackSpeed(1f); seekLocal(c.toMs) }
+                        is org.arcmediaserver.android.data.RoomSync.Correction.Rate -> player.setPlaybackSpeed(c.rate)
+                        org.arcmediaserver.android.data.RoomSync.Correction.None -> if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+                    }
+                } else {
+                    if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+                    if (player.playWhenReady) player.pause()
+                    if (kotlin.math.abs(local - expected) > 1_000) seekLocal(expected)
+                }
+            }
+        }
+    }
+
     @androidx.annotation.OptIn(UnstableApi::class)
     override fun onCleared() {
+        // Closing the player leaves the Watch Together room (the others carry on); a new title in
+        // the room replacing this player doesn't.
+        roomSession?.let { s ->
+            s.setReporter(null)
+            if (s.room.value.itemId == itemId && container.together.session.value === s) container.appScope.launch { container.together.leave() }
+        }
         val p = plan
         if (p != null && !_state.value.ended) report("stopped")
         p?.sessionId?.let { sid -> container.appScope.launch { runCatching { api.stopTranscode(sid) } } }

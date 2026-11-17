@@ -63,6 +63,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
+import org.arcmediaserver.android.ui.together.roomId
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -130,6 +131,10 @@ fun BrowseRoute(
 ) {
     val vm = arcViewModel { BrowseViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val container = (androidx.compose.ui.platform.LocalContext.current.applicationContext as org.arcmediaserver.android.ArcApplication).container
+    // A Watch Together card chosen on Home: its Join (or Return) and Decline (or Cancel).
+    var roomMenu by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { container.together.check() }
     // A genre opened from Search: Back returns to the results.
     androidx.activity.compose.BackHandler(enabled = (state.section as? Section.Library)?.genre != null) { vm.show(Section.Search) }
     // Coming back (from playing, or a title's page): Home's rows show what changed.
@@ -162,7 +167,10 @@ fun BrowseRoute(
         onPlayQueued = onPlayQueued,
         settingsContent = { org.arcmediaserver.android.ui.settings.SettingsRoute(onSignedOut = onSignedOut, onSwitchServer = onSwitchServer) },
         onPlay = onPlay,
+        togetherContent = { org.arcmediaserver.android.ui.together.TogetherPage(container) },
+        onRoom = { roomMenu = it },
     )
+    roomMenu?.let { id -> org.arcmediaserver.android.ui.together.RoomMenu(container, id, onClose = { roomMenu = null }) }
 }
 
 @Composable
@@ -190,6 +198,9 @@ fun BrowseScreen(
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     settingsContent: @Composable () -> Unit = {},
     onPlay: (Item, Long) -> Unit = { _, _ -> },
+    togetherContent: @Composable () -> Unit = {},
+    /** A Watch Together card on Home: the room's choices. */
+    onRoom: (String) -> Unit = {},
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     var homeScrolled by remember { mutableStateOf(false) }
@@ -204,7 +215,7 @@ fun BrowseScreen(
                 // drawer has no blur and draws the page over the panel's edge, so the shade stays.
                 scrimBrush = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Black.copy(alpha = 0.25f))),
                 drawerContent = { value ->
-                    Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut)
+                    Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut, together = state.together)
                 },
             ) {
                 // The rail is 72dp wide but its icons end at 60dp: starting the content 48dp in
@@ -212,11 +223,12 @@ fun BrowseScreen(
                 Box(Modifier.fillMaxSize().padding(start = 48.dp)) {
                     Crossfade(state.section, label = "section") { section ->
                         when (section) {
-                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued, onScrolled = { homeScrolled = it })
+                            Section.Home -> HomeContent(state.rows, onOpen, onRetryRow, onFocusedCard = { focusedCard = it }, onPlayQueued = onPlayQueued, onScrolled = { homeScrolled = it }, onRoom = onRoom)
                             Section.Search -> searchContent()
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
                             Section.Playlists -> PlaylistsContent(state.playlists, onOpenPlaylist, onRetryPlaylists)
                             Section.Settings -> settingsContent()
+                            Section.WatchTogether -> togetherContent()
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery, onFolder, onFolderUp)
                         }
                     }
@@ -240,6 +252,7 @@ private fun NavigationDrawerScope.Sidebar(
     onSection: (Section) -> Unit,
     onSwitchProfile: () -> Unit,
     onSignOut: () -> Unit,
+    together: Boolean = false,
 ) {
     val open = value == DrawerValue.Open
     val panel = RoundedCornerShape(24.dp)
@@ -288,6 +301,8 @@ private fun NavigationDrawerScope.Sidebar(
             if (frame.watchlistAt >= frame.libraries.size) watchlist()
             // Playlists after the libraries, as Plex and the web list them.
             SidebarItem(ArcIcons.ListVideo, stringResource(R.string.nav_playlists), section == Section.Playlists) { onSection(Section.Playlists) }
+            // Watch Together after Playlists, as the web's sidebar, when this server and profile have it.
+            if (together) SidebarItem(ArcIcons.Users, stringResource(R.string.together_title), section == Section.WatchTogether) { onSection(Section.WatchTogether) }
             Spacer(Modifier.weight(1f))
             SidebarItem(ArcIcons.Settings, stringResource(R.string.nav_settings), section == Section.Settings) { onSection(Section.Settings) }
         }
@@ -395,6 +410,7 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
     is RowSource.Collection -> s.title.ifBlank { stringResource(R.string.row_collection) }
     is RowSource.Playlist -> s.title.ifBlank { stringResource(R.string.row_playlist) }
     RowSource.Queue -> stringResource(R.string.row_queue)
+    RowSource.WatchTogether -> stringResource(R.string.together_row_title)
 }
 
 /**
@@ -415,6 +431,8 @@ fun HomeContent(
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     /** Whether the page has scrolled past the hero (the backdrop dims). */
     onScrolled: (Boolean) -> Unit = {},
+    /** A Watch Together card: the room's choices. */
+    onRoom: (String) -> Unit = {},
 ) {
     // Titles taken out of Continue Watching leave that row at once, without reloading it.
     val menu = org.arcmediaserver.android.ui.components.LocalCardMenu.current
@@ -468,7 +486,14 @@ fun HomeContent(
                     HomeRow(
                         row,
                         // A queue card plays on from its entry; every other card opens its title.
-                        onOpen = { card -> card.queueEntryId()?.let { onPlayQueued(card.item, it) } ?: onOpen(card.item) },
+                        onOpen = { card ->
+                            val room = card.roomId()
+                            when {
+                                room != null -> onRoom(room)
+                                card.queueEntryId() != null -> onPlayQueued(card.item, card.queueEntryId()!!)
+                                else -> onOpen(card.item)
+                            }
+                        },
                         onFocused = { focused = it },
                         onRetry = { onRetryRow(row.spec) },
                         firstCard = if (isFirst) firstCard else null,

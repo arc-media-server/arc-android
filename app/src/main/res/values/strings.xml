@@ -452,4 +452,51 @@
         <item quantity="one">%1$d (%2$.1f s)</item>
         <item quantity="other">%1$d (longest %2$.1f s)</item>
     </plurals>
+
+    <!-- Watch Together (the web's player.json together.*) -->
+    <string name="together_title">Watch Together</string>
+    <string name="together_row_title">Watch Together</string>
+    <string name="together_rooms">Rooms</string>
+    <string name="together_host">Host</string>
+    <string name="together_you">%1$s (you)</string>
+    <string name="together_status_unavailable">Can\'t watch this</string>
+    <string name="together_status_loading">Loading</string>
+    <string name="together_status_watching">Watching</string>
+    <string name="together_status_ready">Ready</string>
+    <string name="together_status_invited">Invited</string>
+    <plurals name="together_in_room">
+        <item quantity="one">%d person here</item>
+        <item quantity="other">%d people here</item>
+    </plurals>
+    <string name="together_start">Start</string>
+    <string name="together_waiting_for_host">Waiting for %1$s to start…</string>
+    <string name="together_code">Code</string>
+    <string name="together_code_hint">Share this code. It works for 15 minutes.</string>
+    <string name="together_new_code">Get a New Code</string>
+    <string name="together_leave">Leave</string>
+    <string name="together_end_for_everyone">End for Everyone</string>
+    <string name="together_waiting">Waiting for everyone…</string>
+    <string name="together_waiting_for">Waiting for %1$s…</string>
+    <string name="together_paused_by">Paused by %1$s</string>
+    <string name="together_played_by">Played by %1$s</string>
+    <string name="together_moved_by">%1$s moved the room</string>
+    <string name="together_unavailable">This title isn\'t available to you. You can stay in the room or leave.</string>
+    <string name="together_ended_by_host">The host ended Watch Together. You\'re watching on your own.</string>
+    <string name="together_lost">You\'re no longer in the Watch Together room. You\'re watching on your own.</string>
+    <string name="together_join_title">Join with a Code</string>
+    <string name="together_join_body">Enter the code the host shared. You need to be able to watch the title yourself.</string>
+    <string name="together_code_placeholder">ABCD-1234</string>
+    <string name="together_join_action">Join</string>
+    <string name="together_code_not_found">That code didn\'t work. It may have run out: ask the host for a new one.</string>
+    <string name="together_too_many_tries">Too many tries. Wait a minute and try again.</string>
+    <string name="together_join_failed">Couldn\'t join. Check your connection and try again.</string>
+    <string name="together_card_playing">Watching now</string>
+    <string name="together_youre_hosting">You\'re hosting</string>
+    <string name="together_hosted_by">Hosted by %1$s</string>
+    <string name="together_watching_names">%1$s are here</string>
+    <string name="together_invited_names">Invited: %1$s</string>
+    <string name="together_return">Return</string>
+    <string name="together_decline">Decline</string>
+    <string name="together_cancel_room">Cancel</string>
+    <string name="together_start_failed">Couldn\'t start Watch Together. Check your connection and try again.</string>
 </resources>

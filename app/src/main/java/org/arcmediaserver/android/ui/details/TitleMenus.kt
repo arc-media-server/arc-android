@@ -107,6 +107,8 @@ fun MoreMenu(
     onAddToPlaylist: (() -> Unit)? = null,
     /** Rate…: the profile's own stars; given on a title's page. */
     onRate: (() -> Unit)? = null,
+    /** Watch Together: a room for this title, with a code to share (films and episodes). */
+    onWatchTogether: (() -> Unit)? = null,
 ) {
     val first = remember { FocusRequester() }
     // The Apple TV app's floating menu beside the opener (owner, 31 October).
@@ -125,6 +127,10 @@ fun MoreMenu(
         if (onQueue != null && item.queueable) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
+        }
+        // The web's Watch Together, for what plays (the web starts it from the title's page).
+        if (onWatchTogether != null && item.playable) {
+            org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.together_title), ArcIcons.Users) { onWatchTogether(); onClose() }
         }
         // The web's Add to Playlist…, after the queue's choices.
         if (onAddToPlaylist != null && item.queueable) {

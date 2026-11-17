@@ -93,12 +93,28 @@ class AppContainer(private val context: Context) {
         }
     }
 
+    /** Watch Together: the rooms on Home and this TV's room membership. */
+    val together by lazy { org.arcmediaserver.android.ui.together.Together(this) }
+
+    init {
+        // The rooms list changed (made, invited, joined, left, declined, ended): Home's row follows.
+        appScope.launch {
+            live.changes.collect { topics ->
+                if (org.arcmediaserver.android.data.LiveTopics.touches(topics, org.arcmediaserver.android.data.LiveTopics.together)) together.refreshRooms()
+            }
+        }
+    }
+
+    /** A user-facing string, for code outside a screen (notes, cards built in view models). */
+    fun text(id: Int, vararg args: Any): String = context.getString(id, *args)
+
     /** The profile's Hide Spoilers, as last read from (or saved to) its preferences. */
     val hideSpoilers = kotlinx.coroutines.flow.MutableStateFlow(false)
 
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
     fun profileChanged() {
         live.reset()
+        together.reset()
         hideSpoilers.value = false
         palettes.clear()
         itemChanges.clear()

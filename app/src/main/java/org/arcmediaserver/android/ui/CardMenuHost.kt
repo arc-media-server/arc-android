@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -74,6 +75,18 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     }
     // Asked again when a menu opens (the profile may have changed); cached by the queue store.
     androidx.compose.runtime.LaunchedEffect(open) { queueable = container.queues.supported() }
+    // Watch Together, when this server and profile have it (asked once per profile).
+    val together by container.together.available.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(open) { container.together.check() }
+    // Starts a room; the player then opens on its lobby (ArcNavHost follows the room).
+    fun watchTogether(item: Item) {
+        container.appScope.launch {
+            if (!container.together.start(item, item.resumeMs)) {
+                val text = context.getString(org.arcmediaserver.android.R.string.together_start_failed)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
+            }
+        }
+    }
     androidx.compose.runtime.LaunchedEffect(notice) {
         if (notice != null) {
             kotlinx.coroutines.delay(3_000)
@@ -94,9 +107,10 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
         }
     }
-    val menu = remember(queueable) {
+    val menu = remember(queueable, together) {
         object : CardMenu {
             override val queue: ((Item, Boolean) -> Unit)? = if (queueable) ::queue else null
+            override val watchTogether: ((Item) -> Unit)? = if (together) ::watchTogether else null
             override fun current(item: Item) = container.withChanges(item)
             override fun offContinue(id: String) = container.offContinue[id] == true
             override fun addToPlaylist(item: Item, onClose: () -> Unit) {
@@ -165,6 +179,7 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
                 onMediaInfo = { info = true },
                 onClose = close,
                 onQueue = menu.queue?.let { q -> { next: Boolean -> q(item, next) } },
+                onWatchTogether = menu.watchTogether?.let { w -> { w(item) } },
                 // The menu gives way to the playlist list; closing that puts the focus back on the card.
                 onAddToPlaylist = {
                     open = null
