@@ -103,7 +103,11 @@ follow-up PR. Invitations other people send already show on Home and can be join
   - `together-lobby-guest`;
   - `together-waiting`.
 
-  These need recording where Maven works.
+  Recorded and looked at: the host's lobby (people with statuses, the code, Start, Get a New
+  Code, Leave), the guest's ("Waiting for Jo to start…", Leave) and the waiting badge.
+- Full check, run where Maven works (with live updates, #37, underneath):
+  `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug` passed (222 tests, 1 skipped
+  (the live-server test), 0 failed; `WatchTogetherTest` 13 of 13).
 - Not tried on a TV or against a real Arc.
 
 ## Logging
