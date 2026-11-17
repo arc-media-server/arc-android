@@ -742,6 +742,14 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showMoreMenuTogether() = shot("show-more-menu-together") {
+        // A show's ⋯ offers Watch Together too: its room starts on the episode Play would start.
+        org.arcmediaserver.android.ui.details.MoreMenu(
+            Fixtures.show, onWatched = {}, onWatchlist = {}, onMediaInfo = {}, onClose = {}, onWatchTogether = {},
+        )
+    }
+
+    @Test
     fun mediaInfo() = shot("movie-media-info") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.MediaInfo)
     }
@@ -896,6 +904,44 @@ class ScreenshotTest {
         org.arcmediaserver.android.ui.person.PersonScreen(
             org.arcmediaserver.android.data.PersonPage(org.arcmediaserver.android.data.Person(1, "Mara Ellison", "art:poster:Mara Ellison", count = 4, knownFor = "actor"), credits),
             onOpen = {},
+        )
+    }
+
+    // --- Watch Together ---
+
+    private fun lobbyRoom(self: String, state: String = "paused", waitUntil: Long? = null) = org.arcmediaserver.android.data.WatchRoom(
+        id = "r1", revision = 3, generation = 1, state = state, hostId = "jo", selfId = self, waitUntilMs = waitUntil,
+        itemId = "m1", item = org.arcmediaserver.android.data.RoomItem("m1", "Dune: Part Two", "movie"),
+        participants = listOf(
+            org.arcmediaserver.android.data.WatchParticipant("jo", "Jo", ready = true, state = "paused"),
+            org.arcmediaserver.android.data.WatchParticipant("sam", "Sam", ready = true, state = "paused"),
+            org.arcmediaserver.android.data.WatchParticipant("alex", "Alex", ready = false, state = "waiting"),
+        ),
+        invited = listOf(org.arcmediaserver.android.data.InvitedName("Kim")),
+    )
+
+    @Test
+    fun togetherLobbyHost() = shot("together-lobby-host") {
+        org.arcmediaserver.android.ui.together.TogetherOverlays(
+            room = lobbyRoom("jo"), lobby = true, ended = null,
+            code = org.arcmediaserver.android.ui.together.RoomCode("r1", "ABCD1234", 0),
+            serverNow = { 0 }, onStart = {}, onLeave = {}, onNewCode = {},
+        )
+    }
+
+    @Test
+    fun togetherLobbyGuest() = shot("together-lobby-guest") {
+        org.arcmediaserver.android.ui.together.TogetherOverlays(
+            room = lobbyRoom("sam"), lobby = true, ended = null, code = null,
+            serverNow = { 0 }, onStart = {}, onLeave = {}, onNewCode = {},
+        )
+    }
+
+    @Test
+    fun togetherWaiting() = shot("together-waiting") {
+        org.arcmediaserver.android.ui.together.TogetherOverlays(
+            room = lobbyRoom("sam", state = "waiting", waitUntil = 7_000), lobby = false, ended = null, code = null,
+            serverNow = { 0 }, onStart = {}, onLeave = {}, onNewCode = {},
         )
     }
 }

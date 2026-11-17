@@ -16,10 +16,15 @@ sealed interface RowSource {
     data class Playlist(val id: String, val title: String) : RowSource
     /** This TV's play queue on Arc, from the title it's on: picking a card plays on from there. */
     data object Queue : RowSource
+    /** Watch Together rooms this profile made, was invited to or is in (the app's own row, first). */
+    data object WatchTogether : RowSource
 }
 
 /** Home's Queue row, first while there's a queue to carry on (the app's own row, not a saved one). */
 val QueueRow = HomeRowSpec("queue", RowSource.Queue, CardStyle.Thumb)
+
+/** Home's Watch Together row, first while there are rooms (as the web's WatchTogetherRow). */
+val WatchTogetherRow = HomeRowSpec("watch-together", RowSource.WatchTogether, CardStyle.Thumb)
 
 /** The queue's cards, keyed by entry (the same title can be queued twice). */
 fun queueCards(queue: PlayQueue?): List<MediaCard> = queue?.upcoming().orEmpty().mapNotNull { e -> e.item?.let { cardFor(it, key = QUEUE_KEY + e.id) } }

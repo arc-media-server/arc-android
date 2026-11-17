@@ -24,7 +24,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /** A failure Arc answered with: its status, its plain-words message and what it needs next, if anything. */
-class ApiException(val status: Int, message: String, val needs: String? = null) : IOException(message)
+/** [body] is the server's answer as it came (Watch Together's 409 carries the room as it is now). */
+class ApiException(val status: Int, message: String, val needs: String? = null, val body: String? = null) : IOException(message)
 
 /** The answer to asking whether a TV sign-in code has been approved. */
 sealed interface LinkPoll {
@@ -312,7 +313,7 @@ class ArcApi(
         val needs = obj?.get("needs")?.jsonPrimitive?.contentOrNull
         // Signed out, a wrong PIN or a missing profile are expected; anything else is worth a warning.
         if (status >= 500) log.warn("$route failed: $status $message") else log.debug("$route answered $status")
-        return ApiException(status, message, needs)
+        return ApiException(status, message, needs, body)
     }
 
     /** Sends a request to /api/v1/[path]; [route] names it in logs without ids or query strings. */
@@ -330,6 +331,73 @@ class ArcApi(
             throw e
         }
     }
+
+    // --- Watch Together (docs/WATCH-TOGETHER-API.md): a room shares a title, a timeline and play/pause ---
+
+    private fun roomPath(id: String) = "watch-together/${enc(id)}"
+
+    /** A room for [itemId] from [startMs], with a code to share (codes last 15 minutes). */
+    suspend fun createRoom(itemId: String, startMs: Long = 0): WatchInvite =
+        send("POST", "watch-together", JsonObject(mapOf("item_id" to JsonPrimitive(itemId), "start_ms" to JsonPrimitive(startMs.coerceAtLeast(0)))).toString(), WatchInvite.serializer(), route = "watch-together")
+
+    /** Joins with a code the host shared ("ABCD-1234" or "abcd1234"). */
+    suspend fun joinRoom(code: String): WatchRoom =
+        send("POST", "watch-together/join", JsonObject(mapOf("code" to JsonPrimitive(WatchCode.normalize(code)))).toString(), WatchRoom.serializer(), route = "watch-together/join")
+
+    /** This TV and profile's own room, or null (404: none). */
+    suspend fun currentRoom(): WatchRoom? {
+        val (status, body) = raw("GET", "watch-together/current", null, route = "watch-together/current")
+        if (status == 404) return null
+        if (status !in 200..299) throw failure(status, body, "watch-together/current")
+        return decode(body, WatchRoom.serializer(), "watch-together/current")
+    }
+
+    suspend fun room(id: String): WatchRoom = get(roomPath(id), WatchRoom.serializer(), route = "watch-together/{id}")
+
+    /** play, pause, seek ([positionMs]), change_item ([itemId]) or end, against the room's [revision]. */
+    suspend fun roomCommand(id: String, revision: Long, action: String, positionMs: Long? = null, itemId: String? = null): WatchRoom {
+        val body = buildMap {
+            put("revision", JsonPrimitive(revision))
+            put("action", JsonPrimitive(action))
+            positionMs?.let { put("position_ms", JsonPrimitive(it.coerceAtLeast(0))) }
+            itemId?.let { put("item_id", JsonPrimitive(it)) }
+        }
+        return send("POST", "${roomPath(id)}/commands", JsonObject(body).toString(), WatchRoom.serializer(), route = "watch-together/{id}/commands")
+    }
+
+    /** Where this TV is (file position), whether it's playing, paused or waiting, and ready. */
+    suspend fun roomHeartbeat(id: String, generation: Long, positionMs: Long, state: String, ready: Boolean): WatchRoom {
+        val body = JsonObject(mapOf(
+            "generation" to JsonPrimitive(generation), "position_ms" to JsonPrimitive(positionMs.coerceAtLeast(0)),
+            "state" to JsonPrimitive(state), "ready" to JsonPrimitive(ready),
+        ))
+        return send("POST", "${roomPath(id)}/heartbeat", body.toString(), WatchRoom.serializer(), route = "watch-together/{id}/heartbeat")
+    }
+
+    suspend fun leaveRoom(id: String) {
+        val (status, body) = raw("POST", "${roomPath(id)}/leave", null, route = "watch-together/{id}/leave")
+        if (status !in 200..299 && status != 404) throw failure(status, body, "watch-together/{id}/leave")
+    }
+
+    /** The host's new code (the old one stops working). */
+    suspend fun renewRoomCode(id: String, revision: Long): WatchInvite =
+        send("POST", "${roomPath(id)}/invite", JsonObject(mapOf("revision" to JsonPrimitive(revision))).toString(), WatchInvite.serializer(), route = "watch-together/{id}/invite")
+
+    /** Rooms this profile made, was invited to or is in: Home's Watch Together row. */
+    suspend fun listedRooms(): List<ListedRoom> = get("watch-together/rooms", ListedRooms.serializer(), route = "watch-together/rooms").rooms
+
+    /** Joins a room from the list, without a code. */
+    suspend fun acceptRoom(id: String): WatchRoom =
+        send("POST", "watch-together/rooms/${enc(id)}/join", null, WatchRoom.serializer(), route = "watch-together/rooms/{id}/join")
+
+    /** Declines an invitation, or cancels a room this profile made. */
+    suspend fun dismissRoom(id: String) {
+        val (status, body) = raw("POST", "watch-together/rooms/${enc(id)}/dismiss", null, route = "watch-together/rooms/{id}/dismiss")
+        if (status !in 200..299 && status != 404) throw failure(status, body, "watch-together/rooms/{id}/dismiss")
+    }
+
+    /** One clock sample: the server's receive and send times for [clientSentMs]. */
+    suspend fun roomTime(clientSentMs: Long): RoomTime = get("watch-together/time?client_sent_ms=$clientSentMs", RoomTime.serializer(), route = "watch-together/time")
 
     private companion object {
         val JSON = "application/json".toMediaType()

@@ -115,7 +115,7 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 import java.util.Locale
 
 /** The player's menus, as the web player's: each opens as a panel at the right. */
-enum class PlayerMenu { None, Playback, Audio, Subtitles, SubtitleTiming, Version, Quality, Chapters, Speed, Info }
+enum class PlayerMenu { None, Playback, Audio, Subtitles, SubtitleTiming, Version, Quality, Chapters, Speed, Info, Together }
 
 /** "+0.5", "-1.5" or "0.0": a subtitle offset in seconds, signed, one decimal (the web's). */
 fun timingSeconds(offsetMs: Long): String =
@@ -143,13 +143,19 @@ fun skippable(markers: List<Marker>, positionMs: Long): Marker? =
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, fileId: Long? = null, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
+fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn: Boolean = false, fileId: Long? = null, together: Boolean = false, onClose: () -> Unit, onPlayNextEntry: (Item, String?) -> Unit) {
     val context = LocalContext.current
     val container = (context.applicationContext as ArcApplication).container
-    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn, fileId) } })
+    val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn, fileId, together) } })
     val state by vm.state.collectAsStateWithLifecycle()
     // The next title goes with its queue entry, when it's the queue's.
-    val onPlayNext: (Item) -> Unit = { next -> onPlayNextEntry(next, state.nextEntryId) }
+    // In a Watch Together room, the host's next title moves the whole room on (ArcNavHost follows).
+    val onPlayNext: (Item) -> Unit = { next -> if (state.room != null) vm.playNextInRoom(next) else onPlayNextEntry(next, state.nextEntryId) }
+    val roomCode by container.together.code.collectAsStateWithLifecycle()
+    // Watch Together's lobby shows until the room first plays (or it was under way on joining).
+    var lobbyDone by remember(state.room?.id) { mutableStateOf(false) }
+    state.room?.let { if (org.arcmediaserver.android.data.RoomSync.startedOnce(it)) lobbyDone = true }
+    val inLobby = state.room?.available == true && !lobbyDone
     // Up Next (web Player.tsx): a countdown when the credits start and again at the end; Play Now
     // goes straight on, Cancel lets the credits play (or, at the end, closes the player, as Plex).
     var upNextIn by remember { mutableStateOf<Int?>(null) }
@@ -232,8 +238,8 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                 lastInput = System.currentTimeMillis()
                 when (e.nativeKeyEvent.keyCode) {
                     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { vm.togglePlay(); controls = true; true }
-                    KeyEvent.KEYCODE_MEDIA_PLAY -> { vm.player.play(); true }
-                    KeyEvent.KEYCODE_MEDIA_PAUSE -> { vm.player.pause(); controls = true; true }
+                    KeyEvent.KEYCODE_MEDIA_PLAY -> { vm.play(); true }
+                    KeyEvent.KEYCODE_MEDIA_PAUSE -> { vm.pause(); controls = true; true }
                     KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { vm.seekBy(10_000); controls = true; true }
                     KeyEvent.KEYCODE_MEDIA_REWIND -> { vm.seekBy(-10_000); controls = true; true }
                     KeyEvent.KEYCODE_MEDIA_NEXT -> { state.next?.let(onPlayNext); state.next != null }
@@ -300,7 +306,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                 if (state.loading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Spinner(size = 56.dp) }
                 PlayerControls(
                     state = state,
-                    visible = controls,
+                    visible = controls && !inLobby,
                     scrubMs = scrub,
                     onPlayPause = vm::togglePlay,
                     onBack10 = { vm.seekBy(-10_000) },
@@ -336,12 +342,29 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onZoom = vm::toggleZoom,
                         onOpen = { menu = it },
                         onShiftSubtitles = vm::shiftSubtitles,
+                        onLeaveRoom = { menu = PlayerMenu.None; onClose() },
+                        onEndRoom = { menu = PlayerMenu.None; vm.endRoom() },
+                        onNewCode = roomCode?.takeIf { it.roomId == state.room?.id }?.let { { vm.newRoomCode() } },
+                        roomCode = roomCode?.takeIf { it.roomId == state.room?.id }?.code,
                     )
                 }
                 val next = state.next
                 val seconds = upNextIn
                 if (next != null && seconds != null) {
                     UpNextCard(next, seconds, onPlayNow = { onPlayNext(next) }, onCancel = cancelUpNext)
+                }
+                // Watch Together: the lobby, "Waiting for Sam…", and who paused, played or moved the room.
+                if (state.room != null || state.roomEnded != null) {
+                    org.arcmediaserver.android.ui.together.TogetherOverlays(
+                        room = state.room,
+                        lobby = inLobby,
+                        ended = state.roomEnded,
+                        code = roomCode,
+                        serverNow = vm::serverNow,
+                        onStart = vm::togglePlay,
+                        onLeave = onClose,
+                        onNewCode = vm::newRoomCode,
+                    )
                 }
             }
         }
@@ -494,6 +517,12 @@ internal fun PlayerMenuPanel(
     onOpen: (PlayerMenu) -> Unit = {},
     /** Subtitle timing: a nudge in ms (negative earlier), or null to reset. */
     onShiftSubtitles: (Long?) -> Unit = {},
+    /** Watch Together's menu: leave, end for everyone (host), a new code (host). */
+    onLeaveRoom: () -> Unit = {},
+    onEndRoom: () -> Unit = {},
+    onNewCode: (() -> Unit)? = null,
+    /** The code to share, for the room this TV hosts. */
+    roomCode: String? = null,
 ) {
     // While it slides away the panel keeps showing the menu that was open: switching to another
     // (the Info layout) made it take the focus back from the controls, leaving nothing focused.
@@ -515,14 +544,34 @@ internal fun PlayerMenuPanel(
                     else -> stringResource(R.string.player_original)
                 }
                 options = buildList {
+                    // In a room, the room is first; speed is the room's (everyone plays at 1×).
+                    state.room?.let { room ->
+                        add(Option(stringResource(R.string.together_title), pluralStringResource(R.plurals.together_in_room, room.participants.size, room.participants.size), false) { onOpen(PlayerMenu.Together) })
+                    }
                     add(Option(stringResource(R.string.player_zoom), stringResource(if (state.zoom) R.string.player_zoom_fill else R.string.player_normal), false, onZoom))
-                    add(Option(stringResource(R.string.player_speed), speedName, false) { onSpeed(org.arcmediaserver.android.playback.PlayerOsd.nextSpeed(speeds, state.speed)) })
+                    if (state.room == null) add(Option(stringResource(R.string.player_speed), speedName, false) { onSpeed(org.arcmediaserver.android.playback.PlayerOsd.nextSpeed(speeds, state.speed)) })
                     add(Option(stringResource(R.string.player_quality), qualityNow, false) { onOpen(PlayerMenu.Quality) })
                     if (plan.versions.size > 1) {
                         val current = plan.versions.firstOrNull { it.fileId == plan.fileId }?.let { versionName(it).first }
                         add(Option(stringResource(R.string.player_version), current, false) { onOpen(PlayerMenu.Version) })
                     }
                     add(Option(stringResource(R.string.player_info), null, false) { onOpen(PlayerMenu.Info) })
+                }
+            }
+            PlayerMenu.Together -> {
+                // Who's here and how they're doing, then Leave, and the host's End for everyone.
+                title = stringResource(R.string.together_title)
+                val room = state.room
+                options = if (room == null) emptyList() else buildList {
+                    room.participants.forEach { p ->
+                        val name = if (p.id == room.selfId) stringResource(R.string.together_you, p.name) else p.name
+                        val status = org.arcmediaserver.android.ui.together.statusOf(p)
+                        add(Option(name, if (p.id == room.hostId) stringResource(R.string.together_host) + " · " + status else status, false) {})
+                    }
+                    if (room.hosting && roomCode != null) add(Option(stringResource(R.string.together_code), org.arcmediaserver.android.data.WatchCode.format(roomCode), false) {})
+                    if (room.hosting && onNewCode != null) add(Option(stringResource(R.string.together_new_code), null, false, onNewCode))
+                    add(Option(stringResource(R.string.together_leave), null, false, onLeaveRoom))
+                    if (room.hosting) add(Option(stringResource(R.string.together_end_for_everyone), null, false, onEndRoom))
                 }
             }
             PlayerMenu.Audio -> {

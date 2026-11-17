@@ -4,6 +4,9 @@ import org.arcmediaserver.android.data.Item
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -39,7 +42,8 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 private fun detailsFor(item: Item) =
     if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
 /** The player: [entryId] plays on through the queue from that entry; [carryOn] adds Auto-Play's episode to it. */
-@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false, val fileId: Long? = null)
+/** [together]: played in this TV's Watch Together room, which decides where and whether it plays. */
+@Serializable data class PlayerDest(val itemId: String, val startMs: Long, val entryId: String? = null, val carryOn: Boolean = false, val fileId: Long? = null, val together: Boolean = false)
 @Serializable data class PersonDest(val personId: Long)
 
 /** A collection's page. */
@@ -68,6 +72,7 @@ fun ArcNavHost() {
     val nav = rememberNavController()
     val container = (LocalContext.current.applicationContext as ArcApplication).container
     ResumeFromHomeScreen(nav, container)
+    FollowWatchTogether(nav, container)
     val hideSpoilers by container.hideSpoilers.collectAsState()
     CompositionLocalProvider(
         LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path },
@@ -135,6 +140,7 @@ fun ArcNavHost() {
                         dest.entryId,
                         dest.carryOn,
                         dest.fileId,
+                        together = dest.together,
                         onClose = { nav.popBackStack() },
                         // The next title replaces this one, so Back still returns to where play began.
                         onPlayNextEntry = { next, entry ->
@@ -172,5 +178,27 @@ private fun ResumeFromHomeScreen(nav: NavHostController, container: org.arcmedia
         } ?: return@LaunchedEffect
         if (!item.playable) { nav.navigate(detailsFor(item)); return@LaunchedEffect }
         nav.navigate(PlayerDest(item.id, item.resumeMs)) { popUpTo<PlayerDest> { inclusive = true } }
+    }
+}
+
+/**
+ * Watch Together: joining or starting a room opens the player on the room's title, where the room
+ * is; a new title in the room (the host's Up Next) replaces the player that showed the last one.
+ * A title this profile may not play opens nothing (the room says so to the others).
+ */
+@Composable
+private fun FollowWatchTogether(nav: NavHostController, container: org.arcmediaserver.android.AppContainer) {
+    LaunchedEffect(Unit) {
+        container.together.session.collectLatest { session ->
+            if (session == null) return@collectLatest
+            session.room.map { if (it.available) it.itemId else null }.distinctUntilChanged().collect { itemId ->
+                if (itemId == null) return@collect
+                val start = session.expected()
+                nav.navigate(PlayerDest(itemId, start, together = true)) {
+                    val current = nav.currentBackStackEntry?.destination
+                    if (current?.hasRoute<PlayerDest>() == true) popUpTo(current.id) { inclusive = true }
+                }
+            }
+        }
     }
 }

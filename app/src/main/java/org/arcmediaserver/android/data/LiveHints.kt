@@ -23,6 +23,8 @@ object LiveTopics {
     val title = setOf("catalog", "profile", "playback", "artwork")
     /** The profile's preferences (Hide Spoilers…). */
     val prefs = setOf("profile")
+    /** Home's Watch Together rooms: a personal hint when one is made, joined, declined or ended. */
+    val together = setOf("watch_together")
 
     /** Whether hints for [topics] mean a screen that follows [wanted] should reload. */
     fun touches(topics: Set<String>, wanted: Set<String>): Boolean = RESYNC in topics || topics.any { it in wanted }
