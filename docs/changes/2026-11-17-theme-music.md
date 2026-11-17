@@ -28,12 +28,16 @@ It now does, the same way (`web/src/components/ThemeMusic.tsx`).
 
 - Here: `./gradlew assembleDebug compileDebugUnitTestKotlin` passed. The tests couldn't run in this
   session (a Robolectric jar comes from a mirror its network refuses).
-- The full check is in the PR.
+- Full check, run where Maven works, after merging live updates (#37) in:
+  `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug` passed (209 tests, 1 skipped
+  (the live-server test), 0 failed). The live profile collector now goes through `applyPrefs`,
+  so a change on the web reaches Theme Music too.
 - New `ThemeTuneTest`:
   - which pages play a tune and when Theme Music stops it;
   - the fade's steps;
   - `theme_music` absent reads as on, and `theme_url` is read.
-- The screenshot `tv-settings` gains the Theme Music row.
+- The screenshot `tv-settings` gains the Theme Music row (looked at). Its profile is now "Alex",
+  as the other screenshots, and the README's `docs/screenshots/settings.jpg` is re-rendered.
 - **Needs a real TV (or an emulator with sound):** hearing it, its volume against the TV's, and
   the fades. Not tried on one.
 
