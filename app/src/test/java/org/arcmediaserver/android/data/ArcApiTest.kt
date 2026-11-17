@@ -237,6 +237,16 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a library's facets include its video and audio formats`() = runTest {
+        answer(200, """{"genres":[{"value":"Drama","count":4}],"dynamic_ranges":[{"value":"dolby_vision","count":2},{"value":"sdr","count":9}],"video_codecs":[{"value":"hevc","count":7}],"audio_codecs":[{"value":"truehd","count":3}],"audio_channels":[{"value":"8","count":3},{"value":"6","count":5}]}""")
+        val facets = api.facets(3)
+        assertEquals(listOf("dolby_vision", "sdr"), facets.dynamicRanges.map { it.value })
+        assertEquals("hevc", facets.videoCodecs.single().value)
+        assertEquals("truehd", facets.audioCodecs.single().value)
+        assertEquals(listOf("8", "6"), facets.audioChannels.map { it.value })
+    }
+
+    @Test
     fun `watched and watchlist are PUTs that answer 204`() = runTest {
         answer(204, "")
         answer(204, "")

@@ -39,7 +39,9 @@ data class BrowseFrame(
 
 /**
  * How a library's titles are sorted and filtered, as the web's library page: a sort and its
- * direction ([reverse] flips the usual one), unwatched only, and a genre, decade or quality.
+ * direction ([reverse] flips the usual one), unwatched only, and a genre, decade or quality; and,
+ * as the web's Filters panel, a watch status and the video and audio filters (HDR, formats,
+ * channels) the library has (FILTER-DISCOVERY-API.md).
  */
 data class LibraryQuery(
     val sort: String = "title",
@@ -48,8 +50,27 @@ data class LibraryQuery(
     val genre: String? = null,
     val decade: Int? = null,
     val resolution: String? = null,
+    /** "played" (Watched) or "unstarted" (Not started); Arc refuses it with [unwatched]. */
+    val watchState: String? = null,
+    /** dolby_vision, hdr10_plus, hlg, hdr10, sdr or unknown. */
+    val dynamicRange: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val audioChannels: Int? = null,
 ) {
-    val filterCount get() = listOf(unwatched, genre != null, decade != null, resolution != null).count { it }
+    val filterCount get() = listOf(
+        unwatched, genre != null, decade != null, resolution != null, watchState != null,
+        dynamicRange != null, videoCodec != null, audioCodec != null, audioChannels != null,
+    ).count { it }
+
+    /** Unwatched only on or off; it and a watch status exclude each other, as on the web. */
+    fun withUnwatched(on: Boolean) = copy(unwatched = on, watchState = if (on) null else watchState)
+
+    /** A watch status, or none; choosing one turns Unwatched only off. */
+    fun withWatchState(state: String?) = copy(watchState = state, unwatched = if (state != null) false else unwatched)
+
+    /** No filters (the sort stays). */
+    fun cleared() = LibraryQuery(sort = sort, reverse = reverse)
 
     /** /items parameters for this view of [library]: a page of [limit] from [offset]. */
     fun params(library: Library, limit: Int, offset: Int = 0): Map<String, String> = libraryQuery(library, sort, limit, offset) + buildMap {
@@ -58,6 +79,11 @@ data class LibraryQuery(
         genre?.let { put("genre", it) }
         decade?.let { put("decade", it.toString()) }
         resolution?.let { put("resolution", it) }
+        watchState?.let { put("watch_state", it) }
+        dynamicRange?.let { put("dynamic_range", it) }
+        videoCodec?.let { put("video_codec", it) }
+        audioCodec?.let { put("audio_codec", it) }
+        audioChannels?.let { put("audio_channels", it.toString()) }
         // The A–Z bar needs to know where each letter starts.
         if (offset == 0 && sort == "title") put("letters", "1")
     }

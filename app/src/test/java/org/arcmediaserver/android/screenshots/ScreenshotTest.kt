@@ -314,6 +314,23 @@ class ScreenshotTest {
     }
 
     @Test
+    fun libraryFiltersMedia() = shot("library-filters-media") {
+        // A library with a choice of HDR, video and audio formats and channels: each filter shows
+        // with what it's set to. One video format only, so Video Format isn't offered.
+        fun f(vararg v: String) = v.map { org.arcmediaserver.android.data.Facet(it, 3) }
+        org.arcmediaserver.android.ui.browse.FilterPanel(
+            org.arcmediaserver.android.ui.browse.LibraryQuery(watchState = "unstarted", dynamicRange = "dolby_vision", audioChannels = 8),
+            org.arcmediaserver.android.data.Facets(
+                genres = f("Drama", "Science Fiction"), decades = f("2020", "2010"), resolutions = f("4k", "1080"),
+                dynamicRanges = f("dolby_vision", "hdr10", "sdr"), videoCodecs = f("hevc"),
+                audioCodecs = f("truehd", "eac3", "aac"), audioChannels = f("8", "6", "2"),
+            ),
+            onChoose = {},
+            onClose = {},
+        )
+    }
+
+    @Test
     fun libraryRecommended() = shot("library-recommended") {
         browse(
             BrowseUiState(

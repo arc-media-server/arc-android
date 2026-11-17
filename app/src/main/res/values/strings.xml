@@ -199,6 +199,14 @@
     <string name="filter_decade_value">%1$ds</string>
     <string name="filter_quality">Quality</string>
     <string name="filter_any">Any</string>
+    <string name="filter_watch_state">Watch Status</string>
+    <string name="filter_watched">Watched</string>
+    <string name="filter_not_started">Not Started</string>
+    <string name="filter_hdr">HDR</string>
+    <string name="filter_hdr_unknown">Not known yet</string>
+    <string name="filter_video_format">Video Format</string>
+    <string name="filter_audio_format">Audio Format</string>
+    <string name="filter_channels">Audio Channels</string>
     <string name="filter_clear">Clear Filters</string>
     <string name="row_failed">This row couldn\'t load.</string>
 
