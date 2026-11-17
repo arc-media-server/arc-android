@@ -258,7 +258,7 @@ class PlayerViewModel(
         })
         val loadedPrefs = viewModelScope.async {
             runCatching { api.prefs() }.onFailure { log.warn("preferences failed to load: ${it.javaClass.simpleName}") }.getOrNull()
-                ?.also { container.hideSpoilers.value = it.hideSpoilers } ?: Prefs()
+                ?.also { container.applyPrefs(it) } ?: Prefs()
         }
         viewModelScope.launch {
             // The title, and the episode after it unless the profile turned Auto-Play off (as the

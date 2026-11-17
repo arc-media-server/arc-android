@@ -182,7 +182,7 @@ class ScreenshotTest {
             org.arcmediaserver.android.ui.settings.SettingsUiState(
                 prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs(audioLanguage = "eng", subtitleMode = "foreign", autoSkip = true)),
                 serverName = "Living Room Arc",
-                profile = org.arcmediaserver.android.data.Profile("p1", "Jon", "violet"),
+                profile = org.arcmediaserver.android.data.Profile("p1", "Alex", "violet"),
             ),
             onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
         )

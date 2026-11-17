@@ -123,6 +123,8 @@ data class Item(
     val title: String,
     val year: Int? = null,
     val overview: String? = null,
+    /** The title's theme tune (GET /items/{id}/theme), when it has one. */
+    @SerialName("theme_url") val themeUrl: String? = null,
     val tagline: String? = null,
     @SerialName("runtime_min") val runtimeMin: Int? = null,
     @SerialName("content_rating") val contentRating: String? = null,
@@ -257,6 +259,8 @@ data class Prefs(
     /** Skip each intro and recap by itself, as the web player does. */
     @SerialName("auto_skip") val autoSkip: Boolean = false,
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
+    /** Theme Music: a title's theme tune plays quietly on its page; absent means on, as the web reads it. */
+    @SerialName("theme_music") val themeMusic: Boolean = true,
     @SerialName("subtitle_style") val subtitleStyle: SubtitleStyle = SubtitleStyle(),
 )
 
