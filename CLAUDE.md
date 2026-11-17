@@ -8,7 +8,7 @@ app). The owner (GitHub: JonzaUK) drives product vision; agents (Claude, Codex)
 do most implementation. Read `README.md` (build, install, tests) and `docs/changes/` (what was
 built and why). What's left is on the to-do list, arc-android#2: read it before starting, tick items
 with the commit that did them, and add what you find. The server repo's CLAUDE.md, ROADMAP.md (milestone 18) and docs/API.md are the
-wider context; decisions waiting for the owner are on arc-media-server#80.
+wider context; decisions waiting for the owner are arc-media-server issues labelled `owner decision`.
 
 ## Workflow (same as the server repo)
 
@@ -18,8 +18,10 @@ wider context; decisions waiting for the owner are on arc-media-server#80.
   `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`, look at the screenshots, and
   run `LiveServerTest` against a scratch Arc when the change touches the API (README).
 - Record each change in `docs/changes/YYYY-MM-DD-<slug>.md`; commit messages have a summary, a
-  body and the Co-Authored-By trailer. Keep working without check-ins; log product decisions on
-  arc-media-server#80; stop only for risky or irreversible things.
+  body and the Co-Authored-By trailer. Keep working without check-ins; note product decisions in
+  the PR (a "Decisions" section), or, when the owner really has to choose, in its own
+  arc-media-server issue labelled `owner decision` (#80 is closed; don't add to it); stop only for
+  risky or irreversible things.
 - No agent session links in commits or PRs (no `Claude-Session:` or other chat URLs; owner, 13 November): the Co-Authored-By trailer is the only attribution. Earlier links are removed once, before the repository goes public (arc-media-server `docs/ALPHA-CHECKLIST.md`).
 - Never mark device, playback, HDR or passthrough checks done without evidence from a real TV or
   emulator. Never point tests at the owner's server, data or keys.
@@ -35,7 +37,7 @@ wider context; decisions waiting for the owner are on arc-media-server#80.
   (no banner). The player's controls match the web player's set and order; the profile picker
   matches the web's. Colours live only in `ui/theme/Theme.kt` (logo #7fdccd -> #0b7d72).
 - **Plex first:** match how Plex for Android TV behaves unless there's a clear reason not to;
-  log differences on arc-media-server#80. Reuse existing screens and components before adding
+  note differences in the PR. Reuse existing screens and components before adding
   new ones.
 - **Text:** every user-facing string in `app/src/main/res/values/strings.xml`.
 - **Logging:** Android `Log` with tag `Arc`: outcomes and failures, detail only at debug; never
