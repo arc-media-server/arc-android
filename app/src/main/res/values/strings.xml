@@ -500,5 +500,6 @@
     <string name="together_return">Return</string>
     <string name="together_decline">Decline</string>
     <string name="together_cancel_room">Cancel</string>
+    <string name="together_no_episode">There\'s no episode of this show to watch yet.</string>
     <string name="together_start_failed">Couldn\'t start Watch Together. Check your connection and try again.</string>
 </resources>

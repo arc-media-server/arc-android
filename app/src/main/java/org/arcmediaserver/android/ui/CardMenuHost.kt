@@ -78,11 +78,21 @@ fun CardMenuHost(container: AppContainer, content: @Composable () -> Unit) {
     // Watch Together, when this server and profile have it (asked once per profile).
     val together by container.together.available.collectAsState()
     androidx.compose.runtime.LaunchedEffect(open) { container.together.check() }
-    // Starts a room; the player then opens on its lobby (ArcNavHost follows the room).
+    // Starts a room; the player then opens on its lobby (ArcNavHost follows the room). A show's
+    // room starts on the episode its Play would start (part-way through, else the next unwatched).
     fun watchTogether(item: Item) {
         container.appScope.launch {
-            if (!container.together.start(item, item.resumeMs)) {
-                val text = context.getString(org.arcmediaserver.android.R.string.together_start_failed)
+            val target = if (!item.isSeries) item else runCatching {
+                container.api()?.seasons(item.id)?.seasons?.filter { it.episodes.isNotEmpty() }
+                    ?.let { org.arcmediaserver.android.ui.details.nextEpisode(it) }
+            }.getOrNull()
+            val problem = when {
+                target == null -> org.arcmediaserver.android.R.string.together_no_episode
+                !container.together.start(target, target.resumeMs) -> org.arcmediaserver.android.R.string.together_start_failed
+                else -> null
+            }
+            if (problem != null) {
+                val text = context.getString(problem)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { notice = text }
             }
         }

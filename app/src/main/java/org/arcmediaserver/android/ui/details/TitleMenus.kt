@@ -128,8 +128,9 @@ fun MoreMenu(
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_play_next), ArcIcons.ListStart) { onQueue(true); onClose() }
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.queue_add), ArcIcons.ListVideo) { onQueue(false); onClose() }
         }
-        // The web's Watch Together, for what plays (the web starts it from the title's page).
-        if (onWatchTogether != null && item.playable) {
+        // The web's Watch Together, for what plays (the web starts it from the title's page); a
+        // show starts its room on the episode Play would start.
+        if (onWatchTogether != null && (item.playable || item.isSeries)) {
             org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.together_title), ArcIcons.Users) { onWatchTogether(); onClose() }
         }
         // The web's Add to Playlist…, after the queue's choices.

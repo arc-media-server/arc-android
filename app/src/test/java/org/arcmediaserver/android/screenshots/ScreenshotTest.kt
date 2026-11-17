@@ -725,6 +725,14 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showMoreMenuTogether() = shot("show-more-menu-together") {
+        // A show's ⋯ offers Watch Together too: its room starts on the episode Play would start.
+        org.arcmediaserver.android.ui.details.MoreMenu(
+            Fixtures.show, onWatched = {}, onWatchlist = {}, onMediaInfo = {}, onClose = {}, onWatchTogether = {},
+        )
+    }
+
+    @Test
     fun mediaInfo() = shot("movie-media-info") {
         DetailsScreen(Details(Fixtures.movieWithFile), onPlay = { _: Item, _: Long -> }, onOpen = {}, initialPanel = DetailsPanel.MediaInfo)
     }

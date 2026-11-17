@@ -10,8 +10,11 @@ follow-up PR. Invitations other people send already show on Home and can be join
 ## What changed
 
 - **Starting a room:** a title's ⋯ menu (on its page and on any card) has **Watch Together** for
-  films and episodes, when Arc offers it to this profile (`watch_together` in capabilities). It
-  starts a room from the profile's resume point and opens the player on the lobby.
+  films, shows and episodes, when Arc offers it to this profile (`watch_together` in
+  capabilities). So it's on every card's menu (hold OK) in Home and library rows too. It starts a
+  room from the profile's resume point and opens the player on the lobby. A show's room starts on
+  the episode its Play would start (part-way through, else the next unwatched; owner, 17
+  November); with none to watch, a note says so.
 - **The lobby** is shown over the paused player until the room first plays (as the web's
   TogetherLobby). It has:
   - the title and who's here, with the host and "(you)" marked and each person's status
@@ -105,6 +108,8 @@ follow-up PR. Invitations other people send already show on Home and can be join
 
   Recorded and looked at: the host's lobby (people with statuses, the code, Start, Get a New
   Code, Leave), the guest's ("Waiting for Jo to start…", Leave) and the waiting badge.
+- After adding shows: the full check passed again (223 tests, 1 skipped, 0 failed), and the new
+  screenshot `show-more-menu-together` shows Watch Together on a show's menu.
 - Full check, run where Maven works (with live updates, #37, underneath):
   `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug` passed (222 tests, 1 skipped
   (the live-server test), 0 failed; `WatchTogetherTest` 13 of 13).
