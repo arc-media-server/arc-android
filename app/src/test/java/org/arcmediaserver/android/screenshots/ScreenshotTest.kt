@@ -89,12 +89,26 @@ class ScreenshotTest {
 
     @Test
     fun server() = shot("server") {
-        ServerScreen(ServerUiState(address = "192.168.1.20"), onEdit = {}, onConnect = {})
+        ServerScreen(ServerUiState(address = "192.168.1.20", canScan = false), onEdit = {}, onConnect = {})
+    }
+
+    @Test
+    fun serverFound() = shot("server-found") {
+        ServerScreen(
+            ServerUiState(
+                found = listOf(
+                    org.arcmediaserver.android.data.FoundServer("s1", "Living room", "0.9.0", "http://192.168.1.20:8099"),
+                    org.arcmediaserver.android.data.FoundServer("s2", "Studio", "0.9.0", "http://192.168.1.31:8099"),
+                ),
+                scanning = true,
+            ),
+            onEdit = {}, onConnect = {},
+        )
     }
 
     @Test
     fun serverError() = shot("server-error") {
-        ServerScreen(ServerUiState(address = "192.168.1.99", problem = ServerProblem.Failed(UiError.Unreachable)), onEdit = {}, onConnect = {})
+        ServerScreen(ServerUiState(address = "192.168.1.99", problem = ServerProblem.Failed(UiError.Unreachable), canScan = false), onEdit = {}, onConnect = {})
     }
 
     @Test
