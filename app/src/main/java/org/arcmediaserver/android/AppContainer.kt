@@ -84,11 +84,12 @@ class AppContainer(private val context: Context) {
 
     /** Live updates from Arc while the app is on screen (MainActivity starts and stops them). */
     val live = org.arcmediaserver.android.data.LiveUpdates(::api, mediaClient, appScope).also { live ->
-        // The profile's preferences changed elsewhere (the web, another TV): follow Hide Spoilers.
+        // The profile's preferences changed elsewhere (the web, another TV): follow Hide Spoilers
+        // and Theme Music.
         appScope.launch {
             live.changes.collect { topics ->
                 if (!org.arcmediaserver.android.data.LiveTopics.touches(topics, org.arcmediaserver.android.data.LiveTopics.prefs)) return@collect
-                runCatching { api()?.prefs() }.getOrNull()?.let { hideSpoilers.value = it.hideSpoilers }
+                runCatching { api()?.prefs() }.getOrNull()?.let { applyPrefs(it) }
             }
         }
     }
