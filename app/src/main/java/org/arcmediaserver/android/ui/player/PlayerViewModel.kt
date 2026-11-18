@@ -178,6 +178,7 @@ class PlayerViewModel(
     private var currentCaps: PlayerCaps = container.playerCaps.also {
         // Once per player: what Arc is told this TV shows and plays (no ids or addresses).
         log.info("this TV: hdr ${it.hdrFormats ?: "unknown"}, Dolby Vision profiles ${it.dolbyVisionProfiles ?: "none"}, passthrough ${it.audioPassthrough}, max ${it.maxHeight}p")
+        log.debug("this TV: maximum audio channels ${it.maxAudioChannels ?: "unknown"}")
     }
     private var plan: PlaybackPlan? = null
     /** The profile's preferences: the languages to start with and remember, Auto-Play. */

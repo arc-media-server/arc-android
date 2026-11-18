@@ -56,6 +56,22 @@ class PlaybackTest {
     }
 
     @Test
+    fun `output channels are independent of codec and passthrough names and survive retries`() {
+        for (channels in listOf(1, 2, 6, 8, 32)) {
+            val caps = capsFrom(setOf("audio/mp4a-latm"), setOf("truehd"), 1080,
+                maxAudioChannels = channels)
+            assertEquals(channels, caps.maxAudioChannels)
+            assertEquals(channels, fallbackCaps(caps, "direct").maxAudioChannels)
+            assertEquals(channels, fallbackCaps(caps, "remux").maxAudioChannels)
+        }
+        // A decoder or receiver codec name alone says nothing about the channel limit.
+        assertNull(capsFrom(setOf("audio/eac3"), setOf("truehd"), 1080).maxAudioChannels)
+        for (unknown in listOf(-1, 0, 33, Int.MAX_VALUE)) {
+            assertNull(capsFrom(emptySet(), emptySet(), 1080, maxAudioChannels = unknown).maxAudioChannels)
+        }
+    }
+
+    @Test
     fun `TrueHD by passthrough is for files played as they are, HDR and Dolby Vision come from the display and decoder`() {
         // A Chromecast with Google TV on a Dolby Vision TV and a receiver taking TrueHD.
         val caps = capsFrom(

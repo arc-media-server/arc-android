@@ -477,6 +477,9 @@ data class PlayerCaps(
     @SerialName("hdr_formats") val hdrFormats: List<String>? = null,
     /** Dolby Vision profiles the decoder plays (e.g. 5, 8); null when unknown. */
     @SerialName("dolby_vision_profiles") val dolbyVisionProfiles: List<Int>? = null,
+    // Maximum audio channels
+    /** Active audio route's channel limit; null leaves the server's legacy behaviour unchanged. */
+    @SerialName("max_audio_channels") val maxAudioChannels: Int? = null,
 )
 
 @Serializable

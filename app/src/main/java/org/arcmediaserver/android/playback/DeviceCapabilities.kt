@@ -3,6 +3,8 @@ package org.arcmediaserver.android.playback
 import android.content.Context
 import android.hardware.display.DisplayManager
 import android.media.MediaCodecList
+import android.media.AudioManager
+import android.os.Build
 import android.view.Display
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -10,6 +12,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import org.arcmediaserver.android.data.PlayerCaps
+import org.arcmediaserver.android.data.outputChannelLimit
 
 /** Arc's codec names (as ffprobe calls them) and the decoder MIME types that play them. */
 internal val videoMimes = linkedMapOf(
@@ -68,6 +71,7 @@ fun capsFrom(
     maxHeight: Int,
     hdrTypes: Set<Int> = emptySet(),
     dolbyVisionProfileBits: List<Int> = emptyList(),
+    maxAudioChannels: Int? = null,
 ): PlayerCaps {
     val dvProfiles = dolbyVisionProfiles(dolbyVisionProfileBits)
     return PlayerCaps(
@@ -80,6 +84,7 @@ fun capsFrom(
         audioPassthrough = passthroughEncodings.keys.filter { it in passthrough },
         hdrFormats = hdrFormats(hdrTypes, dolbyVisionDecoder = "video/dolby-vision" in decoders && dvProfiles.isNotEmpty()),
         dolbyVisionProfiles = dvProfiles.takeIf { it.isNotEmpty() },
+        maxAudioChannels = maxAudioChannels?.takeIf { it in 1..32 },
     )
 }
 
@@ -123,7 +128,21 @@ fun deviceCaps(context: Context): PlayerCaps {
     val dvBits = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
         .filter { !it.isEncoder && "video/dolby-vision" in it.supportedTypes.map(String::lowercase) }
         .flatMap { info -> runCatching { info.getCapabilitiesForType("video/dolby-vision").profileLevels.map { it.profile } }.getOrDefault(emptyList()) }
-    return capsFrom(decoders, passthrough, displayHeight(context), hdrTypes(context), dvBits)
+    return capsFrom(decoders, passthrough, displayHeight(context), hdrTypes(context), dvBits,
+        maxAudioChannels = maxAudioChannels(context, audio.maxChannelCount))
+}
+
+/** Media3 has guessed channel defaults on older SDKs; only an identified route establishes a limit. */
+private fun maxAudioChannels(context: Context, playerLimit: Int): Int? {
+    if (Build.VERSION.SDK_INT < 33) return null
+    val manager = context.getSystemService(AudioManager::class.java) ?: return null
+    val attributes = android.media.AudioAttributes.Builder()
+        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE).build()
+    val routes = runCatching {
+        manager.getAudioDevicesForAttributes(attributes).map { it.channelCounts.toList() }
+    }.getOrNull() ?: return null
+    return outputChannelLimit(routes, playerLimit)
 }
 
 /** The HDR types the screen supports (in any of its modes, and as the display reports overall). */
