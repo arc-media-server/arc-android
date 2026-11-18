@@ -24,7 +24,18 @@ existing channel compatibility/conversion decision instead of treating every out
 
 The original temporary workspace was lost in an environment replacement before its branch was
 pushed. The source/tests were recovered from retained edit history onto latest main `838ea02`
-on 18 November. Current-machine checks and remaining prerequisites are listed in the PR.
+on 18 November.
+
+Current-machine checks:
+
+- `git diff --check HEAD~1 HEAD`: passed after recovery.
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: attempted, blocked before
+  project configuration because the Gradle 9.8.2 distribution is no longer cached and its
+  download fails with `java.net.SocketException: Operation not permitted`.
+- The prior temporary Android SDK, compiler launchers, scratch fixture and dependency caches
+  are also gone. No whole SDK/toolchain reinstall was attempted after replacement. Fresh build,
+  unit, Roborazzi and scratch `LiveServerTest` checks remain pending. The historical observations
+  below are not substituted for those current checks.
 
 Historical observations from the previous machine (not fresh verification of this recovered tree):
 
