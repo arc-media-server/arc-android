@@ -155,7 +155,8 @@ class AppContainer(private val context: Context) {
     /** An API for checking an address before it's saved. */
     fun apiFor(server: HttpUrl): ArcApi = ArcApi(server, baseClient, token = { null })
 
-    val playerCaps by lazy { deviceCaps(context) }
+    // Maximum audio channels: sample the output again for each new player, after route changes.
+    val playerCaps get() = deviceCaps(context)
 
     /** How this TV appears in Arc's Settings > Devices: the name it was given, e.g. "Living Room TV". */
     val deviceName: String by lazy {

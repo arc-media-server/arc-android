@@ -136,6 +136,24 @@ class ArcApiTest {
         assertEquals("""{"position_ms":60000,"duration_ms":7200000,"state":"paused"}""", req.body?.utf8())
     }
 
+    // Maximum audio channels
+    @Test
+    fun `playback sends the current output channel limit and omits an unknown limit`() = runTest {
+        for (channels in listOf(2, 6, 8, null)) {
+            answer(200, """{"method":"direct","url":"/api/v1/items/m1/stream"}""")
+            val caps = org.arcmediaserver.android.playback.capsFrom(
+                setOf("video/avc", "audio/mp4a-latm"), emptySet(), 1080, maxAudioChannels = channels)
+            api.startPlayback("m1", PlaybackRequest(caps))
+            val request = server.takeRequest()
+            val raw = request.body!!.utf8()
+            val body = ArcJson.decodeFromString(PlaybackRequest.serializer(), raw)
+            assertEquals("/api/v1/items/m1/playback", request.url.encodedPath)
+            assertEquals(channels, body.caps.maxAudioChannels)
+            assertEquals(channels != null, "\"max_audio_channels\":" in raw)
+            if (channels != null) assertTrue("\"max_audio_channels\":$channels" in raw)
+        }
+    }
+
     @Test
     fun `an admin stopping playback is a 403 needing stopped`() = runTest {
         answer(403, """{"error":"Time for bed","needs":"stopped"}""")
