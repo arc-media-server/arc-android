@@ -883,10 +883,10 @@ class ScreenshotTest {
         }
     }
 
-    /** Text subtitles on, shown 1.5 s later than the file has them. */
-    private fun timedState() = osdState().let { s ->
+    /** Text subtitles on, shown 1.5 s later (or [offsetMs]) than the file has them. */
+    private fun timedState(offsetMs: Long = 1_500L) = osdState().let { s ->
         val track = s.plan!!.subtitleTracks.first()
-        s.copy(subtitle = track, subtitleOffsets = mapOf(org.arcmediaserver.android.playback.SubtitleTiming.key(s.plan!!.fileId, track) to 1_500L))
+        s.copy(subtitle = track, subtitleOffsets = mapOf(org.arcmediaserver.android.playback.SubtitleTiming.key(s.plan!!.fileId, track) to offsetMs))
     }
 
     @Test
@@ -910,6 +910,22 @@ class ScreenshotTest {
         // Timing open: "Timing: +1.5s (later)", Show 0.5s Earlier / Later and Reset.
         playerOver("art:backdrop:Hollow Creek") {
             val state = timedState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.SubtitleTiming, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerSubtitleTimingMenuEarlier() = shot("player-menu-subtitle-timing-earlier") {
+        // Timing open with subtitles moved earlier: "Timing: \u22120.5s (earlier)", a true minus sign.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = timedState(-500L)
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},

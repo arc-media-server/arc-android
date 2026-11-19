@@ -118,8 +118,18 @@ import java.util.Locale
 enum class PlayerMenu { None, Playback, Audio, Subtitles, SubtitleTiming, Version, Quality, Chapters, Speed, Info, Together }
 
 /** "+0.5", "-1.5" or "0.0": a subtitle offset in seconds, signed, one decimal (the web's). */
-fun timingSeconds(offsetMs: Long): String =
-    (if (offsetMs > 0) "+" else "") + String.format(java.util.Locale.ROOT, "%.1f", offsetMs / 1000.0)
+/**
+ * A subtitle timing offset in seconds, signed as every Arc app writes it (arc-media-server#479):
+ * "+1.5", "\u22120.5" (a true minus sign, U+2212) and "0.0". The strings add the "s" with no space.
+ */
+fun timingSeconds(offsetMs: Long): String {
+    val sign = when {
+        offsetMs > 0 -> "+"
+        offsetMs < 0 -> "\u2212"
+        else -> ""
+    }
+    return sign + String.format(java.util.Locale.ROOT, "%.1f", kotlin.math.abs(offsetMs) / 1000.0)
+}
 
 /** Quality limits the player offers (kbit/s), as web/src/lib/playback.ts `qualities`. */
 val qualities = listOf(20000, 12000, 8000, 4000, 3000, 2000, 1500, 720)

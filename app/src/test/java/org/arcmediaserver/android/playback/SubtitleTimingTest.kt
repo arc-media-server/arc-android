@@ -47,7 +47,9 @@ class SubtitleTimingTest {
     @Test
     fun `the offset reads as the web shows it`() {
         assertEquals("+1.5", timingSeconds(1_500))
-        assertEquals("-0.5", timingSeconds(-500))
+        assertEquals("\u22120.5", timingSeconds(-500))
+        assertEquals("\u221210.0", timingSeconds(-10_000))
+        assertEquals("+10.0", timingSeconds(10_000))
         assertEquals("0.0", timingSeconds(0))
     }
 }
