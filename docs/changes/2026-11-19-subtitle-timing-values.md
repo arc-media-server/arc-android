@@ -22,16 +22,15 @@ to the player's subtitle timing.
 
 ## Checks
 
-- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: `assembleDebug` passed and
-  the unit tests compiled; `testDebugUnitTest` stopped before running, because Maven Central
-  redirects `org.robolectric:nativeruntime-dist-compat:1.0.19` to a mirror host the build
-  sandbox's network doesn't allow (HTTP 403). So the full unit suite and `recordRoborazziDebug`
-  did not run, and **no screenshots were rendered or looked at**: still to do.
-- `SubtitleTimingTest` (plain JUnit, run directly on the compiled classes): 5 tests passed,
-  including "+1.5", "−0.5", "−10.0", "+10.0" and "0.0".
-- Added `playerSubtitleTimingMenuEarlier` (Timing menu at −0.5s) beside the existing Subtitles
-  menu and Timing menu (+1.5s) screenshots; once rendered they belong in
-  `docs/changes/2026-11-19-subtitle-timing-values/`.
+- `./gradlew assembleDebug testDebugUnitTest recordRoborazziDebug`: passed, run after the mirror
+  host was allowed (253 tests, 1 skipped (the live-server test), 0 failed). `SubtitleTimingTest`
+  covers "+1.5", "−0.5", "−10.0", "+10.0" and "0.0".
+- Screenshots looked at, copies in `2026-11-19-subtitle-timing-values/`:
+  - `subtitles-timing.jpg`: the Subtitles menu's row reads "Timing" with "+1.5s" beneath it;
+    "Timing:" isn't repeated.
+  - `subtitle-timing.jpg`: the Timing menu reads "Timing: +1.5s (later)".
+  - `subtitle-timing-earlier.jpg` (new, `playerSubtitleTimingMenuEarlier`): "Timing: −0.5s
+    (earlier)", with a true minus sign and no space before the "s".
 - `LiveServerTest` not run: the change doesn't touch the API.
 - **Not tried on a TV or emulator.** Only the Roborazzi renders show the text.
 
