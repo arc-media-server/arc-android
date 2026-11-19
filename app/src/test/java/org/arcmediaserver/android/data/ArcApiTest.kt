@@ -128,6 +128,20 @@ class ArcApiTest {
     }
 
     @Test
+    fun `a picture subtitle is asked to be burned in, and the plan says it is`() = runTest {
+        answer(
+            200,
+            """{"method":"transcode","reasons":["picture subtitles shown"],"url":"/api/transcode/s2/index.m3u8","hls":true,"session_id":"s2",
+               "file_id":7,"burn_subtitle":"s:5","subtitle_tracks":[{"id":"s:5","language":"eng","codec":"hdmv_pgs_subtitle","external":false,"image":true}]}""",
+        )
+        val caps = PlayerCaps(listOf("mp4"), listOf("h264"), listOf("aac"), 1080)
+        val plan = api.startPlayback("m1", PlaybackRequest(caps, startMs = 60_000, fileId = 7, burnSubtitle = "s:5"))
+        assertEquals("s:5", plan.burnSubtitle)
+        assertTrue(plan.subtitleTracks.single().image)
+        assertTrue(server.takeRequest().body!!.utf8().endsWith(""""start_ms":60000,"file_id":7,"burn_subtitle":"s:5"}"""))
+    }
+
+    @Test
     fun `progress is a PUT with position, duration and state`() = runTest {
         answer(200, """{"position_ms":60000,"played":false}""")
         api.reportProgress("m1", ProgressReport(60_000, 7_200_000, "paused"))

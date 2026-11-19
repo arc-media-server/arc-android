@@ -57,6 +57,7 @@ import org.arcmediaserver.android.data.Prefs
 import org.arcmediaserver.android.data.Trickplay
 import org.arcmediaserver.android.playback.UpNext
 import org.arcmediaserver.android.playback.audioLanguageToRemember
+import org.arcmediaserver.android.playback.BurnIn
 import org.arcmediaserver.android.playback.chooseSubtitle
 import org.arcmediaserver.android.playback.rememberedSubtitleLanguage
 import org.arcmediaserver.android.playback.fallbackCaps
@@ -187,6 +188,10 @@ class PlayerViewModel(
     private var retried = false
     private var loadJob: Job? = null
     private var maxKbps: Int? = null
+    /** The picture subtitle track Arc is asked to burn into the video, kept across restarts. */
+    private var burn: String? = null
+    /** The burn last logged, so each burn's outcome is logged once. */
+    private var burnReported: String? = null
 
     // --- Watch Together: declared before the init blocks that read them ---
     /** This TV's room, while this player follows it. */
@@ -328,45 +333,89 @@ class PlayerViewModel(
     /** Where in the file the player is now. */
     private fun position(): Long = plan?.let { PlaybackClock.filePosition(it, player.currentPosition.coerceAtLeast(0)) } ?: startMs
 
-    /** Starts (or restarts) playback at a point in the file, optionally with another audio track. */
+    /**
+     * Starts (or restarts) playback at a point in the file, optionally with another audio track
+     * or version. A picture subtitle being burned in ([burn]) is asked for again each time.
+     */
     fun load(fromMs: Long, audioStream: Int? = null, fileId: Long? = null) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             plan?.sessionId?.let { sid -> runCatching { api.stopTranscode(sid) } }
-            val p = try {
-                api.startPlayback(itemId, PlaybackRequest(
-                    currentCaps,
-                    startMs = fromMs,
-                    fileId = fileId ?: plan?.fileId,
-                    // A new version starts with its own default audio.
-                    audioStream = audioStream ?: plan?.audioStream?.takeIf { it >= 0 && fileId == null },
-                    maxKbps = maxKbps,
-                ))
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                if (e is ApiException && e.status == 403) {
-                    _state.update { it.copy(stopped = e.message, loading = false) }
-                } else {
-                    log.warn("playback decision failed: ${e.javaClass.simpleName} ${(e as? ApiException)?.status ?: ""}")
-                    _state.update { it.copy(error = e.toUiError(), loading = false) }
+            // Another version has other tracks: they're chosen again, as the first time.
+            val newFile = fileId != null && fileId != plan?.fileId
+            val first = _state.value.plan == null || newFile
+            if (newFile) burn = null
+            val ask: suspend () -> PlaybackPlan? = {
+                decide(BurnIn.request(currentCaps, fromMs, plan, audioStream, fileId, maxKbps, burn))
+            }
+            var p = ask() ?: return@launch
+            var subtitle: SubtitleTrack?
+            if (first) {
+                subtitle = chooseSubtitle(p.subtitleTracks, prefs.subtitleLanguage, p.audioTracks.find { it.index == p.audioStream }?.language, prefs.subtitleMode)
+                // The automatic choice is a picture track: ask again, with it burned in (as the web player).
+                if (BurnIn.restarts(burn, subtitle)) {
+                    burn = BurnIn.burnFor(subtitle)
+                    p.sessionId?.let { sid -> runCatching { api.stopTranscode(sid) } }
+                    p = ask() ?: return@launch
+                    // Arc refused to burn it in: the film plays without subtitles.
+                    if (burn == null) subtitle = null
                 }
-                return@launch
+            } else {
+                subtitle = _state.value.subtitle?.takeIf { s -> p.subtitleTracks.any { it.id == s.id } }
             }
             plan = p
+            reportBurn(p)
             // Why it converts is worth explaining later (CLAUDE.md, Logging).
             if (p.method == "direct") log.info("playing directly")
             else log.info("Arc is ${if (p.method == "remux") "repackaging" else "converting"}: ${p.reasons.joinToString()}${p.encoder?.let { " ($it)" } ?: ""}")
-            val first = _state.value.plan == null
-            val subtitle = if (first) {
-                chooseSubtitle(p.subtitleTracks, prefs.subtitleLanguage, p.audioTracks.find { it.index == p.audioStream }?.language, prefs.subtitleMode)
-            } else {
-                _state.value.subtitle?.takeIf { s -> p.subtitleTracks.any { it.id == s.id } }
-            }
             _state.update { it.copy(plan = p, durationMs = p.durationMs, subtitle = subtitle) }
             install(p, fromMs, subtitle)
             if (p.fileId != trickplayFile) loadTrickplay(p.fileId)
         }
+    }
+
+    /**
+     * Asks Arc how to play: the plan, or null after showing why not. A picture subtitle Arc won't
+     * burn in (400) is dropped, and the film plays without it rather than not at all.
+     */
+    private suspend fun decide(request: PlaybackRequest): PlaybackPlan? {
+        try {
+            return api.startPlayback(itemId, request)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (e is ApiException && e.status == 403) {
+                _state.update { it.copy(stopped = e.message, loading = false) }
+                return null
+            }
+            if (request.burnSubtitle != null && e is ApiException && e.status == 400) {
+                log.warn("burning in ${burnFormat()} subtitles was refused (400); playing without them")
+                burn = null
+                burnReported = null
+                _state.update { it.copy(subtitle = null) }
+                return decide(request.copy(burnSubtitle = null))
+            }
+            log.warn("playback decision failed: ${e.javaClass.simpleName} ${(e as? ApiException)?.status ?: ""}")
+            _state.update { it.copy(error = e.toUiError(), loading = false) }
+            return null
+        }
+    }
+
+    /** The burned-in track's format for the log ("hdmv_pgs_subtitle"), never its name or language. */
+    private fun burnFormat(): String = plan?.subtitleTracks?.firstOrNull { it.id == burn }?.codec?.ifBlank { null }
+        ?: _state.value.subtitle?.takeIf { it.id == burn }?.codec ?: "picture"
+
+    /** Logs a burn's outcome once: Arc painting the track in, or a stream without it. */
+    private fun reportBurn(p: PlaybackPlan) {
+        val asked = burn
+        if (asked == null || asked == burnReported) {
+            if (asked == null) burnReported = null
+            return
+        }
+        burnReported = asked
+        val format = p.subtitleTracks.firstOrNull { it.id == asked }?.codec ?: "picture"
+        if (p.burnSubtitle == asked) log.info("subtitles: Arc is burning in $format subtitles (${p.method})")
+        else log.warn("subtitles: asked Arc to burn in $format subtitles, but the stream doesn't say it has them")
     }
 
     /** The file's timeline thumbnails for scrubbing; none (yet) is normal and just shows none. */
@@ -415,7 +464,8 @@ class PlayerViewModel(
         // ASS/SSA as its own script (with the video's fonts) for libass, which the player loads.
         // Everything else is WebVTT the app loads and draws itself, so the film never waits for it.
         val ass = subtitle != null && isAss(subtitle)
-        loadText(p, subtitle.takeUnless { ass })
+        // Picture subtitles are in the video itself (burned in by Arc): nothing to draw.
+        loadText(p, subtitle?.takeUnless { ass || it.image })
         if (subtitle != null && ass) {
             val url = subtitleUrl(p, subtitle, "ass")
             builder.setSubtitleConfigurations(
@@ -570,6 +620,13 @@ class PlayerViewModel(
         rememberedSubtitleLanguage(track, prefs.subtitleMode)?.takeIf { it != prefs.subtitleLanguage }?.let { remember("subtitle_language", it) }
         val before = _state.value.subtitle
         _state.update { it.copy(subtitle = track) }
+        // A picture track is burned in by Arc, so showing one, or leaving one, needs a new stream
+        // from where the film is now.
+        if (BurnIn.restarts(burn, track)) {
+            burn = BurnIn.burnFor(track)
+            load(position())
+            return
+        }
         // Between text subtitles (or off), only the drawn cues change: the film carries on.
         if ((before == null || !isAss(before)) && (track == null || !isAss(track))) loadText(p, track)
         else install(p, position(), track)
