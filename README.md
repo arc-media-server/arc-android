@@ -39,7 +39,7 @@ follow in this same app.
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/movie.jpg" alt="Dune: Part Two's page"></td>
-    <td width="50%"><img src="docs/screenshots/show-episodes.jpg" alt="Breaking Bad's page, with its seasons and episodes"></td>
+    <td width="50%"><img src="docs/screenshots/show-episodes.jpg" alt="Breaking Bad's page, with its season bar below"></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/library-recommended.jpg" alt="A library's Recommended rows"></td>

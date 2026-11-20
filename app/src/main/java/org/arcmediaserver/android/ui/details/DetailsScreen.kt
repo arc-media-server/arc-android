@@ -195,7 +195,7 @@ fun DetailsScreen(
             LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
-                        (if (item.isSeries) Modifier.fillParentMaxHeight(0.88f) else Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
+                        Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp - if (item.isSeries) SeasonBarPeek else 0.dp).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         Header(details, onPlay, onOpen, primary, actions, more, onMore = { at -> moreAnchor = at; panel = DetailsPanel.More }, about = about, onAbout = { panel = DetailsPanel.About })
@@ -323,6 +323,13 @@ fun DetailsScreen(
         primary.requestWhenReady()
     }
 }
+
+/**
+ * How much of a show's seasons shows under its header before the page scrolls: only the season
+ * bar (its space above, the tabs and a margin), so the episodes wait below, as the Apple TV app
+ * (owner, 20 November).
+ */
+private val SeasonBarPeek = 74.dp
 
 @Composable
 private fun Header(
