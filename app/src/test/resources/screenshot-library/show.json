@@ -1,0 +1,207 @@
+{
+    "id": "6d8ef657711a8766a695f9057ded25d4",
+    "library_id": 2,
+    "kind": "series",
+    "title": "Breaking Bad",
+    "sort_title": "breaking bad",
+    "original_title": "Breaking Bad",
+    "year": 2008,
+    "overview": "Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
+    "release_date": "2008-01-20",
+    "tmdb_id": 1396,
+    "tvdb_id": 81189,
+    "imdb_id": "tt0903747",
+    "metadata_state": "matched",
+    "match_suppressed": false,
+    "added_at": 1795173177,
+    "locked_fields": [],
+    "tagline": "Change the equation.",
+    "content_rating": "18",
+    "studio": "AMC",
+    "rating": 9,
+    "original_language": "en",
+    "status": "ended",
+    "last_aired": "2013-09-29",
+    "user_data": {
+        "played": false
+    },
+    "unwatched_count": 5,
+    "genres": [
+        "Drama",
+        "Crime"
+    ],
+    "credits": [
+        {
+            "person_id": 514,
+            "name": "Bryan Cranston",
+            "role": "actor",
+            "character": "Walter White",
+            "image": "/api/people/514/image?v=0004cff27afe6f1e7fc30796",
+            "episode_count": 62
+        },
+        {
+            "person_id": 515,
+            "name": "Aaron Paul",
+            "role": "actor",
+            "character": "Jesse Pinkman",
+            "image": "/api/people/515/image?v=c08fe597265b64b31cd1bc7f",
+            "episode_count": 62
+        },
+        {
+            "person_id": 516,
+            "name": "Anna Gunn",
+            "role": "actor",
+            "character": "Skyler White",
+            "image": "/api/people/516/image?v=b4f6773f1af3c37c08d8edec",
+            "episode_count": 62
+        },
+        {
+            "person_id": 517,
+            "name": "RJ Mitte",
+            "role": "actor",
+            "character": "Walter White Jr.",
+            "image": "/api/people/517/image?v=0f48ba06fce098c9b60e1b87",
+            "episode_count": 62
+        },
+        {
+            "person_id": 518,
+            "name": "Dean Norris",
+            "role": "actor",
+            "character": "Hank Schrader",
+            "image": "/api/people/518/image?v=5c8a8bccb5c9ad5d045676c6",
+            "episode_count": 62
+        },
+        {
+            "person_id": 519,
+            "name": "Betsy Brandt",
+            "role": "actor",
+            "character": "Marie Schrader",
+            "image": "/api/people/519/image?v=f15ec8e01151f3d5803137b2",
+            "episode_count": 62
+        },
+        {
+            "person_id": 520,
+            "name": "Bob Odenkirk",
+            "role": "actor",
+            "character": "Saul Goodman",
+            "image": "/api/people/520/image?v=86431b35b6a99d547883edd9",
+            "episode_count": 43
+        },
+        {
+            "person_id": 521,
+            "name": "Jonathan Banks",
+            "role": "actor",
+            "character": "Mike Ehrmantraut",
+            "image": "/api/people/521/image?v=8a69d16fc8d2139d2799e049",
+            "episode_count": 36
+        },
+        {
+            "person_id": 522,
+            "name": "Steven Michael Quezada",
+            "role": "actor",
+            "character": "Steven Gomez",
+            "image": "/api/people/522/image?v=dd8999d767ddbab27731f9db",
+            "episode_count": 33
+        },
+        {
+            "person_id": 523,
+            "name": "Giancarlo Esposito",
+            "role": "actor",
+            "character": "Gustavo Fring",
+            "image": "/api/people/523/image?v=a4cde97959ede7982cf6554d",
+            "episode_count": 28
+        },
+        {
+            "person_id": 524,
+            "name": "Charles Baker",
+            "role": "actor",
+            "character": "Skinny Pete",
+            "image": "/api/people/524/image?v=bd91669edf0ac62540beed23",
+            "episode_count": 15
+        },
+        {
+            "person_id": 525,
+            "name": "Christopher Cousins",
+            "role": "actor",
+            "character": "Ted Beneke",
+            "image": "/api/people/525/image?v=fe27438dad51d5c9027654fb",
+            "episode_count": 13
+        },
+        {
+            "person_id": 526,
+            "name": "Matt Jones",
+            "role": "actor",
+            "character": "Badger",
+            "image": "/api/people/526/image?v=f02a36db7371eca896867b81",
+            "episode_count": 12
+        },
+        {
+            "person_id": 527,
+            "name": "Michael Shamus Wiles",
+            "role": "actor",
+            "character": "ASAC George Merkert",
+            "image": "/api/people/527/image?v=e26c1ccff0744d954278ef87",
+            "episode_count": 11
+        },
+        {
+            "person_id": 528,
+            "name": "Lavell Crawford",
+            "role": "actor",
+            "character": "Huell",
+            "image": "/api/people/528/image?v=bfd4d9fe9d1511508ca64fc6",
+            "episode_count": 11
+        },
+        {
+            "person_id": 529,
+            "name": "Jesse Plemons",
+            "role": "actor",
+            "character": "Todd",
+            "image": "/api/people/529/image?v=8dfbcdc4d078b9321bf75763",
+            "episode_count": 11
+        },
+        {
+            "person_id": 530,
+            "name": "Ray Campbell",
+            "role": "actor",
+            "character": "Tyrus Kitt",
+            "image": "/api/people/530/image?v=c649cfc0707f3296ef774ebd",
+            "episode_count": 10
+        },
+        {
+            "person_id": 531,
+            "name": "Tina Parker",
+            "role": "actor",
+            "character": "Francesca",
+            "image": "/api/people/531/image?v=3419cae36b7ecccd932a9cd4",
+            "episode_count": 9
+        },
+        {
+            "person_id": 532,
+            "name": "Carmen Serano",
+            "role": "actor",
+            "character": "Carmen Molina",
+            "image": "/api/people/532/image?v=2e3e61318e34e3773c8234e6",
+            "episode_count": 9
+        },
+        {
+            "person_id": 533,
+            "name": "Emily Rios",
+            "role": "actor",
+            "character": "Andrea Cantillo",
+            "image": "/api/people/533/image?v=b580ea02c392bdf683e1db68",
+            "episode_count": 9
+        },
+        {
+            "person_id": 534,
+            "name": "Vince Gilligan",
+            "role": "creator",
+            "image": "/api/people/534/image?v=67ca467a8c7a7ba7a7df7959"
+        }
+    ],
+    "images": {
+        "backdrop": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/backdrop?v=421cc21a7e5a3ad11234ea2b",
+        "backdrop_full": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/backdrop?size=full&v=ff493b067166d300fd17a2f5",
+        "logo": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/logo?v=bf2d11dd6d4126c25a1a9a26",
+        "primary": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/primary?v=321ec051bb1e6b1c38c5df7f"
+    }
+}

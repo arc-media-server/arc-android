@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" alt="Arc's Home on Google TV" width="900">
+  <img src="docs/screenshots/home.jpg" alt="Arc's Home on Google TV, with Severance in Continue Watching" width="900">
 </p>
 
 ## What is Arc for Android TV?
@@ -38,18 +38,20 @@ follow in this same app.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/movie.jpg" alt="A film's page"></td>
-    <td width="50%"><img src="docs/screenshots/show-episodes.jpg" alt="A show's page, with its seasons and episodes"></td>
+    <td width="50%"><img src="docs/screenshots/movie.jpg" alt="Dune: Part Two's page"></td>
+    <td width="50%"><img src="docs/screenshots/show-episodes.jpg" alt="Breaking Bad's page, with its seasons and episodes"></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/library-recommended.jpg" alt="A library's Recommended rows"></td>
     <td width="50%"><img src="docs/screenshots/library.jpg" alt="Browsing a library, with Sort, Filters and the A–Z bar"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/player.jpg" alt="The player's controls"></td>
+    <td width="50%"><img src="docs/screenshots/player.jpg" alt="The player's controls, playing Breaking Bad"></td>
     <td width="50%"><img src="docs/screenshots/player-card-episodes.jpg" alt="The player's Episodes card"></td>
   </tr>
 </table>
+
+<sub>Artwork and details from TMDB. Films and shows belong to their owners; Arc doesn't include any media.</sub>
 
 ## What it does
 
@@ -124,11 +126,24 @@ You need JDK 21 and the Android SDK (platform 37, platform-tools). Then:
 ```
 
 `recordRoborazziDebug` renders the screens on the JVM (Robolectric), so no emulator is needed;
-look at them after changing the UI. The pictures in this README come from it. The screens show
-real films and a show; their artwork comes from TMDB and isn't kept in git. Download it once with
-`TMDB_API_KEY=<your key> python3 tools/fetch-screenshot-art.py` (it lands in
-`app/src/test/resources/artwork/`, which git ignores); without it, the screens show drawn
-stand-ins, which is fine for checking a layout.
+look at them after changing the UI. Their titles, cast and episodes are responses recorded from
+Arc's shared screenshot library (`app/src/test/resources/screenshot-library/`), drawn with
+stand-in artwork, which is all a layout check needs.
+
+The pictures in this README are Robolectric renders of the app's real screens, with the real
+`ArcApi`, against a running copy of the shared screenshot library: not emulator or device
+captures. To retake them, start the library from arc-media-server (`node tools/screenshots.mjs
+--serve`, at `http://127.0.0.1:18299`; it needs the TMDB and TheTVDB keys in its environment),
+then:
+
+```sh
+./gradlew recordRoborazziDebug --tests '*LiveScreenshotTest*'   # app/screenshots/readme-*.png
+```
+
+The test signs in with the library's household password, picks Jordan and waits for every image to
+load; it's skipped when the library isn't running. Copy the results into `docs/screenshots/` as
+1280x720 JPEGs. `ARC_SCREENSHOTS_RECORD=1` with the same command also re-records the responses the
+other screenshot tests use.
 
 ### Setting up the SDK
 

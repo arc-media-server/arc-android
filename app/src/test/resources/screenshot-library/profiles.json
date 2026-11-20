@@ -1,0 +1,46 @@
+[
+    {
+        "allow_downloads": true,
+        "id": "6f833ab5fdd12bc2cd04d772b4d92801",
+        "name": "Jordan",
+        "color": "violet",
+        "has_pin": false,
+        "is_admin": true,
+        "max_age": 0,
+        "library_ids": null,
+        "exclude_labels": []
+    },
+    {
+        "allow_downloads": false,
+        "id": "3dc442ffa93dfd890daad0adfc3ff1df",
+        "name": "Alex",
+        "color": "amber",
+        "has_pin": false,
+        "is_admin": false,
+        "max_age": 0,
+        "library_ids": null,
+        "exclude_labels": []
+    },
+    {
+        "allow_downloads": false,
+        "id": "fdcdb36a3d1545c45d4f470ab1bbe88e",
+        "name": "Kids",
+        "color": "rose",
+        "has_pin": false,
+        "is_admin": false,
+        "max_age": 7,
+        "library_ids": null,
+        "exclude_labels": []
+    },
+    {
+        "allow_downloads": false,
+        "id": "ae58d0dc4428d7079bb03ba744982350",
+        "name": "Sam",
+        "color": "teal",
+        "has_pin": false,
+        "is_admin": false,
+        "max_age": 0,
+        "library_ids": null,
+        "exclude_labels": []
+    }
+]

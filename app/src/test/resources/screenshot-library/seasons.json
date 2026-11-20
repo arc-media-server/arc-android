@@ -1,0 +1,1225 @@
+{
+    "ordering": {
+        "id": 3,
+        "series_id": "6d8ef657711a8766a695f9057ded25d4",
+        "source": "tvdb_aired",
+        "name": "Aired Order",
+        "description": "TVDB",
+        "episode_count": 80
+    },
+    "seasons": [
+        {
+            "season_number": 1,
+            "name": "Season 1",
+            "overview": "High school chemistry teacher Walter White's life is suddenly transformed by a dire medical diagnosis. Street-savvy former student Jesse Pinkman \"teaches\" Walter a new trade.",
+            "locked_fields": [],
+            "poster": "/api/series/6d8ef657711a8766a695f9057ded25d4/seasons/1/image?v=fc2b14667d3cf253510a0bfc",
+            "episodes": [
+                {
+                    "id": "281e40055cfbc3153624045fb21864a9",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Pilot",
+                    "sort_title": "pilot",
+                    "year": 2008,
+                    "overview": "When an unassuming high school chemistry teacher discovers he has a rare form of lung cancer, he decides to team up with a former student and create a top of the line crystal meth in a used RV, to provide for his family once he is gone.",
+                    "runtime_min": 58,
+                    "release_date": "2008-01-20",
+                    "tmdb_id": 62085,
+                    "tvdb_id": 349232,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": true,
+                        "play_count": 1,
+                        "last_played_at": 1795173189
+                    },
+                    "images": {
+                        "primary": "/api/items/281e40055cfbc3153624045fb21864a9/images/primary?v=adafef8ff6a2351000936965"
+                    },
+                    "season_number": 1,
+                    "episode_number": 1,
+                    "available": true
+                },
+                {
+                    "id": "275819706855079c215840464e5653ea",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Cat's in the Bag...",
+                    "sort_title": "cat's in the bag...",
+                    "year": 2008,
+                    "overview": "Walt and Jesse attempt to tie up loose ends. The desperate situation gets more complicated with the flip of a coin. Walt's wife, Skyler, becomes suspicious of Walt's strange behavior.",
+                    "runtime_min": 48,
+                    "release_date": "2008-01-27",
+                    "tmdb_id": 62086,
+                    "tvdb_id": 349233,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": true,
+                        "play_count": 1,
+                        "last_played_at": 1795173189
+                    },
+                    "images": {
+                        "primary": "/api/items/275819706855079c215840464e5653ea/images/primary?v=adced33f76a0f9a1d0212246"
+                    },
+                    "season_number": 1,
+                    "episode_number": 2,
+                    "available": true
+                },
+                {
+                    "id": "593e8304e798e28fb21bd47a76a1e97e",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "...And the Bag's in the River",
+                    "sort_title": "...and the bag's in the river",
+                    "year": 2008,
+                    "overview": "Walter fights with Jesse over his drug use, causing him to leave Walter alone with their captive, Krazy-8. Meanwhile, Hank has a scared straight moment with Walter Jr..",
+                    "runtime_min": 48,
+                    "release_date": "2008-02-10",
+                    "tmdb_id": 62087,
+                    "tvdb_id": 349235,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "position_ms": 720000,
+                        "played": false,
+                        "last_played_at": 1795173189
+                    },
+                    "images": {
+                        "primary": "/api/items/593e8304e798e28fb21bd47a76a1e97e/images/primary?v=f67fa7e7bce47f39d5585179"
+                    },
+                    "season_number": 1,
+                    "episode_number": 3,
+                    "available": true
+                },
+                {
+                    "id": "b217d62df7a4f6bd5b9f822caab9c6b6",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Cancer Man",
+                    "sort_title": "cancer man",
+                    "year": 2008,
+                    "overview": "Walter finally tells his family that he has cancer. Meanwhile, the DEA believes Albuquerque has a new, big time player to worry about. Jesse makes a surprise visit to his parents home.",
+                    "runtime_min": 48,
+                    "release_date": "2008-02-17",
+                    "tmdb_id": 62088,
+                    "tvdb_id": 349236,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/b217d62df7a4f6bd5b9f822caab9c6b6/images/primary?v=37bbca0d092f9862e878c22e"
+                    },
+                    "season_number": 1,
+                    "episode_number": 4,
+                    "available": true
+                },
+                {
+                    "id": "761472f3e2783ef07ae2ef6298550117",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Gray Matter",
+                    "sort_title": "gray matter",
+                    "year": 2008,
+                    "overview": "Walter and Skyler attend a former colleague's birthday party. Jesse tries to free himself from drugs, while Skyler organizes an intervention.",
+                    "runtime_min": 48,
+                    "release_date": "2008-02-24",
+                    "tmdb_id": 62089,
+                    "tvdb_id": 349238,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/761472f3e2783ef07ae2ef6298550117/images/primary?v=4174f058e71a0516747aa603"
+                    },
+                    "season_number": 1,
+                    "episode_number": 5,
+                    "available": true
+                },
+                {
+                    "id": "9527ea750dbb9158d11cc6bf166b7c3b",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Crazy Handful of Nothin'",
+                    "sort_title": "crazy handful of nothin'",
+                    "year": 2008,
+                    "overview": "The side effects of chemo begin to plague Walt. Meanwhile, the DEA rounds up suspected dealers.",
+                    "runtime_min": 48,
+                    "release_date": "2008-03-02",
+                    "tmdb_id": 62090,
+                    "tvdb_id": 355100,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/9527ea750dbb9158d11cc6bf166b7c3b/images/primary?v=eea543b31b81219c3e82a962"
+                    },
+                    "season_number": 1,
+                    "episode_number": 6,
+                    "available": true
+                },
+                {
+                    "id": "ebaa0d4043040e97f1a218ca3e2a3e97",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "A No-Rough-Stuff-Type Deal",
+                    "sort_title": "no-rough-stuff-type deal",
+                    "year": 2008,
+                    "overview": "Walter accepts his new identity as a drug dealer. Elsewhere, Jesse decides to put his aunt's house on the market and Marie throws Skyler a baby shower.",
+                    "runtime_min": 48,
+                    "release_date": "2008-03-09",
+                    "tmdb_id": 62091,
+                    "tvdb_id": 352534,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/ebaa0d4043040e97f1a218ca3e2a3e97/images/primary?v=9209b7b90cc1513bc172ebe6"
+                    },
+                    "season_number": 1,
+                    "episode_number": 7,
+                    "available": true
+                }
+            ]
+        },
+        {
+            "season_number": 2,
+            "name": "Season 2",
+            "overview": "Walt must deal with the chain reaction of his choice, as he and Jesse face new and severe consequences. When danger and suspicion around Walt escalate, he is pushed to new levels of desperation. Just how much higher will the stakes rise? How far is Walt willing to go to ensure his family's security? Will his grand plan spiral out of control?",
+            "locked_fields": [],
+            "poster": "/api/series/6d8ef657711a8766a695f9057ded25d4/seasons/2/image?v=42d7df2f860f4cdf11a59e1b",
+            "episodes": [
+                {
+                    "id": "3cb40229f233688ab6af0c3215ce32de",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Seven Thirty-Seven",
+                    "sort_title": "seven thirty-seven",
+                    "year": 2009,
+                    "overview": "Walt and Jesse are reminded of Tuco’s volatile nature, and try to figure a way out of their business partnership. Hank attempts to mend fences between the estranged Marie and Skyler.",
+                    "runtime_min": 47,
+                    "release_date": "2009-03-08",
+                    "tmdb_id": 972873,
+                    "tvdb_id": 438912,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/3cb40229f233688ab6af0c3215ce32de/images/primary?v=35c5faedc321a48a79bf189d"
+                    },
+                    "season_number": 2,
+                    "episode_number": 1,
+                    "available": false
+                },
+                {
+                    "id": "db35a6ee899ac6850a147f251ddf2f68",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Grilled",
+                    "sort_title": "grilled",
+                    "year": 2009,
+                    "overview": "Walt and Jesse find themselves in close quarters with an unhinged Tuco. Marie and Hank comfort Skyler, who is distraught over Walt’s disappearance. Hank pays a visit to Mrs. Pinkman on some not-so-official business.",
+                    "runtime_min": 46,
+                    "release_date": "2009-03-15",
+                    "tmdb_id": 972874,
+                    "tvdb_id": 438913,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/db35a6ee899ac6850a147f251ddf2f68/images/primary?v=eb018902f938e11a268d440e"
+                    },
+                    "season_number": 2,
+                    "episode_number": 2,
+                    "available": false
+                },
+                {
+                    "id": "53708611b3fda30c1a6d2ddcd49891f2",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Bit by a Dead Bee",
+                    "sort_title": "bit by a dead bee",
+                    "year": 2009,
+                    "overview": "Walt and Jesse cover their tracks, but as a result, both of their financial situations suffer. Meanwhile, Hank and his DEA colleagues may have a break in their meth investigation.",
+                    "runtime_min": 47,
+                    "release_date": "2009-03-22",
+                    "tmdb_id": 62094,
+                    "tvdb_id": 438914,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/53708611b3fda30c1a6d2ddcd49891f2/images/primary?v=8df8edd1d7b3e55f2e123031"
+                    },
+                    "season_number": 2,
+                    "episode_number": 3,
+                    "available": false
+                },
+                {
+                    "id": "f5d22f6391e2b7354a6a837086febe3b",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Down",
+                    "sort_title": "down",
+                    "year": 2009,
+                    "overview": "Walt tries to reconnect with his family. Still suspicious of her husband's actions, Skyler keeps her distance. Jesse finds himself without a place to live and struggles to cope.",
+                    "runtime_min": 47,
+                    "release_date": "2009-03-29",
+                    "tmdb_id": 62095,
+                    "tvdb_id": 438915,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/f5d22f6391e2b7354a6a837086febe3b/images/primary?v=b6c568981abde210b7e0cb3c"
+                    },
+                    "season_number": 2,
+                    "episode_number": 4,
+                    "available": false
+                },
+                {
+                    "id": "81e8f3df8d840c529bb8ac5eae2bd39c",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Breakage",
+                    "sort_title": "breakage",
+                    "year": 2009,
+                    "overview": "Tensions and bills mount at the White household. Hank makes progress at work, but struggles with some residual effects from his encounter with Tuco. Jesse assembles a crew of dealers to get their product out on the streets.",
+                    "runtime_min": 47,
+                    "release_date": "2009-04-05",
+                    "tmdb_id": 62096,
+                    "tvdb_id": 438916,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/81e8f3df8d840c529bb8ac5eae2bd39c/images/primary?v=8c6133cbba8d886eea28196c"
+                    },
+                    "season_number": 2,
+                    "episode_number": 5,
+                    "available": false
+                },
+                {
+                    "id": "627a1c5738cbd9c9b1a6301c297ec511",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Peekaboo",
+                    "sort_title": "peekaboo",
+                    "year": 2009,
+                    "overview": "Walt returns to work. Skinny Pete gets ripped off and when Jesse steps in, he gets more than he bargained for. Walt's cover story on how Elliott and Gretchen are paying for his medical treatment starts to collapse.",
+                    "runtime_min": 47,
+                    "release_date": "2009-04-12",
+                    "tmdb_id": 62097,
+                    "tvdb_id": 438917,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/627a1c5738cbd9c9b1a6301c297ec511/images/primary?v=b19efdf7d01617f52dbd9ab9"
+                    },
+                    "season_number": 2,
+                    "episode_number": 6,
+                    "available": false
+                },
+                {
+                    "id": "f1865b5bd6711c9ca41783e4d9e8a6bd",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Negro y Azul",
+                    "sort_title": "negro y azul",
+                    "year": 2009,
+                    "overview": "Rumors fly about Jesse's recent actions as he and Walt discuss expanding their business into new territories. Hank struggles in El Paso. Skyler pursues a new job opportunity. Jesse gets to know his landlord, Jane.",
+                    "runtime_min": 47,
+                    "release_date": "2009-04-19",
+                    "tmdb_id": 62098,
+                    "tvdb_id": 438918,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/f1865b5bd6711c9ca41783e4d9e8a6bd/images/primary?v=930a001e2fe2a6ccd51ca6ba"
+                    },
+                    "season_number": 2,
+                    "episode_number": 7,
+                    "available": false
+                },
+                {
+                    "id": "d8c56d6891df004eb4a1cfceb2b97f6a",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Better Call Saul",
+                    "sort_title": "better call saul",
+                    "year": 2009,
+                    "overview": "When Badger gets busted, Walt and Jesse seek the legal advice of a shady attorney, Saul Goodman. Hank returns to Albuquerque, but his troubled mental state and demeanor cause Marie to worry.",
+                    "runtime_min": 47,
+                    "release_date": "2009-04-26",
+                    "tmdb_id": 62099,
+                    "tvdb_id": 438919,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/d8c56d6891df004eb4a1cfceb2b97f6a/images/primary?v=b27503c056e324dfe5570499"
+                    },
+                    "season_number": 2,
+                    "episode_number": 8,
+                    "available": false
+                },
+                {
+                    "id": "e44b8e8f85c9773c26054bc5161767d3",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "4 Days Out",
+                    "sort_title": "4 days out",
+                    "year": 2009,
+                    "overview": "The Whites await news about Walt's cancer treatment progress. Walt and Jesse retreat to the desert for a marathon cook.",
+                    "runtime_min": 47,
+                    "release_date": "2009-05-03",
+                    "tmdb_id": 62100,
+                    "tvdb_id": 438920,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/e44b8e8f85c9773c26054bc5161767d3/images/primary?v=82d99672a344929148aa4614"
+                    },
+                    "season_number": 2,
+                    "episode_number": 9,
+                    "available": false
+                },
+                {
+                    "id": "ba0b903adedc3c16bff366671e4487a8",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Over",
+                    "sort_title": "over",
+                    "year": 2009,
+                    "overview": "Walt and Hank get into a fight, and Walt consumes himself with home improvements. Skyler opens up to her boss, Ted. Jane hides her relationship with Jesse from her father.",
+                    "runtime_min": 47,
+                    "release_date": "2009-05-10",
+                    "tmdb_id": 62101,
+                    "tvdb_id": 438921,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/ba0b903adedc3c16bff366671e4487a8/images/primary?v=13b9724a951163e833441de1"
+                    },
+                    "season_number": 2,
+                    "episode_number": 10,
+                    "available": false
+                },
+                {
+                    "id": "49b40fbc05c708916cc069a1abf7e72a",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Mandala",
+                    "sort_title": "mandala",
+                    "year": 2009,
+                    "overview": "Saul proposes a new business partner. Skyler makes a disturbing discovery. Jesse divulges his real profession to Jane.",
+                    "runtime_min": 47,
+                    "release_date": "2009-05-17",
+                    "tmdb_id": 62102,
+                    "tvdb_id": 438922,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/49b40fbc05c708916cc069a1abf7e72a/images/primary?v=4afc13438857127153927dfe"
+                    },
+                    "season_number": 2,
+                    "episode_number": 11,
+                    "available": false
+                },
+                {
+                    "id": "bad8d3373cdc2947da79f53763273730",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Phoenix",
+                    "sort_title": "phoenix",
+                    "year": 2009,
+                    "overview": "The Whites welcome a new addition. Walter,  Jr. launches a website to aid his struggling family. Jesse's addiction spirals out of control.",
+                    "runtime_min": 47,
+                    "release_date": "2009-05-24",
+                    "tmdb_id": 62103,
+                    "tvdb_id": 438923,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/bad8d3373cdc2947da79f53763273730/images/primary?v=22c6e8102b1fb70baa1bc07a"
+                    },
+                    "season_number": 2,
+                    "episode_number": 12,
+                    "available": false
+                },
+                {
+                    "id": "57579dcee16cb31d1fb672f7412587a3",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "ABQ",
+                    "sort_title": "abq",
+                    "year": 2009,
+                    "overview": "Walt's lies have pushed Skyler to her limit. Jesse self-destructs after a personal blow, forcing Walt to come to his aid. Donald's grief leads to tragedy.",
+                    "runtime_min": 48,
+                    "release_date": "2009-05-31",
+                    "tmdb_id": 62104,
+                    "tvdb_id": 438924,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/57579dcee16cb31d1fb672f7412587a3/images/primary?v=c465598868f8b5b33b585ffa"
+                    },
+                    "season_number": 2,
+                    "episode_number": 13,
+                    "available": false
+                }
+            ]
+        },
+        {
+            "season_number": 0,
+            "name": "Specials",
+            "locked_fields": [],
+            "poster": "/api/series/6d8ef657711a8766a695f9057ded25d4/seasons/0/image?v=16e3de66f197a210d34602f1",
+            "episodes": [
+                {
+                    "id": "66829e0b8ac7f2d1e098caf98f305361",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Good Cop / Bad Cop",
+                    "sort_title": "good cop / bad cop",
+                    "year": 2009,
+                    "overview": "Hank and Marie try to spice up their relationship on Valentine's Day.",
+                    "runtime_min": 3,
+                    "release_date": "2009-02-17",
+                    "tmdb_id": 62131,
+                    "tvdb_id": 3859781,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/66829e0b8ac7f2d1e098caf98f305361/images/primary?v=4d1a7c67cc17a46d193af92e"
+                    },
+                    "season_number": 0,
+                    "episode_number": 1,
+                    "available": false
+                },
+                {
+                    "id": "9173d0fc16601c0968232671c524093b",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Wedding Day",
+                    "sort_title": "wedding day",
+                    "year": 2009,
+                    "overview": "Walt and Hank have a talk before Hank gets married.",
+                    "runtime_min": 5,
+                    "release_date": "2009-02-17",
+                    "tmdb_id": 62133,
+                    "tvdb_id": 3859791,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/9173d0fc16601c0968232671c524093b/images/primary?v=5c931d15c493fde1f271cbf5"
+                    },
+                    "season_number": 0,
+                    "episode_number": 2,
+                    "available": false
+                },
+                {
+                    "id": "82807ccac6fa5da9a4fc5e84b21a8392",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "TwaüghtHammër",
+                    "sort_title": "twaüghthammër",
+                    "year": 2009,
+                    "overview": "Jesse and Badger make a behind the scenes video about their band \"TwaughtHammer\" and show a music video for their song \"Fallacies.\"",
+                    "runtime_min": 4,
+                    "release_date": "2009-02-17",
+                    "tmdb_id": 62132,
+                    "tvdb_id": 3859801,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/82807ccac6fa5da9a4fc5e84b21a8392/images/primary?v=dd41aedc307f97fc7d00c5e5"
+                    },
+                    "season_number": 0,
+                    "episode_number": 3,
+                    "available": false
+                },
+                {
+                    "id": "d410890e955029aba2fca71d2593064c",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Marie's Confession",
+                    "sort_title": "marie's confession",
+                    "year": 2009,
+                    "overview": "Marie records a video diary.",
+                    "runtime_min": 3,
+                    "release_date": "2009-02-17",
+                    "tmdb_id": 62135,
+                    "tvdb_id": 3859811,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/d410890e955029aba2fca71d2593064c/images/primary?v=4432eac017900c040c5b9031"
+                    },
+                    "season_number": 0,
+                    "episode_number": 4,
+                    "available": false
+                },
+                {
+                    "id": "a7bd8ff42b40b093797bfd0db036292f",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "The Break-In",
+                    "sort_title": "break-in",
+                    "year": 2009,
+                    "overview": "Badger uses his lock-picking skills to help Walt (AKA Heisenberg) with some \"B&E\".",
+                    "runtime_min": 5,
+                    "release_date": "2009-02-17",
+                    "tvdb_id": 3859821,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "images": {
+                        "primary": "/api/items/a7bd8ff42b40b093797bfd0db036292f/images/primary?v=5ab45c2cd11d37fcb98f170e"
+                    },
+                    "season_number": 0,
+                    "episode_number": 5,
+                    "available": false
+                },
+                {
+                    "id": "3de093fa8c4112bba81e24f6df920692",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Live Saul Cam",
+                    "sort_title": "live saul cam",
+                    "year": 2010,
+                    "overview": "Surveillance camera footage showcasing what Saul does in his free time at his office, including receiving fellatio from a prostitute.",
+                    "runtime_min": 5,
+                    "release_date": "2010-02-12",
+                    "tvdb_id": 9700129,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 20,
+                    "available": false
+                },
+                {
+                    "id": "bc5a05897465aefd031e9835be03b16e",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Fernando",
+                    "sort_title": "fernando",
+                    "year": 2010,
+                    "overview": "Fernando, accused of stealing a truck, appears in an advert for Saul.",
+                    "runtime_min": 1,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700130,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 21,
+                    "available": false
+                },
+                {
+                    "id": "80549564f1f8b25ea54066954983fd13",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Carl",
+                    "sort_title": "carl",
+                    "year": 2010,
+                    "overview": "Carl's story about how Saul helped him with a problem involving his ex.",
+                    "runtime_min": 1,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700131,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 22,
+                    "available": false
+                },
+                {
+                    "id": "e390afff79b423c1fe9cc8fde8ba6d3d",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Wendy",
+                    "sort_title": "wendy",
+                    "year": 2010,
+                    "overview": "Wendy's story about how Saul got her out of jail.",
+                    "runtime_min": 1,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700132,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 23,
+                    "available": false
+                },
+                {
+                    "id": "e74934458a5241ae1adcec54f6fec420",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Badger",
+                    "sort_title": "badger",
+                    "year": 2010,
+                    "overview": "Badger recalls how Saul got him out of trouble after he was selling meth.",
+                    "runtime_min": 2,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700133,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 24,
+                    "available": false
+                },
+                {
+                    "id": "1d53c6f136487e9c3dd8a02b0e9df93b",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Wayfarer 515",
+                    "sort_title": "wayfarer 515",
+                    "year": 2010,
+                    "overview": "The advert that Saul used to appeal to victims of the Wayfarer 515 accident.",
+                    "runtime_min": 2,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700134,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 25,
+                    "available": false
+                },
+                {
+                    "id": "4b720b8326f7c5e2faffb5443d94fd32",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Letters to Saul",
+                    "sort_title": "letters to saul",
+                    "year": 2010,
+                    "overview": "Saul opens some letters that he receives from criminals.",
+                    "runtime_min": 2,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700135,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 26,
+                    "available": false
+                },
+                {
+                    "id": "443f4f033648f8b071b70cfecf71d716",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Tiger Trouble? Better Call Saul!",
+                    "sort_title": "tiger trouble? better call saul!",
+                    "year": 2010,
+                    "overview": "An advert Saul used to appeal to illegal tiger owners.",
+                    "runtime_min": 2,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700136,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 27,
+                    "available": false
+                },
+                {
+                    "id": "0e371f44fe23ca18de4d4ab603db6765",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Saul Says: \"Sue 'Em Now\"",
+                    "sort_title": "saul says: \"sue 'em now\"",
+                    "year": 2010,
+                    "overview": "An advert that Saul used to make people want to come to him to sue companies.",
+                    "runtime_min": 2,
+                    "release_date": "2010-03-04",
+                    "tvdb_id": 9700137,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 28,
+                    "available": false
+                },
+                {
+                    "id": "0aa32b07fd35379f1db340d5e8d84dc8",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Team S.C.I.E.N.C.E.",
+                    "sort_title": "team s.c.i.e.n.c.e.",
+                    "year": 2010,
+                    "overview": "Jesse imagines all of his friends as one team, Team SCIENCE.",
+                    "runtime_min": 4,
+                    "release_date": "2010-03-11",
+                    "tvdb_id": 9700138,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 29,
+                    "available": false
+                },
+                {
+                    "id": "c436cfe87568aadf68b91fb139447217",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Fatty Fat Fat",
+                    "sort_title": "fatty fat fat",
+                    "year": 2011,
+                    "overview": "Saul appears in an advert which appeals to overweight people to come to him for advice on how to lose weight.",
+                    "runtime_min": 1,
+                    "release_date": "2011-10-18",
+                    "tvdb_id": 9700170,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 30,
+                    "available": false
+                },
+                {
+                    "id": "d5354406727d20592e03665d1bca9250",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Fighting for You",
+                    "sort_title": "fighting for you",
+                    "year": 2011,
+                    "overview": "Saul's story about how two boxers came to him for compensation.",
+                    "runtime_min": 1,
+                    "release_date": "2011-10-18",
+                    "tvdb_id": 9700171,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 31,
+                    "available": false
+                },
+                {
+                    "id": "f2836894a5a01837ee6090a9322e822f",
+                    "library_id": 2,
+                    "kind": "episode",
+                    "parent_id": "6d8ef657711a8766a695f9057ded25d4",
+                    "title": "Snow Globe: A Breaking Bad Short",
+                    "sort_title": "snow globe: a breaking bad short",
+                    "year": 2020,
+                    "overview": "Todd assembles a custom snow globe which includes his and Lydia's likenesses, as he tries to call her to ask her on a date.",
+                    "runtime_min": 3,
+                    "release_date": "2020-02-16",
+                    "tvdb_id": 9700172,
+                    "metadata_state": "matched",
+                    "match_suppressed": false,
+                    "added_at": 1795173177,
+                    "locked_fields": [],
+                    "user_data": {
+                        "played": false
+                    },
+                    "season_number": 0,
+                    "episode_number": 32,
+                    "available": false
+                }
+            ]
+        }
+    ],
+    "series": {
+        "id": "6d8ef657711a8766a695f9057ded25d4",
+        "library_id": 2,
+        "kind": "series",
+        "title": "Breaking Bad",
+        "sort_title": "breaking bad",
+        "original_title": "Breaking Bad",
+        "year": 2008,
+        "overview": "Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
+        "release_date": "2008-01-20",
+        "tmdb_id": 1396,
+        "tvdb_id": 81189,
+        "imdb_id": "tt0903747",
+        "metadata_state": "matched",
+        "match_suppressed": false,
+        "added_at": 1795173177,
+        "locked_fields": [],
+        "tagline": "Change the equation.",
+        "content_rating": "18",
+        "studio": "AMC",
+        "rating": 9,
+        "original_language": "en",
+        "status": "ended",
+        "last_aired": "2013-09-29",
+        "user_data": {
+            "played": false
+        },
+        "unwatched_count": 5,
+        "genres": [
+            "Drama",
+            "Crime"
+        ],
+        "credits": [
+            {
+                "person_id": 514,
+                "name": "Bryan Cranston",
+                "role": "actor",
+                "character": "Walter White",
+                "image": "/api/people/514/image?v=0004cff27afe6f1e7fc30796",
+                "episode_count": 62
+            },
+            {
+                "person_id": 515,
+                "name": "Aaron Paul",
+                "role": "actor",
+                "character": "Jesse Pinkman",
+                "image": "/api/people/515/image?v=c08fe597265b64b31cd1bc7f",
+                "episode_count": 62
+            },
+            {
+                "person_id": 516,
+                "name": "Anna Gunn",
+                "role": "actor",
+                "character": "Skyler White",
+                "image": "/api/people/516/image?v=b4f6773f1af3c37c08d8edec",
+                "episode_count": 62
+            },
+            {
+                "person_id": 517,
+                "name": "RJ Mitte",
+                "role": "actor",
+                "character": "Walter White Jr.",
+                "image": "/api/people/517/image?v=0f48ba06fce098c9b60e1b87",
+                "episode_count": 62
+            },
+            {
+                "person_id": 518,
+                "name": "Dean Norris",
+                "role": "actor",
+                "character": "Hank Schrader",
+                "image": "/api/people/518/image?v=5c8a8bccb5c9ad5d045676c6",
+                "episode_count": 62
+            },
+            {
+                "person_id": 519,
+                "name": "Betsy Brandt",
+                "role": "actor",
+                "character": "Marie Schrader",
+                "image": "/api/people/519/image?v=f15ec8e01151f3d5803137b2",
+                "episode_count": 62
+            },
+            {
+                "person_id": 520,
+                "name": "Bob Odenkirk",
+                "role": "actor",
+                "character": "Saul Goodman",
+                "image": "/api/people/520/image?v=86431b35b6a99d547883edd9",
+                "episode_count": 43
+            },
+            {
+                "person_id": 521,
+                "name": "Jonathan Banks",
+                "role": "actor",
+                "character": "Mike Ehrmantraut",
+                "image": "/api/people/521/image?v=8a69d16fc8d2139d2799e049",
+                "episode_count": 36
+            },
+            {
+                "person_id": 522,
+                "name": "Steven Michael Quezada",
+                "role": "actor",
+                "character": "Steven Gomez",
+                "image": "/api/people/522/image?v=dd8999d767ddbab27731f9db",
+                "episode_count": 33
+            },
+            {
+                "person_id": 523,
+                "name": "Giancarlo Esposito",
+                "role": "actor",
+                "character": "Gustavo Fring",
+                "image": "/api/people/523/image?v=a4cde97959ede7982cf6554d",
+                "episode_count": 28
+            },
+            {
+                "person_id": 524,
+                "name": "Charles Baker",
+                "role": "actor",
+                "character": "Skinny Pete",
+                "image": "/api/people/524/image?v=bd91669edf0ac62540beed23",
+                "episode_count": 15
+            },
+            {
+                "person_id": 525,
+                "name": "Christopher Cousins",
+                "role": "actor",
+                "character": "Ted Beneke",
+                "image": "/api/people/525/image?v=fe27438dad51d5c9027654fb",
+                "episode_count": 13
+            },
+            {
+                "person_id": 526,
+                "name": "Matt Jones",
+                "role": "actor",
+                "character": "Badger",
+                "image": "/api/people/526/image?v=f02a36db7371eca896867b81",
+                "episode_count": 12
+            },
+            {
+                "person_id": 527,
+                "name": "Michael Shamus Wiles",
+                "role": "actor",
+                "character": "ASAC George Merkert",
+                "image": "/api/people/527/image?v=e26c1ccff0744d954278ef87",
+                "episode_count": 11
+            },
+            {
+                "person_id": 528,
+                "name": "Lavell Crawford",
+                "role": "actor",
+                "character": "Huell",
+                "image": "/api/people/528/image?v=bfd4d9fe9d1511508ca64fc6",
+                "episode_count": 11
+            },
+            {
+                "person_id": 529,
+                "name": "Jesse Plemons",
+                "role": "actor",
+                "character": "Todd",
+                "image": "/api/people/529/image?v=8dfbcdc4d078b9321bf75763",
+                "episode_count": 11
+            },
+            {
+                "person_id": 530,
+                "name": "Ray Campbell",
+                "role": "actor",
+                "character": "Tyrus Kitt",
+                "image": "/api/people/530/image?v=c649cfc0707f3296ef774ebd",
+                "episode_count": 10
+            },
+            {
+                "person_id": 531,
+                "name": "Tina Parker",
+                "role": "actor",
+                "character": "Francesca",
+                "image": "/api/people/531/image?v=3419cae36b7ecccd932a9cd4",
+                "episode_count": 9
+            },
+            {
+                "person_id": 532,
+                "name": "Carmen Serano",
+                "role": "actor",
+                "character": "Carmen Molina",
+                "image": "/api/people/532/image?v=2e3e61318e34e3773c8234e6",
+                "episode_count": 9
+            },
+            {
+                "person_id": 533,
+                "name": "Emily Rios",
+                "role": "actor",
+                "character": "Andrea Cantillo",
+                "image": "/api/people/533/image?v=b580ea02c392bdf683e1db68",
+                "episode_count": 9
+            },
+            {
+                "person_id": 534,
+                "name": "Vince Gilligan",
+                "role": "creator",
+                "image": "/api/people/534/image?v=67ca467a8c7a7ba7a7df7959"
+            }
+        ],
+        "images": {
+            "backdrop": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/backdrop?v=421cc21a7e5a3ad11234ea2b",
+            "backdrop_full": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/backdrop?size=full&v=ff493b067166d300fd17a2f5",
+            "logo": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/logo?v=bf2d11dd6d4126c25a1a9a26",
+            "primary": "/api/items/6d8ef657711a8766a695f9057ded25d4/images/primary?v=321ec051bb1e6b1c38c5df7f"
+        }
+    },
+    "unplaced": []
+}

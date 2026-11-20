@@ -79,6 +79,6 @@ class SeasonTabsFocusTest {
         assertEquals(Fixtures.seasons[1].episodes.map { it.id }, shuffleCandidates(Fixtures.seasons, 2).map { it.id })
         assertEquals(Fixtures.seasons.sumOf { it.episodes.size }, shuffleCandidates(Fixtures.seasons).size)
         val offDisk = Fixtures.seasons[1].let { s -> s.copy(episodes = s.episodes.mapIndexed { i, e -> if (i == 0) e.copy(available = false) else e }) }
-        assertEquals(2, shuffleCandidates(listOf(offDisk), 2).size)
+        assertEquals(offDisk.episodes.size - 1, shuffleCandidates(listOf(offDisk), 2).size)
     }
 }
