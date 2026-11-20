@@ -46,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -347,7 +348,8 @@ private fun Header(
     // The artwork fills the screen with everything low on it (owner, 16 November): the logo, the
     // age rating and genres, the description, the year and running time with the quality
     // capsules, then the Play button and round buttons; who's in it and who made it at the right.
-    Row(Modifier.padding(start = PageStart, end = PageStart, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+    // A film's page keeps a margin at the bottom of the screen; a show's sits on its season bar.
+    Row(Modifier.padding(start = PageStart, end = PageStart, bottom = if (item.isSeries) 8.dp else 40.dp), verticalAlignment = Alignment.Bottom) {
     Column(Modifier.weight(1f)) {
         org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 120.dp, maxWidth = 460.dp, textStyle = MaterialTheme.typography.displayMedium)
         if (item.isEpisode) {
@@ -466,8 +468,15 @@ private fun Header(
                 modifier = labelled(moreLabel, Modifier.focusRequester(more).onGloballyPositioned { moreBounds = it.boundsInRoot() }),
             )
         }
-        // The focused round button's name, or what couldn't be saved.
-        Box(Modifier.height(28.dp).padding(top = 8.dp)) {
+        // The focused round button's name, or what couldn't be saved, under the buttons. It takes
+        // no room of its own (it's drawn in the space below), so a show's season bar sits right
+        // under the buttons, as the LG/Samsung app.
+        Box(
+            Modifier.layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+                layout(placeable.width, 0) { placeable.place(0, 0) }
+            }.padding(top = 8.dp),
+        ) {
             // A season's problem shows beside its own button, in the seasons below.
             val problem = actions.problem?.takeIf { it != ActionProblem.Season }
             if (problem != null) {
@@ -479,18 +488,18 @@ private fun Header(
                             else -> R.string.action_watchlist_failed
                         },
                     ),
-                    style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning,
+                    style = MaterialTheme.typography.labelLarge, color = ArcColors.Warning, maxLines = 1,
                 )
                 LaunchedEffect(problem) {
                     kotlinx.coroutines.delay(5_000)
                     actions.onProblemShown()
                 }
             } else {
-                focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f)) }
+                focusedLabel?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = ArcColors.Foreground.copy(alpha = 0.8f), maxLines = 1) }
             }
         }
     }
-    HeaderCredits(item, Modifier.padding(start = 32.dp, bottom = 40.dp).widthIn(max = 420.dp))
+    HeaderCredits(item, Modifier.padding(start = 32.dp, bottom = 4.dp).widthIn(max = 420.dp))
     }
 }
 
