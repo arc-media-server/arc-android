@@ -78,6 +78,8 @@ import org.arcmediaserver.android.ui.browse.runtimeText
 import org.arcmediaserver.android.ui.components.ArcIcons
 import org.arcmediaserver.android.ui.components.Artwork
 import org.arcmediaserver.android.ui.components.FormatBadges
+import org.arcmediaserver.android.ui.components.episodeCode
+import org.arcmediaserver.android.ui.components.episodeWithTitle
 import org.arcmediaserver.android.ui.components.RoundIconButton
 import org.arcmediaserver.android.ui.components.formatLabels
 import org.arcmediaserver.android.ui.components.requestWhenReady
@@ -89,7 +91,7 @@ import java.util.Locale
 
 /**
  * The controls over the picture, in the Apple TV app's arrangement (arc-apple PlayerOSD):
- * - the show's name large at the bottom left, with "S2, E4 • the episode's name" above it (a
+ * - the show's name large at the bottom left, with "S2 · E4 · the episode's name" above it (a
  *   film: its title alone), and three round buttons at the right of it: Playback, Audio and
  *   Subtitles, each opening its menu above it;
  * - the timeline, split at the chapters, with an upright marker, the time played under the marker
@@ -252,13 +254,13 @@ fun PlayerControls(
     }
 }
 
-/** "S2, E4 • Name" for an episode, else null (a film shows its title alone). */
+/** "S2 · E4 · Name" for an episode, else null (a film shows its title alone). */
 @Composable
 internal fun episodeLine(item: Item): String? {
     if (!item.isEpisode) return null
     // Outside the show's order (Arc's 0 and 0): the name alone.
-    val (s, e) = item.orderNumbers ?: return item.title
-    return stringResource(R.string.player_episode_line, s, e, item.title)
+    if (item.orderNumbers == null) return item.title
+    return episodeWithTitle(item)
 }
 
 @Composable
@@ -472,7 +474,7 @@ private fun InfoCard(state: PlayerUiState, plan: PlaybackPlan?, onRestart: () ->
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val parts = buildList {
-                    if (item.isEpisode) item.orderNumbers?.let { (s, e) -> add(stringResource(R.string.episode_code, s, e)) }
+                    if (item.isEpisode) item.orderNumbers?.let { (s, e) -> add(episodeCode(s, e)) }
                     item.runtimeMin?.takeIf { it > 0 }?.let { add(runtimeText(it)) }
                     infoDate(item.releaseDate)?.let(::add)
                 }
@@ -575,7 +577,7 @@ private fun EpisodesCard(state: PlayerUiState, onPlayEpisode: (Item) -> Unit, en
                                 Icon(ArcIcons.Play, contentDescription = null, tint = Color.White, modifier = Modifier.size(10.dp))
                                 Spacer(Modifier.width(5.dp))
                             }
-                            if (numbered) Text(stringResource(R.string.episode_code, s!!, e!!), style = MaterialTheme.typography.labelMedium, color = Color.White)
+                            if (numbered) Text(episodeCode(s!!, e!!), style = MaterialTheme.typography.labelMedium, color = Color.White)
                         }
                     }
                     Text(ep.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp))

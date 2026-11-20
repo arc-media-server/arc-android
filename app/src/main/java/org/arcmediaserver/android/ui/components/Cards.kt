@@ -200,13 +200,28 @@ fun cardSubtitle(card: MediaCard): String? {
     }
 }
 
+/**
+ * An episode's number, as every Arc app writes it: "S1 · E4", or "Special 3" for season 0. Only
+ * "·" separates; no leading zeros.
+ */
+@Composable
+fun episodeCode(season: Int, episode: Int): String =
+    if (season == 0) stringResource(R.string.episode_special, episode) else stringResource(R.string.episode_code, season, episode)
+
 @Composable
 fun episodeCode(item: Item): String? {
     val s = item.seasonNumber ?: return null
     val e = item.episodeNumber ?: return stringResource(R.string.season_number, s)
     // An episode outside the show's order (Arc's 0 and 0) has no number to show.
     if (s == 0 && e == 0) return null
-    return stringResource(R.string.episode_code, s, e)
+    return episodeCode(s, e)
+}
+
+/** Where the episode itself is the subject: "S1 · E4 · Pilot", or the name alone without a number. */
+@Composable
+fun episodeWithTitle(item: Item): String {
+    val code = episodeCode(item) ?: return item.title
+    return if (item.title.isBlank()) code else stringResource(R.string.episode_with_title, code, item.title)
 }
 
 /** A card's title: the show's for an episode or a season, as Plex labels them on Home. */
@@ -296,8 +311,8 @@ fun MediaCardView(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        val sub = cardSubtitle(card)
-        val line = if (card.item.isEpisode && landscape) listOfNotNull(sub, card.item.title.takeIf { it != cardTitle(card) }).joinToString(" · ") else sub
+        // Under the show's name an episode's card shows only its number, never its name.
+        val line = cardSubtitle(card)
         if (!line.isNullOrEmpty()) {
             Text(line, style = MaterialTheme.typography.bodySmall, color = ArcColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

@@ -90,6 +90,7 @@ import org.arcmediaserver.android.ui.components.RoundIconButton
 import org.arcmediaserver.android.ui.components.ThumbWidth
 import org.arcmediaserver.android.ui.components.WatchBadge
 import org.arcmediaserver.android.ui.components.episodeCode
+import org.arcmediaserver.android.ui.components.episodeWithTitle
 import org.arcmediaserver.android.ui.theme.ArcColors
 
 @Composable
@@ -354,7 +355,7 @@ private fun Header(
         org.arcmediaserver.android.ui.browse.TitleLogo(item, maxHeight = 120.dp, maxWidth = 460.dp, textStyle = MaterialTheme.typography.displayMedium)
         if (item.isEpisode) {
             Spacer(Modifier.height(8.dp))
-            Text(listOfNotNull(episodeCode(item), item.title).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
+            Text(episodeWithTitle(item), style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(16.dp))
         val rating = item.contentRating?.takeIf { it.isNotBlank() }
@@ -422,13 +423,13 @@ private fun Header(
                 // Outside the show's order (Arc's 0 and 0) an episode has no number to show.
                 val numbered = target.isEpisode && target.orderNumbers != null
                 val left = if (resume > 0 && duration > resume) runtimeText(((duration - resume) / 60_000).toInt().coerceAtLeast(1)) else null
-                // What will play, as the Apple TV app's labels: part watched shows a bar and
-                // what's left ("S5 E12 · 43 min" or "1 h 2 min").
+                // What will play: "Resume S1 · E4", "Start watching · S1 · E1" or "Play S1 · E4";
+                // part watched also shows a bar. A film part watched shows what's left.
                 val label = when {
-                    resume > 0 && numbered -> stringResource(R.string.action_left_episode, s!!, e!!, left ?: clock(resume))
+                    resume > 0 && numbered -> stringResource(R.string.action_resume_episode, episodeCode(s!!, e!!))
                     resume > 0 -> left ?: stringResource(R.string.action_resume, clock(resume))
-                    item.isSeries && numbered && e == 1 -> stringResource(R.string.action_start_watching, s!!, e)
-                    numbered -> stringResource(R.string.action_play_se, s!!, e!!)
+                    item.isSeries && numbered && e == 1 && s != 0 -> stringResource(R.string.action_start_watching, episodeCode(s!!, e))
+                    numbered -> stringResource(R.string.action_play_episode, episodeCode(s!!, e!!))
                     else -> stringResource(R.string.action_play)
                 }
                 val progress = if (resume > 0 && duration > 0) (resume.toFloat() / duration).coerceIn(0f, 1f) else null
