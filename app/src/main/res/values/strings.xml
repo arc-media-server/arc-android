@@ -304,7 +304,11 @@
     <!-- Details -->
     <string name="season_number">Season %1$d</string>
     <string name="specials">Specials</string>
+    <!-- Episode numbers, the same in every Arc app: "S1 · E4", a special (season 0) "Special 3". -->
     <string name="episode_code">S%1$d · E%2$d</string>
+    <string name="episode_special">Special %1$d</string>
+    <!-- Where the episode is the subject: its number, then its name, "S1 · E4 · Pilot". -->
+    <string name="episode_with_title">%1$s · %2$s</string>
     <plurals name="new_episodes">
         <item quantity="one">%1$d new episode</item>
         <item quantity="other">%1$d new episodes</item>
@@ -318,11 +322,10 @@
     <string name="action_play">Play</string>
     <string name="action_resume">Resume from %1$s</string>
     <string name="action_play_from_start">Play from Beginning</string>
+    <!-- "Play S1 · E4" -->
     <string name="action_play_episode">Play %1$s</string>
-    <!-- Play button labels: "Start watching · S2, E1", "Play S21 E8", and part watched "S5 E12 · 43 min". -->
-    <string name="action_start_watching">Start watching · S%1$d, E%2$d</string>
-    <string name="action_play_se">Play S%1$d E%2$d</string>
-    <string name="action_left_episode">S%1$d E%2$d · %3$s</string>
+    <!-- Play button label for a show's first episode: "Start watching · S1 · E1". -->
+    <string name="action_start_watching">Start watching · %1$s</string>
     <string name="details_about">About</string>
     <string name="details_card_details">Details</string>
     <string name="details_card_crew">Crew</string>
@@ -331,6 +334,7 @@
     <string name="details_size">Size</string>
     <string name="details_edition">Edition</string>
     <string name="details_file">File</string>
+    <!-- "Resume S1 · E4" -->
     <string name="action_resume_episode">Resume %1$s</string>
     <string name="action_go_to_show">Go to Show</string>
     <string name="time_left">%1$s left</string>
@@ -436,8 +440,6 @@
     <string name="player_zoom_fill">Zoom</string>
     <string name="player_restart">Restart</string>
     <string name="player_tab_info">Info</string>
-    <!-- Above the show's name in the player: season, episode and the episode's name. -->
-    <string name="player_episode_line">S%1$d, E%2$d • %3$s</string>
     <string name="method_direct_title">Direct Play</string>
     <string name="method_direct">The original file, exactly as it is.</string>
     <string name="method_remux_title">Repackaged</string>
