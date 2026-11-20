@@ -112,7 +112,7 @@ import org.arcmediaserver.android.ui.components.LoadingPane
 import org.arcmediaserver.android.ui.components.MediaCardView
 import org.arcmediaserver.android.ui.components.PosterWidth
 import org.arcmediaserver.android.ui.components.Spinner
-import org.arcmediaserver.android.ui.components.episodeCode
+import org.arcmediaserver.android.ui.components.episodeWithTitle
 import org.arcmediaserver.android.ui.components.text
 import org.arcmediaserver.android.ui.profiles.Avatar
 import org.arcmediaserver.android.ui.theme.ArcColors
@@ -532,7 +532,7 @@ private fun HomeHero(card: MediaCard) {
                 TitleLogo(item, maxHeight = 90.dp, maxWidth = 380.dp, textStyle = MaterialTheme.typography.displayMedium)
                 Spacer(Modifier.height(10.dp))
                 val meta = listOfNotNull(
-                    if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
+                    if (item.isEpisode) episodeWithTitle(item) else null,
                     item.year?.toString()?.takeIf { !item.isEpisode },
                     item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                     item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
@@ -634,7 +634,7 @@ private fun Overview(card: MediaCard) {
         TitleSummary(
             item,
             listOfNotNull(
-                if (item.isEpisode) listOfNotNull(episodeCode(item), item.title).joinToString(" · ") else null,
+                if (item.isEpisode) episodeWithTitle(item) else null,
                 item.year?.toString()?.takeIf { !item.isEpisode },
                 item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
