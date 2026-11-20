@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
+import org.arcmediaserver.android.data.ArcJson
 import org.arcmediaserver.android.data.HomeRowSpec
 import org.arcmediaserver.android.data.Images
 import org.arcmediaserver.android.data.Item
@@ -35,12 +36,16 @@ import org.arcmediaserver.android.ui.components.LoadState
 import kotlin.math.abs
 
 /**
- * Well-known films and a show, so the screenshots look like a real library. Titles, years, credits
- * and running times are real; the synopses are our own. The artwork isn't in git: run
- * `tools/fetch-screenshot-art.py` (it needs a TMDB API key) to download it from TMDB into
- * `src/test/resources/artwork/`. Without it, [art] draws a stand-in for each "art:<kind>:<title>".
+ * The shared screenshot library's films, show and profiles (arc-media-server's
+ * docs/SCREENSHOTS.md), as Arc answered for Jordan: recorded into
+ * `src/test/resources/screenshot-library/` by [LiveScreenshotTest.recordFixtures]. Titles,
+ * descriptions, cast and progress are TMDB's and Arc's, not ours. Artwork isn't kept: each picture
+ * is an "art:<kind>:<title>" address that [art] draws a stand-in for.
  */
 object Fixtures {
+    private fun json(name: String): String =
+        Fixtures::class.java.getResourceAsStream("/screenshot-library/$name.json")!!.use { it.readBytes().decodeToString() }
+
     private fun images(title: String) = Images(
         primary = "art:poster:$title",
         backdrop = "art:backdrop:$title",
@@ -48,81 +53,54 @@ object Fixtures {
         logo = "art:logo:$title",
     )
 
-    private fun movie(id: String, title: String, year: Int, minutes: Int, overview: String, genres: List<String>, rating: String, pos: Long = 0, played: Boolean = false) = Item(
-        id = id, libraryId = 1, kind = "movie", title = title, year = year, runtimeMin = minutes, overview = overview, contentRating = rating,
-        images = images(title), userData = UserData(pos, played), genres = genres,
-    )
+    private fun people(credits: List<org.arcmediaserver.android.data.Credit>) = credits.map { c -> c.copy(image = c.image?.let { "art:person:${c.name}" }) }
 
-    val movies = listOf(
-        movie("m1", "Dune: Part Two", 2024, 167, "Paul Atreides joins the Fremen of the deep desert and fights to avenge his family, while visions warn him where that path leads.", listOf("Science Fiction", "Adventure"), "12A", pos = 52 * 60_000),
-        movie("m2", "Oppenheimer", 2023, 181, "The physicist who led the race to build the atomic bomb, and what it cost him once it was built.", listOf("Drama", "History"), "15"),
-        movie("m3", "Everything Everywhere All at Once", 2022, 140, "A laundromat owner in the middle of a tax audit finds she can borrow skills from every other life she might have lived.", listOf("Action", "Adventure", "Science Fiction"), "15"),
-        movie("m4", "Interstellar", 2014, 169, "With crops failing across the Earth, a former pilot leaves his family to search for a new home beyond a wormhole.", listOf("Adventure", "Drama", "Science Fiction"), "12A", played = true),
-        movie("m5", "Spider-Man: Across the Spider-Verse", 2023, 140, "Miles Morales is pulled across the multiverse and finds the other Spider-People have rules he won't follow.", listOf("Animation", "Action", "Adventure"), "PG"),
-        movie("m6", "Blade Runner 2049", 2017, 164, "A replicant hunter uncovers a buried secret that leads him to search for a blade runner missing for thirty years.", listOf("Science Fiction", "Drama"), "15"),
-        movie("m7", "The Grand Budapest Hotel", 2014, 100, "A legendary concierge and his lobby boy are caught up in a stolen painting and a family fortune.", listOf("Comedy", "Drama"), "15"),
-        movie("m8", "Mad Max: Fury Road", 2015, 121, "A warrior and a drifter flee across the wasteland with a tyrant's wives and his whole army behind them.", listOf("Action", "Adventure", "Science Fiction"), "15"),
-    )
+    private fun film(item: Item) = item.copy(images = images(item.title), credits = people(item.credits))
+
+    /** The films, the ones part-way through first (Dune: Part Two leading), then by title. */
+    private val films: List<Item> = ArcJson.decodeFromString(org.arcmediaserver.android.data.ItemPage.serializer(), json("movies")).items
+        .sortedBy { if (it.title == "Dune: Part Two") -1L else -(it.userData?.positionMs ?: 0) }
+        .map(::film)
+
+    val movies = films.take(8)
 
     /** Two more, so a library's grid fills out. */
-    val moreMovies = listOf(
-        movie("m9", "Arrival", 2016, 116, "A linguist is asked to talk to the visitors in one of twelve ships that have landed around the world.", listOf("Drama", "Science Fiction", "Mystery"), "12A"),
-        movie("m10", "Parasite", 2019, 133, "A struggling family talk their way, one by one, into jobs with a wealthy household.", listOf("Comedy", "Thriller", "Drama"), "15"),
+    val moreMovies = films.drop(8).take(2)
+
+    /** Dune: Part Two as GET /items/{id} has it: its cast and crew. */
+    val dune: Item = film(ArcJson.decodeFromString(Item.serializer(), json("dune")))
+
+    private val recordedShow = ArcJson.decodeFromString(org.arcmediaserver.android.data.SeasonsResponse.serializer(), json("seasons"))
+
+    val show: Item = ArcJson.decodeFromString(Item.serializer(), json("show")).let { it.copy(images = images(it.title), credits = people(it.credits)) }
+
+    private fun episodeArt(e: Item) = e.copy(
+        seriesTitle = show.title,
+        images = Images(primary = "art:still:${e.title}", seriesPrimary = show.images?.primary, seriesBackdrop = show.images?.backdrop, seriesLogo = show.images?.logo),
     )
 
-    private val showImages = images("Severance")
+    /**
+     * Seasons 1 and 2. The library has Season 1's files; Season 2 is Arc's listing of the episodes
+     * it has no file for (Show Missing Episodes), which the tests treat as on disk.
+     */
+    val seasons: List<Season> = recordedShow.seasons.filter { it.seasonNumber > 0 }.map { s -> s.copy(episodes = s.episodes.map { episodeArt(it).copy(available = true) }) }
 
-    private val synopses = mapOf(
-        "Good News About Hell" to "Mark's team at Lumon gets a new member, and she wants nothing more than to leave.",
-        "Half Loop" to "Mark meets a stranger who knows more about his job than he does.",
-        "In Perpetuity" to "The team visits the company's founder's wing, and Helly tries another way out.",
-        "The You You Are" to "Irving finds a department he's never heard of, and Mark goes to a dinner party.",
-        "The Grim Barbarity of Optics and Design" to "Two departments meet, and Mark's outie starts asking questions.",
-        "Hide and Seek" to "Helly's escape attempts come to a head, and Cobel takes a risk.",
-        "Defiant Jazz" to "A celebration on the severed floor turns up a way to reach the outside.",
-        "What's for Dinner?" to "Three innies wake up in the outside world for one night.",
-        "The We We Are" to "The innies have hours, at most, to tell someone what Lumon is.",
-        "Hello, Ms. Cobel" to "Mark returns to a changed severed floor, and new faces in the office.",
-        "Goodbye, Mrs. Selvig" to "Cobel looks for a way back in, and the team relearns its work.",
-        "Who Is Alive?" to "The team is sent to find out what happened to a department.",
-    )
+    /** The show's specials (Season 0), as Arc lists them. */
+    val specials: List<Item> = recordedShow.seasons.filter { it.seasonNumber == 0 }.flatMap { it.episodes }.map { episodeArt(it).copy(available = true) }
 
-    fun episode(s: Int, e: Int, title: String, minutes: Int, pos: Long = 0, played: Boolean = false) = Item(
-        id = "ep:sv:$s:$e", libraryId = 2, kind = "episode", parentId = "sv", title = title, seriesTitle = "Severance",
-        seasonNumber = s, episodeNumber = e, runtimeMin = minutes, userData = UserData(pos, played),
-        overview = synopses[title] ?: "Mark and his team at Lumon keep finding more than the job lets them know.",
-        images = Images(primary = "art:still:$title", seriesPrimary = showImages.primary, seriesBackdrop = showImages.backdrop, seriesLogo = showImages.logo),
-    )
+    /** Timothée Chalamet's page, as GET /people/{id} has it. */
+    val person: org.arcmediaserver.android.data.PersonPage = ArcJson.decodeFromString(org.arcmediaserver.android.data.PersonPage.serializer(), json("person")).let { page ->
+        page.copy(
+            person = page.person.copy(image = page.person.image?.let { "art:person:${page.person.name}" }),
+            credits = page.credits.map { c -> c.copy(item = c.item.copy(images = images(c.item.title))) },
+        )
+    }
 
-    val show = Item(
-        id = "sv", libraryId = 2, kind = "series", title = "Severance", year = 2022, contentRating = "15",
-        overview = "At Lumon Industries, some employees have their memories split in two: the people who go to work never know their lives outside, and the other way round.",
-        genres = listOf("Drama", "Mystery", "Science Fiction"), unwatchedCount = 13, images = showImages, rating = 8.4,
-    )
+    val libraries = listOf(Library(1, "Movies", "movies", films.size), Library(2, "TV Shows", "shows", 5), Library(3, "Home Videos", "videos", 12))
 
-    val seasons = listOf(
-        Season(1, "Season 1", episodes = listOf(
-            episode(1, 1, "Good News About Hell", 59, played = true),
-            episode(1, 2, "Half Loop", 57, played = true),
-            episode(1, 3, "In Perpetuity", 60, pos = 21 * 60_000),
-            episode(1, 4, "The You You Are", 50),
-            episode(1, 5, "The Grim Barbarity of Optics and Design", 47),
-            episode(1, 6, "Hide and Seek", 44),
-            episode(1, 7, "Defiant Jazz", 53),
-            episode(1, 8, "What's for Dinner?", 50),
-            episode(1, 9, "The We We Are", 44),
-        )),
-        Season(2, "Season 2", episodes = listOf(episode(2, 1, "Hello, Ms. Cobel", 54), episode(2, 2, "Goodbye, Mrs. Selvig", 49), episode(2, 3, "Who Is Alive?", 57))),
-    )
-
-    val libraries = listOf(Library(1, "Movies", "movies", 8), Library(2, "TV Shows", "shows", 5), Library(3, "Home Videos", "videos", 12))
-
-    val profiles = listOf(
-        Profile("p1", "Alex", "violet", isAdmin = true),
-        Profile("p2", "Sam", "teal", hasPin = true),
-        Profile("p3", "Kids", "amber"),
-        Profile("p4", "Guest", "slate"),
-    )
+    /** The library's profiles; Alex is given a PIN here, for the PIN screens. */
+    val profiles: List<Profile> = ArcJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(Profile.serializer()), json("profiles"))
+        .map { if (it.name == "Alex") it.copy(hasPin = true) else it }
 
     val frame = BrowseFrame(libraries, profiles[0], canSwitchProfile = true)
 
@@ -137,7 +115,7 @@ object Fixtures {
         ),
         HomeRowState(
             HomeRowSpec("recent:2", RowSource.Recent(libraries[1], false), CardStyle.Poster, seasonPosters = true),
-            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 2, episodes = 3, seasonPoster = "art:poster:Severance Season 2")))),
+            LoadState.Ready(listOf(cardFor(RecentCard("season", show, seasonNumber = 1, episodes = seasons[0].episodes.size, seasonPoster = "art:poster:${show.title} Season 1")))),
         ),
     )
 
@@ -153,7 +131,7 @@ object Fixtures {
 
     /** A movie as GET /items/{id} has it: on the watchlist, with one file and its tracks (for Media Info). */
     val movieWithFile = movies[0].copy(
-        userData = UserData(52 * 60_000, watchlisted = true),
+        userData = UserData(movies[0].userData?.positionMs ?: 0, watchlisted = true),
         files = listOf(
             MediaFile(
                 id = 11, durationMs = 167 * 60_000L, container = "mkv", size = 61_200_000_000, bitrate = 18_600_000,
@@ -175,7 +153,7 @@ object Fixtures {
         movies = movies.take(3),
         shows = listOf(show),
         episodes = listOf(seasons[0].episodes[3], seasons[1].episodes[0]),
-        people = listOf(Person(1, "Timothée Chalamet", "art:person:Timothée Chalamet", 2, "actor"), Person(2, "Denis Villeneuve", "art:person:Denis Villeneuve", 3, "director"), Person(3, "Zendaya", "art:person:Zendaya", 2, "actor")),
+        people = dune.credits.filter { it.image != null }.take(3).mapIndexed { i, c -> Person(c.personId, c.name, c.image, i + 2, c.role) },
     )
 
     /** Timeline thumbnails: 5x5 tiles of 320x180 to a sheet, one every 10 seconds. */
@@ -184,19 +162,9 @@ object Fixtures {
         sheets = (0 until 13).map { "art:sheet:$it" },
     )
 
-    /**
-     * Artwork for an "art:" address: the downloaded file `artwork/<kind>/<title-slug>.png` or
-     * `.jpg` when there is one (see the note on [Fixtures]); otherwise a stand-in, a gradient in a
-     * colour from the title.
-     */
+    /** A stand-in for an "art:<kind>:<title>" address: a gradient in a colour from the title. */
     fun art(url: String): Bitmap {
         val (kind, title) = url.removePrefix("art:").split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
-        val slug = title.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
-        for (ext in listOf("png", "jpg")) {
-            Fixtures::class.java.getResourceAsStream("/artwork/$kind/$slug.$ext")?.use { stream ->
-                android.graphics.BitmapFactory.decodeStream(stream)?.let { return it }
-            }
-        }
         if (kind == "logo") {
             // A clear logo: the title set in heavy serif capitals on transparency.
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -216,7 +184,6 @@ object Fixtures {
             // A sheet of timeline thumbnails: each tile its own frame of a made-up scene.
             val bmp = Bitmap.createBitmap(5 * 320, 5 * 180, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            val still = Fixtures::class.java.getResourceAsStream("/artwork/still/in-perpetuity.jpg")?.use { android.graphics.BitmapFactory.decodeStream(it) }
             val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 34f; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
             for (i in 0 until 25) {
                 val x = (i % 5) * 320f
@@ -225,12 +192,7 @@ object Fixtures {
                 val a = android.graphics.Color.HSVToColor(floatArrayOf(hue % 360, 0.5f, 0.6f))
                 val b = android.graphics.Color.HSVToColor(floatArrayOf((hue + 60) % 360, 0.6f, 0.2f))
                 canvas.drawRect(x, y, x + 320, y + 180, Paint().apply { shader = LinearGradient(x, y, x + 320, y + 180, a, b, Shader.TileMode.CLAMP) })
-                // The episode's still, panned a little further across for each tile.
-                still?.let { st ->
-                    val sw = st.width * 0.7f
-                    val sx = (st.width - sw) * (i / 24f)
-                    canvas.drawBitmap(st, android.graphics.Rect(sx.toInt(), 0, (sx + sw).toInt(), (sw * 9 / 16).toInt().coerceAtMost(st.height)), android.graphics.RectF(x, y, x + 320, y + 180), null)
-                } ?: canvas.drawText("${i * 10}s", x + 16, y + 44, label)
+                canvas.drawText("${i * 10}s", x + 16, y + 44, label)
             }
             return bmp
         }

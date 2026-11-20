@@ -7,14 +7,17 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 
-class ArcApplication : Application(), SingletonImageLoader.Factory {
+open class ArcApplication : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
+        container = createContainer()
     }
+
+    /** The app's container; the live screenshot test gives it a session kept without the Keystore. */
+    protected open fun createContainer(): AppContainer = AppContainer(this)
 
     /** Artwork comes from Arc with the device token (and may be redirected to the provider). */
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)

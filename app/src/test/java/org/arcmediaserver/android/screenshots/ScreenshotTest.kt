@@ -403,21 +403,14 @@ class ScreenshotTest {
     @Test
     fun movieAboutCards() = shot("movie-about-cards", keys = List(4) { androidx.compose.ui.input.key.Key.DirectionDown }) {
         // The foot of a film's page: About across the top, then Details, Crew and Playback.
-        val credits = listOf(
-            org.arcmediaserver.android.data.Credit(1, "Timothée Chalamet", "actor", "Paul Atreides", "art:person:Timothée Chalamet"),
-            org.arcmediaserver.android.data.Credit(2, "Denis Villeneuve", "director", image = "art:person:Denis Villeneuve"),
-            org.arcmediaserver.android.data.Credit(3, "Jon Spaihts", "writer", image = "art:person:Jon Spaihts"),
-        )
-        val film = Fixtures.movieWithFile.copy(credits = credits, releaseDate = "2024-03-01", studio = "Legendary Pictures", contentRating = "12A", genres = listOf("Science Fiction", "Adventure"), runtimeMin = 167)
+        val film = Fixtures.movieWithFile.copy(credits = Fixtures.dune.credits, releaseDate = Fixtures.dune.releaseDate, studio = Fixtures.dune.studio)
         DetailsScreen(Details(film), onPlay = { _: Item, _: Long -> }, onOpen = {}, serverName = "Living Room Arc")
     }
 
     @Test
     fun movie() = shot("movie") {
         // With its cast, which should show on arrival under the buttons.
-        val cast = listOf("Timothée Chalamet" to "Paul Atreides", "Zendaya" to "Chani", "Rebecca Ferguson" to "Jessica", "Javier Bardem" to "Stilgar", "Josh Brolin" to "Gurney Halleck", "Austin Butler" to "Feyd-Rautha")
-            .mapIndexed { i, (name, role) -> org.arcmediaserver.android.data.Credit(personId = i.toLong(), name = name, role = "actor", character = role, image = "art:person:$name") } +
-            org.arcmediaserver.android.data.Credit(personId = 99, name = "Denis Villeneuve", role = "director", image = "art:person:Denis Villeneuve")
+        val cast = Fixtures.dune.credits
         DetailsScreen(Details(Fixtures.movieWithFile.copy(credits = cast)), onPlay = { _: Item, _: Long -> }, onOpen = {})
     }
 
@@ -450,9 +443,9 @@ class ScreenshotTest {
 
     @Test
     fun showMissingEpisodes() = shot("show-missing-episodes", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
-        // Show Missing Episodes on: Season 2 gains two episodes with no file, dimmed and "Not on disk".
+        // Show Missing Episodes on: Season 2's last episodes have no file, dimmed and "Not on disk".
         val season = Fixtures.seasons[1].let { s ->
-            s.copy(episodes = s.episodes + listOf(Fixtures.episode(2, 4, "Woe's Hollow", 54), Fixtures.episode(2, 5, "Trojan's Horse", 50)).map { it.copy(available = false, userData = null) })
+            s.copy(episodes = s.episodes.mapIndexed { i, e -> if (i >= 3) e.copy(available = false, userData = null) else e })
         }
         DetailsScreen(
             Details(Fixtures.show, listOf(Fixtures.seasons[0], season), next = Fixtures.seasons[0].episodes[2], initialSeason = 1, missing = true),
@@ -490,12 +483,9 @@ class ScreenshotTest {
 
     @Test
     fun showNotInOrder() = shot("show-not-in-order") {
-        // Two files the show's order leaves out: the last tab, with the note and no episode numbers.
-        val outside = listOf(
-            // Arc numbers them season 0, episode 0: no number shows anywhere.
-            Fixtures.episode(0, 0, "Inside Severance", 30),
-            Fixtures.episode(0, 0, "Severance: The Lumon Orientation", 12, played = true).copy(id = "ep:sv:x:2"),
-        )
+        // Two files the show's order leaves out (two of its specials here): the last tab, with the
+        // note and no episode numbers. Arc numbers them season 0, episode 0: no number shows.
+        val outside = Fixtures.specials.take(2).mapIndexed { i, e -> e.copy(seasonNumber = 0, episodeNumber = 0, userData = org.arcmediaserver.android.data.UserData(played = i == 1)) }
         DetailsScreen(
             Details(
                 Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2],
@@ -559,7 +549,7 @@ class ScreenshotTest {
     fun playerControls() = shot("player") {
         Box(Modifier.fillMaxSize()) {
             androidx.compose.foundation.Image(
-                bitmap = Fixtures.art("art:still:In Perpetuity").asImageBitmap(),
+                bitmap = Fixtures.art("art:still:Breaking Bad").asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -586,7 +576,7 @@ class ScreenshotTest {
     fun playerSkipIntro() = shot("player-skip-intro") {
         Box(Modifier.fillMaxSize()) {
             androidx.compose.foundation.Image(
-                bitmap = Fixtures.art("art:still:In Perpetuity").asImageBitmap(),
+                bitmap = Fixtures.art("art:still:Breaking Bad").asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -797,7 +787,7 @@ class ScreenshotTest {
 
     @Test
     fun upNext() = shot("player-up-next") {
-        playerOver("art:backdrop:Mill Road") {
+        playerOver("art:backdrop:Dune: Part Two") {
             PlayerControls(
                 state = PlayerUiState(item = Fixtures.seasons[0].episodes[2], plan = Fixtures.plan, loading = false, playing = true, positionMs = 3_010_000, durationMs = Fixtures.plan.durationMs, next = Fixtures.seasons[0].episodes[3]),
                 visible = false, scrubMs = null, upNextShown = true,
@@ -809,7 +799,7 @@ class ScreenshotTest {
 
     @Test
     fun scrubbing() = shot("player-scrubbing") {
-        playerOver("art:still:In Perpetuity") {
+        playerOver("art:still:Breaking Bad") {
             PlayerControls(
                 state = PlayerUiState(
                     item = Fixtures.seasons[0].episodes[2], plan = osdState().plan, loading = false, playing = true,
@@ -830,25 +820,17 @@ class ScreenshotTest {
             org.arcmediaserver.android.data.Chapter(1_200_000, 2_400_000, "Low Water"),
             org.arcmediaserver.android.data.Chapter(2_400_000, 3_120_000, "Mill Road"),
         )
-        val episode = Fixtures.seasons[0].episodes[2].copy(
-            overview = "The river rises overnight and the mill's old gate gives way, forcing Nell to choose between the town and her brother.",
-            runtimeMin = 52, releaseDate = "2024-03-14",
-        )
+        val episode = Fixtures.seasons[0].episodes[2]
         return PlayerUiState(
             item = episode, plan = Fixtures.plan.copy(chapters = chapters), loading = false, playing = true,
             positionMs = 21 * 60_000L + 14_000, durationMs = Fixtures.plan.durationMs, bufferedMs = 26 * 60_000L,
             trickplay = Fixtures.trickplay, episodes = Fixtures.seasons[0].episodes,
-            cast = listOf(
-                org.arcmediaserver.android.data.Credit(1, "Mara Ellison", "actor", "Nell Hart", "art:poster:Mara Ellison"),
-                org.arcmediaserver.android.data.Credit(2, "Theo Lund", "actor", "Sam Hart"),
-                org.arcmediaserver.android.data.Credit(3, "June Okafor", "actor", "Mayor Price", "art:poster:June Okafor"),
-                org.arcmediaserver.android.data.Credit(4, "Ravi Shah", "actor", "Dr. Amin", "art:poster:Ravi Shah"),
-            ),
+            cast = Fixtures.show.credits.filter { it.role == "actor" }.take(4),
         )
     }
 
     private fun osdShot(name: String, tab: org.arcmediaserver.android.playback.PlayerOsd.Tab) = shot(name) {
-        playerOver("art:still:In Perpetuity") {
+        playerOver("art:still:Breaking Bad") {
             PlayerControls(
                 state = osdState(), visible = true, scrubMs = null, initialTab = tab,
                 onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
@@ -870,7 +852,7 @@ class ScreenshotTest {
 
     @Test
     fun playerPlaybackMenu() = shot("player-menu-playback") {
-        playerOver("art:still:In Perpetuity") {
+        playerOver("art:still:Breaking Bad") {
             val state = osdState()
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.Playback,
@@ -892,7 +874,7 @@ class ScreenshotTest {
     @Test
     fun playerSubtitlesMenuTiming() = shot("player-menu-subtitles-timing") {
         // The subtitle menu with text subtitles on: Timing shows after the tracks, with its value.
-        playerOver("art:backdrop:Hollow Creek") {
+        playerOver("art:backdrop:Breaking Bad") {
             val state = timedState()
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.Subtitles,
@@ -908,7 +890,7 @@ class ScreenshotTest {
     @Test
     fun playerSubtitleTimingMenu() = shot("player-menu-subtitle-timing") {
         // Timing open: "Timing: +1.5s (later)", Show 0.5s Earlier / Later and Reset.
-        playerOver("art:backdrop:Hollow Creek") {
+        playerOver("art:backdrop:Breaking Bad") {
             val state = timedState()
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
@@ -924,7 +906,7 @@ class ScreenshotTest {
     @Test
     fun playerSubtitleTimingMenuEarlier() = shot("player-menu-subtitle-timing-earlier") {
         // Timing open with subtitles moved earlier: "Timing: \u22120.5s (earlier)", a true minus sign.
-        playerOver("art:backdrop:Hollow Creek") {
+        playerOver("art:backdrop:Breaking Bad") {
             val state = timedState(-500L)
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.SubtitleTiming,
@@ -954,7 +936,7 @@ class ScreenshotTest {
     @Test
     fun playerSubtitlesMenuPicture() = shot("player-menu-subtitles-picture") {
         // Picture subtitles listed with the others, by format; the PGS track is burned in, so no Timing.
-        playerOver("art:backdrop:Hollow Creek") {
+        playerOver("art:backdrop:Breaking Bad") {
             val state = pictureState()
             PlayerControls(
                 state = state, visible = true, scrubMs = null, menu = PlayerMenu.Subtitles,
@@ -984,16 +966,7 @@ class ScreenshotTest {
 
     @Test
     fun person() = shot("person") {
-        val credits = listOf(
-            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[0], listOf("actor"), "Commander Hale"),
-            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[1], listOf("actor", "director"), "Ada"),
-            org.arcmediaserver.android.data.PersonCredit(Fixtures.movies[2], listOf("actor"), "Dr. Wren"),
-            org.arcmediaserver.android.data.PersonCredit(Fixtures.show, listOf("actor"), "Nell Hart"),
-        )
-        org.arcmediaserver.android.ui.person.PersonScreen(
-            org.arcmediaserver.android.data.PersonPage(org.arcmediaserver.android.data.Person(1, "Mara Ellison", "art:poster:Mara Ellison", count = 4, knownFor = "actor"), credits),
-            onOpen = {},
-        )
+        org.arcmediaserver.android.ui.person.PersonScreen(Fixtures.person, onOpen = {})
     }
 
     // --- Watch Together ---

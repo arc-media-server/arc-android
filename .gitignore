@@ -9,5 +9,3 @@ captures/
 # Screenshots are generated (./gradlew recordRoborazziDebug), not kept in git.
 app/screenshots/
 
-# Screenshot artwork from TMDB (tools/fetch-screenshot-art.py); not ours to redistribute
-app/src/test/resources/artwork/

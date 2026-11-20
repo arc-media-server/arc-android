@@ -74,91 +74,100 @@ fun ArcNavHost() {
     val container = (LocalContext.current.applicationContext as ArcApplication).container
     ResumeFromHomeScreen(nav, container)
     FollowWatchTogether(nav, container)
+    ArcScreens(container) {
+        NavHost(nav, startDestination = LaunchDest) {
+            composable<LaunchDest> { LaunchRoute(onDestination = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
+            composable<ServerDest> { ServerRoute(onConnected = { nav.startAt(SignInDest) }) }
+            composable<SignInDest> { SignInRoute(onSignedIn = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
+            composable<ProfilesDest> {
+                ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
+            }
+            composable<BrowseDest> {
+                BrowseRoute(
+                    onOpen = { item -> nav.navigate(detailsFor(item)) },
+                    onPerson = { person -> nav.navigate(PersonDest(person.id)) },
+                    onSwitchProfile = { nav.navigate(ProfilesDest) },
+                    onSignedOut = { nav.startAt(SignInDest) },
+                    onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
+                    onOpenPlaylist = { p -> nav.navigate(PlaylistDest(p.id)) },
+                    onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
+                    onSwitchServer = { nav.startAt(ServerDest) },
+                    onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
+                )
+            }
+            composable<CollectionDest> { entry ->
+                org.arcmediaserver.android.ui.browse.CollectionRoute(
+                    entry.toRoute<CollectionDest>().id,
+                    onOpen = { item -> nav.navigate(detailsFor(item)) },
+                    onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, 0, entryId = entry)) },
+                )
+            }
+            composable<PlaylistDest> { entry ->
+                org.arcmediaserver.android.ui.browse.PlaylistRoute(
+                    entry.toRoute<PlaylistDest>().id,
+                    onOpen = { item -> nav.navigate(detailsFor(item)) },
+                    onPlayQueued = { item, e -> nav.navigate(PlayerDest(item.id, 0, entryId = e)) },
+                )
+            }
+            composable<DetailsDest> { entry ->
+                val dest = entry.toRoute<DetailsDest>()
+                DetailsRoute(
+                    itemId = dest.itemId,
+                    episodeId = dest.episodeId,
+                    onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
+                    onOpen = { id -> nav.navigate(DetailsDest(id)) },
+                    onPerson = { id -> nav.navigate(PersonDest(id)) },
+                    onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
+                    onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
+                    onPlayVersion = { item, start, file -> nav.navigate(PlayerDest(item.id, start, fileId = file)) },
+                )
+            }
+            composable<ExtraDest> { entry ->
+                org.arcmediaserver.android.ui.player.ExtraPlayerRoute(entry.toRoute<ExtraDest>().url, onClose = { nav.popBackStack() })
+            }
+            composable<PersonDest> { entry ->
+                PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })
+            }
+            composable<PlayerDest> { entry ->
+                val dest = entry.toRoute<PlayerDest>()
+                // As the web player: pre-rolls only before a film started from the beginning,
+                // never when resuming, in Watch Together or playing on to the next title.
+                org.arcmediaserver.android.ui.player.PrerollGate(
+                    itemId = dest.itemId,
+                    enabled = dest.preroll && dest.startMs <= 0 && !dest.together,
+                    onClose = { nav.popBackStack() },
+                ) {
+                PlayerRoute(
+                    dest.itemId,
+                    dest.startMs,
+                    dest.entryId,
+                    dest.carryOn,
+                    dest.fileId,
+                    together = dest.together,
+                    onClose = { nav.popBackStack() },
+                    // The next title replaces this one, so Back still returns to where play began.
+                    onPlayNextEntry = { next, entry ->
+                        nav.navigate(PlayerDest(next.id, next.resumeMs, entryId = entry, carryOn = entry == null, preroll = false)) { popUpTo<PlayerDest> { inclusive = true } }
+                    },
+                )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What every screen draws inside: artwork addresses on the current server, Hide Spoilers and the
+ * card menus. The app's navigation, and the live screenshot test's screens, sit in it.
+ */
+@Composable
+fun ArcScreens(container: org.arcmediaserver.android.AppContainer, content: @Composable () -> Unit) {
     val hideSpoilers by container.hideSpoilers.collectAsState()
     CompositionLocalProvider(
         LocalImageUrl provides { path -> container.api()?.absolute(path) ?: path },
         org.arcmediaserver.android.ui.components.LocalHideSpoilers provides hideSpoilers,
     ) {
-        CardMenuHost(container) {
-            NavHost(nav, startDestination = LaunchDest) {
-                composable<LaunchDest> { LaunchRoute(onDestination = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
-                composable<ServerDest> { ServerRoute(onConnected = { nav.startAt(SignInDest) }) }
-                composable<SignInDest> { SignInRoute(onSignedIn = nav::go, onChangeServer = { nav.startAt(ServerDest) }) }
-                composable<ProfilesDest> {
-                    ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
-                }
-                composable<BrowseDest> {
-                    BrowseRoute(
-                        onOpen = { item -> nav.navigate(detailsFor(item)) },
-                        onPerson = { person -> nav.navigate(PersonDest(person.id)) },
-                        onSwitchProfile = { nav.navigate(ProfilesDest) },
-                        onSignedOut = { nav.startAt(SignInDest) },
-                        onOpenCollection = { c -> nav.navigate(CollectionDest(c.id)) },
-                        onOpenPlaylist = { p -> nav.navigate(PlaylistDest(p.id)) },
-                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
-                        onSwitchServer = { nav.startAt(ServerDest) },
-                        onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
-                    )
-                }
-                composable<CollectionDest> { entry ->
-                    org.arcmediaserver.android.ui.browse.CollectionRoute(
-                        entry.toRoute<CollectionDest>().id,
-                        onOpen = { item -> nav.navigate(detailsFor(item)) },
-                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, 0, entryId = entry)) },
-                    )
-                }
-                composable<PlaylistDest> { entry ->
-                    org.arcmediaserver.android.ui.browse.PlaylistRoute(
-                        entry.toRoute<PlaylistDest>().id,
-                        onOpen = { item -> nav.navigate(detailsFor(item)) },
-                        onPlayQueued = { item, e -> nav.navigate(PlayerDest(item.id, 0, entryId = e)) },
-                    )
-                }
-                composable<DetailsDest> { entry ->
-                    val dest = entry.toRoute<DetailsDest>()
-                    DetailsRoute(
-                        itemId = dest.itemId,
-                        episodeId = dest.episodeId,
-                        onPlay = { item, start -> nav.navigate(PlayerDest(item.id, start)) },
-                        onOpen = { id -> nav.navigate(DetailsDest(id)) },
-                        onPerson = { id -> nav.navigate(PersonDest(id)) },
-                        onExtra = { extra -> nav.navigate(ExtraDest(extra.streamUrl)) },
-                        onPlayQueued = { item, entry -> nav.navigate(PlayerDest(item.id, item.resumeMs, entryId = entry)) },
-                        onPlayVersion = { item, start, file -> nav.navigate(PlayerDest(item.id, start, fileId = file)) },
-                    )
-                }
-                composable<ExtraDest> { entry ->
-                    org.arcmediaserver.android.ui.player.ExtraPlayerRoute(entry.toRoute<ExtraDest>().url, onClose = { nav.popBackStack() })
-                }
-                composable<PersonDest> { entry ->
-                    PersonRoute(entry.toRoute<PersonDest>().personId, onOpen = { item -> nav.navigate(detailsFor(item)) })
-                }
-                composable<PlayerDest> { entry ->
-                    val dest = entry.toRoute<PlayerDest>()
-                    // As the web player: pre-rolls only before a film started from the beginning,
-                    // never when resuming, in Watch Together or playing on to the next title.
-                    org.arcmediaserver.android.ui.player.PrerollGate(
-                        itemId = dest.itemId,
-                        enabled = dest.preroll && dest.startMs <= 0 && !dest.together,
-                        onClose = { nav.popBackStack() },
-                    ) {
-                    PlayerRoute(
-                        dest.itemId,
-                        dest.startMs,
-                        dest.entryId,
-                        dest.carryOn,
-                        dest.fileId,
-                        together = dest.together,
-                        onClose = { nav.popBackStack() },
-                        // The next title replaces this one, so Back still returns to where play began.
-                        onPlayNextEntry = { next, entry ->
-                            nav.navigate(PlayerDest(next.id, next.resumeMs, entryId = entry, carryOn = entry == null, preroll = false)) { popUpTo<PlayerDest> { inclusive = true } }
-                        },
-                    )
-                    }
-                }
-            }
-        }
+        CardMenuHost(container) { content() }
     }
 }
 

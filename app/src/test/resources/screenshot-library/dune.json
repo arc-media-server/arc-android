@@ -1,0 +1,205 @@
+{
+    "id": "3a5d992a81e3f9a42d9c20a314286dd4",
+    "library_id": 1,
+    "kind": "movie",
+    "title": "Dune: Part Two",
+    "sort_title": "dune: part two",
+    "original_title": "Dune: Part Two",
+    "year": 2024,
+    "overview": "Follow the mythic journey of Paul Atreides as he unites with Chani and the Fremen while on a path of revenge against the conspirators who destroyed his family. Facing a choice between the love of his life and the fate of the known universe, Paul endeavors to prevent a terrible future only he can foresee.",
+    "runtime_min": 167,
+    "release_date": "2024-02-27",
+    "tmdb_id": 693134,
+    "imdb_id": "tt15239678",
+    "metadata_state": "matched",
+    "match_suppressed": false,
+    "added_at": 1795173175,
+    "locked_fields": [],
+    "tagline": "Long live the fighters.",
+    "content_rating": "12A",
+    "studio": "Legendary Pictures",
+    "rating": 8.143,
+    "original_language": "en",
+    "user_data": {
+        "position_ms": 6012000,
+        "played": false,
+        "last_played_at": 1795173188
+    },
+    "genres": [
+        "Science Fiction",
+        "Adventure"
+    ],
+    "credits": [
+        {
+            "person_id": 89,
+            "name": "Timothée Chalamet",
+            "role": "actor",
+            "character": "Paul Atreides",
+            "image": "/api/people/89/image?v=55c615817f8350cea94f4dde"
+        },
+        {
+            "person_id": 90,
+            "name": "Zendaya",
+            "role": "actor",
+            "character": "Chani",
+            "image": "/api/people/90/image?v=f06069e88906879ff4d90774"
+        },
+        {
+            "person_id": 91,
+            "name": "Rebecca Ferguson",
+            "role": "actor",
+            "character": "Jessica",
+            "image": "/api/people/91/image?v=d9667dce5aca14ec2022b636"
+        },
+        {
+            "person_id": 92,
+            "name": "Javier Bardem",
+            "role": "actor",
+            "character": "Stilgar",
+            "image": "/api/people/92/image?v=7fb70f3895118c21b84dbed4"
+        },
+        {
+            "person_id": 93,
+            "name": "Josh Brolin",
+            "role": "actor",
+            "character": "Gurney Halleck",
+            "image": "/api/people/93/image?v=2f0c8b8b8227cb14e3c9658a"
+        },
+        {
+            "person_id": 94,
+            "name": "Austin Butler",
+            "role": "actor",
+            "character": "Feyd-Rautha",
+            "image": "/api/people/94/image?v=3c51dba436b75ead1f6ad3c4"
+        },
+        {
+            "person_id": 95,
+            "name": "Florence Pugh",
+            "role": "actor",
+            "character": "Princess Irulan",
+            "image": "/api/people/95/image?v=af06417a4525f45820dd22a3"
+        },
+        {
+            "person_id": 48,
+            "name": "Dave Bautista",
+            "role": "actor",
+            "character": "Beast Rabban",
+            "image": "/api/people/48/image?v=d7541f8ebcecf02c4e5229c5"
+        },
+        {
+            "person_id": 96,
+            "name": "Christopher Walken",
+            "role": "actor",
+            "character": "Emperor",
+            "image": "/api/people/96/image?v=1499facc92844bf4d954b004"
+        },
+        {
+            "person_id": 97,
+            "name": "Léa Seydoux",
+            "role": "actor",
+            "character": "Lady Margot Fenring",
+            "image": "/api/people/97/image?v=952d2a19f0b8ebbe253455be"
+        },
+        {
+            "person_id": 98,
+            "name": "Stellan Skarsgård",
+            "role": "actor",
+            "character": "Baron Harkonnen",
+            "image": "/api/people/98/image?v=8d3d7103e554e1c9fa0b1298"
+        },
+        {
+            "person_id": 99,
+            "name": "Charlotte Rampling",
+            "role": "actor",
+            "character": "Reverend Mother Mohiam",
+            "image": "/api/people/99/image?v=d33697b4850e1d9cc60c6a20"
+        },
+        {
+            "person_id": 100,
+            "name": "Souheila Yacoub",
+            "role": "actor",
+            "character": "Shishakli",
+            "image": "/api/people/100/image?v=01dfdc62d74a7f32e51758b9"
+        },
+        {
+            "person_id": 101,
+            "name": "Roger Yuan",
+            "role": "actor",
+            "character": "Lanville",
+            "image": "/api/people/101/image?v=765af97fcebb4e94c1028e8b"
+        },
+        {
+            "person_id": 102,
+            "name": "Babs Olusanmokun",
+            "role": "actor",
+            "character": "Jamis",
+            "image": "/api/people/102/image?v=bdb8f0723fb9627a317b10b9"
+        },
+        {
+            "person_id": 103,
+            "name": "Alison Halstead",
+            "role": "actor",
+            "character": "Maker Keeper",
+            "image": "/api/people/103/image?v=ee9326421f9a2193cebee8cb"
+        },
+        {
+            "person_id": 104,
+            "name": "Giusi Merli",
+            "role": "actor",
+            "character": "Reverend Mother Ramallo",
+            "image": "/api/people/104/image?v=74f4c83a704d6c80f6bd6883"
+        },
+        {
+            "person_id": 105,
+            "name": "Kait Tenison",
+            "role": "actor",
+            "character": "Bene Gesserit Sister",
+            "image": "/api/people/105/image?v=045172b89f92a6a6bdf19144"
+        },
+        {
+            "person_id": 106,
+            "name": "Tara Breathnach",
+            "role": "actor",
+            "character": "Bene Gesserit Sister",
+            "image": "/api/people/106/image?v=5f95c86d4b61ddfcc25b6317"
+        },
+        {
+            "person_id": 107,
+            "name": "Akiko Hitomi",
+            "role": "actor",
+            "character": "Bene Gesserit Sister",
+            "image": "/api/people/107/image?v=c3f69e61cec214278e71d9d6"
+        },
+        {
+            "person_id": 67,
+            "name": "Denis Villeneuve",
+            "role": "writer",
+            "image": "/api/people/67/image?v=ec7030ec49439b44464f8a4e"
+        },
+        {
+            "person_id": 67,
+            "name": "Denis Villeneuve",
+            "role": "director",
+            "image": "/api/people/67/image?v=ec7030ec49439b44464f8a4e"
+        },
+        {
+            "person_id": 108,
+            "name": "Jon Spaihts",
+            "role": "writer",
+            "image": "/api/people/108/image?v=86679058c436e4cddc22b93f"
+        }
+    ],
+    "collections": [
+        {
+            "id": "4595e45a1c453bc3e57117c6",
+            "title": "Dune Collection",
+            "kind": "auto"
+        }
+    ],
+    "images": {
+        "backdrop": "/api/items/3a5d992a81e3f9a42d9c20a314286dd4/images/backdrop?v=324b612848d34182125f4c38",
+        "backdrop_full": "/api/items/3a5d992a81e3f9a42d9c20a314286dd4/images/backdrop?size=full&v=1a01b280b9b172efba08d042",
+        "logo": "/api/items/3a5d992a81e3f9a42d9c20a314286dd4/images/logo?v=fb7b00ae8090902cc2613898",
+        "primary": "/api/items/3a5d992a81e3f9a42d9c20a314286dd4/images/primary?v=f66914f889cb5205e99758aa"
+    }
+}
