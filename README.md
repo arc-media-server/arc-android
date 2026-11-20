@@ -159,13 +159,16 @@ the same key, so with a throwaway key, uninstall the old build first (and sign i
 `LiveServerTest` drives the API client through a whole visit against a running Arc: TV sign-in
 code, a wrong and a right PIN, Home rows, a library, a show's seasons, a direct-play decision with
 a ranged read of the file, a converted HLS stream, progress, the keep-alive ping and the session's
-end. It's skipped unless pointed at a server. Use a scratch Arc, never a real one:
+end, and picture subtitles burned in when a film has them. It's skipped unless pointed at a server.
+Use a scratch Arc, never a real one:
 
 ```sh
 # in the arc-media-server repository
 cd web && npm install && npm run build && cd ..
 go build -o /tmp/ams ./cmd/ams
 go run ./tools/testmedia -out /tmp/arc-tv-media
+# a film with PGS subtitles for the burn-in check (from this repository; needs ffmpeg and Pillow)
+python3 tools/pgs-test-film.py "/tmp/arc-tv-media/Movies/Arrival (2016)/Arrival (2016).mkv"
 AMS_LISTEN=127.0.0.1:8199 /tmp/ams -data /tmp/arc-tv-data -config none &
 # set it up: an admin with a password, the test library, and a profile "Sam" with PIN 2468
 curl -c /tmp/j -b /tmp/j -X POST localhost:8199/api/auth/setup -d '{"name":"Admin","password":"test-pass-123"}'

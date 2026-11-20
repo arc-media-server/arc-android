@@ -937,6 +937,51 @@ class ScreenshotTest {
         }
     }
 
+    /** A Blu-ray's tracks: English text, English PGS (burned in now) and forced French VobSub. */
+    private fun pictureState() = osdState().let { s ->
+        val pgs = org.arcmediaserver.android.data.SubtitleTrack("s:5", "eng", codec = "hdmv_pgs_subtitle", image = true)
+        val plan = s.plan!!.copy(
+            method = "transcode", reasons = listOf("picture subtitles shown"), burnSubtitle = pgs.id,
+            subtitleTracks = listOf(
+                org.arcmediaserver.android.data.SubtitleTrack("s:3", "eng", codec = "subrip"),
+                pgs,
+                org.arcmediaserver.android.data.SubtitleTrack("s:6", "fre", codec = "dvd_subtitle", forced = true, image = true),
+            ),
+        )
+        s.copy(plan = plan, subtitle = pgs)
+    }
+
+    @Test
+    fun playerSubtitlesMenuPicture() = shot("player-menu-subtitles-picture") {
+        // Picture subtitles listed with the others, by format; the PGS track is burned in, so no Timing.
+        playerOver("art:backdrop:Hollow Creek") {
+            val state = pictureState()
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Subtitles,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Subtitles, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerStatsBurnedIn() = shot("player-stats-burned-in") {
+        // Stats for nerds while Arc burns PGS subtitles in: the reason, and a Subtitles row.
+        val state = pictureState().copy(positionMs = 600_000, bufferedMs = 640_000)
+        val plan = state.plan!!.copy(encoder = "h264_vaapi")
+        val stats = org.arcmediaserver.android.playback.PlaybackStats(
+            videoDecoder = "c2.android.avc.decoder", videoMime = "video/avc", width = 1920, height = 1080, frameRate = 23.976f,
+            audioDecoder = "c2.android.aac.decoder", audioMime = "audio/mp4a-latm", audioChannels = 2,
+        )
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.DarkGray)) {
+            val (title, body) = org.arcmediaserver.android.ui.player.methodLabel(plan)
+            org.arcmediaserver.android.ui.player.StatsPanel(title, body, org.arcmediaserver.android.ui.player.statsRows(state, plan, stats, null))
+        }
+    }
+
     @Test
     fun person() = shot("person") {
         val credits = listOf(

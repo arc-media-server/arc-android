@@ -30,7 +30,8 @@ import org.junit.Test
 
 /**
  * The app's API client against a real Arc, end to end: TV sign-in code, profile with PIN, Home,
- * a title, a show's seasons, playback decisions, the HLS playlist, progress and the session's end.
+ * a title, a show's seasons, playback decisions, the HLS playlist, picture subtitles burned in,
+ * progress and the session's end.
  *
  * Skipped unless ARC_E2E_URL (a scratch Arc with the test library, never anyone's real server)
  * and ARC_E2E_PASSWORD (its household password, to approve the code as the admin) are set; a
@@ -167,6 +168,43 @@ class LiveServerTest {
                 assertEquals(200, it.code)
                 step("first segment: ${it.body.bytes().size} bytes")
             }
+        }
+
+        // Picture subtitles burned in, when the library has a film with a PGS or VobSub track inside
+        // it (README: the test library doesn't, so add one): Arc converts with it painted in and says so.
+        val pictured = movieList.firstNotNullOfOrNull { m ->
+            val plan = api.startPlayback(m.id, PlaybackRequest(caps))
+            plan.sessionId?.let { api.stopTranscode(it) }
+            plan.subtitleTracks.firstOrNull { it.image && !it.external }?.let { m to it }
+        }
+        if (pictured == null) {
+            step("picture subtitles: no film in the library has them; burn-in not checked")
+        } else {
+            val (film, track) = pictured
+            val burned = api.startPlayback(film.id, PlaybackRequest(caps, startMs = 2_000, burnSubtitle = track.id))
+            step("${film.title}: ${track.codec} burned in: ${burned.method} ${burned.reasons} burn_subtitle=${burned.burnSubtitle} offset_ms=${burned.offsetMs}")
+            assertEquals("transcode", burned.method)
+            assertEquals(track.id, burned.burnSubtitle)
+            assertTrue(burned.hls)
+            var playlist = ""
+            repeat(40) {
+                http.newCall(Request.Builder().url(api.absolute(burned.url)).header("Authorization", "Bearer $token").build()).execute().use { if (it.code == 200) playlist = it.body.string() }
+                if (playlist.contains("#EXTINF")) return@repeat
+                delay(500)
+            }
+            step("burned-in HLS playlist: ${playlist.lines().count { it.startsWith("#EXTINF") }} segments so far")
+            assertTrue(playlist.contains("#EXTINF"))
+            // A restart (another quality) asks for the burn again and keeps it.
+            val again = api.startPlayback(film.id, org.arcmediaserver.android.playback.BurnIn.request(caps, 4_000, burned, null, null, 2000, track.id))
+            step("restart at 4s with a 2 Mbps limit: burn_subtitle=${again.burnSubtitle}")
+            assertEquals(track.id, again.burnSubtitle)
+            // A text track can't be burned in: Arc says so (the player then plays without it).
+            burned.subtitleTracks.firstOrNull { !it.image }?.let { text ->
+                val refused = runCatching { api.startPlayback(film.id, PlaybackRequest(caps, burnSubtitle = text.id)) }.exceptionOrNull()
+                step("burning a text track: ${(refused as? ApiException)?.status}")
+                assertEquals(400, (refused as? ApiException)?.status)
+            }
+            listOfNotNull(burned.sessionId, again.sessionId).forEach { api.stopTranscode(it) }
         }
 
         // The test library's files are a few seconds long: play to the end, as the player reports it.

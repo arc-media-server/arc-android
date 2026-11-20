@@ -2,6 +2,8 @@ package org.arcmediaserver.android.playback
 
 import org.arcmediaserver.android.data.AudioTrack
 import org.arcmediaserver.android.data.PlaybackPlan
+import org.arcmediaserver.android.data.PlaybackRequest
+import org.arcmediaserver.android.data.PlayerCaps
 import org.arcmediaserver.android.data.SubtitleTrack
 import java.util.Locale
 
@@ -63,21 +65,52 @@ fun languageName(code: String?): String? {
  * The subtitles to start with (web/src/lib/playback.ts chooseSubtitle): with Plex's subtitle modes,
  * "manual" only forced ones, "foreign" the profile's language when the audio is in another one,
  * "always" (or "", the language last chosen) the profile's language; else forced ones for the
- * audio's language. Picture formats are left out: Arc can only burn them in, which this app
- * doesn't ask for yet.
+ * audio's language. Full text subtitles come first, but a picture track (Blu-ray PGS, DVD VobSub)
+ * is chosen when it's the only match, as on the web: Arc then burns it in ([BurnIn]).
  */
 fun chooseSubtitle(tracks: List<SubtitleTrack>, preferred: String, audioLanguage: String?, mode: String = ""): SubtitleTrack? {
-    val text = tracks.filter { !it.image }
+    val offered = BurnIn.offered(tracks)
     val wanted = when (mode) {
         "manual" -> false
         "foreign" -> preferred.isNotBlank() && !audioLanguage.isNullOrBlank() && !sameLanguage(audioLanguage, preferred)
         else -> true
     }
     if (preferred.isNotBlank() && wanted) {
-        val matching = text.filter { sameLanguage(it.language, preferred) }
-        (matching.firstOrNull { !it.forced && !it.hearingImpaired } ?: matching.firstOrNull { !it.forced } ?: matching.firstOrNull())?.let { return it }
+        val matching = offered.filter { sameLanguage(it.language, preferred) }
+        (matching.firstOrNull { !it.forced && !it.hearingImpaired && !it.image } ?: matching.firstOrNull { !it.forced } ?: matching.firstOrNull())?.let { return it }
     }
-    return text.firstOrNull { it.forced && (it.language.isNullOrBlank() || audioLanguage.isNullOrBlank() || sameLanguage(it.language, audioLanguage)) }
+    return offered.firstOrNull { it.forced && (it.language.isNullOrBlank() || audioLanguage.isNullOrBlank() || sameLanguage(it.language, audioLanguage)) }
+}
+
+/**
+ * Picture subtitles (PGS, VobSub) burned in by Arc, as the web player does: showing one restarts
+ * playback converted with it painted in (`burn_subtitle`); a text track or Off restarts without
+ * it, but only if one was burned in. Other restarts (quality, audio, seeking past what's
+ * converted) keep it.
+ */
+object BurnIn {
+    /** The tracks to offer: all but picture files beside the video, which Arc can't burn in. */
+    fun offered(tracks: List<SubtitleTrack>): List<SubtitleTrack> = tracks.filter { !(it.image && it.external) }
+
+    /** The burn to ask Arc for while [track] is shown: its id for a picture track, else none. */
+    fun burnFor(track: SubtitleTrack?): String? = track?.takeIf { it.image && !it.external }?.id
+
+    /** Whether showing [track] needs a new stream, given the burn asked for now ([current]). */
+    fun restarts(current: String?, track: SubtitleTrack?): Boolean = burnFor(track) != current
+
+    /**
+     * What the player asks Arc for when it (re)starts at [fromMs]: the playing file and audio
+     * unless another is chosen (a new version starts with its own default audio), the quality
+     * limit, and the burn ([burn]) whatever the reason for the restart.
+     */
+    fun request(caps: PlayerCaps, fromMs: Long, current: PlaybackPlan?, audioStream: Int?, fileId: Long?, maxKbps: Int?, burn: String?) = PlaybackRequest(
+        caps,
+        startMs = fromMs,
+        fileId = fileId ?: current?.fileId,
+        audioStream = audioStream ?: current?.audioStream?.takeIf { it >= 0 && fileId == null },
+        maxKbps = maxKbps,
+        burnSubtitle = burn,
+    )
 }
 
 /**

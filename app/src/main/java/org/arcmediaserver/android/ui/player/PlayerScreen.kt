@@ -504,6 +504,8 @@ private fun subtitleDetail(t: SubtitleTrack): String? = listOfNotNull(
     if (t.forced) stringResource(R.string.player_forced) else null,
     if (t.hearingImpaired) "SDH" else null,
     t.title?.takeIf { title -> !sameLanguage(title, t.language) && !title.equals("forced", true) && !title.equals("sdh", true) },
+    // Picture subtitles by their format ("PGS", "VobSub"): Arc burns these into the video.
+    if (t.image) org.arcmediaserver.android.ui.components.codecName(t.codec) else null,
 ).joinToString(" · ").ifBlank { null }
 
 @Composable
@@ -607,13 +609,17 @@ internal fun PlayerMenuPanel(
                 title = stringResource(R.string.player_subtitles)
                 val offset = org.arcmediaserver.android.playback.SubtitleTiming.offsetFor(state.subtitleOffsets, plan.fileId, state.subtitle)
                 options = listOf(Option(stringResource(R.string.player_subtitles_off), null, state.subtitle == null) { onSubtitle(null) }) +
-                    plan.subtitleTracks.filter { !it.image }.mapIndexed { i, t -> Option(subtitleName(t, i), subtitleDetail(t), state.subtitle?.id == t.id) { onSubtitle(t) } } +
+                    // Picture tracks too (PGS, VobSub): choosing one restarts the film with it burned in.
+                    plan.subtitleTracks.mapIndexedNotNull { i, t ->
+                        if (t !in org.arcmediaserver.android.playback.BurnIn.offered(plan.subtitleTracks)) null
+                        else Option(subtitleName(t, i), subtitleDetail(t), state.subtitle?.id == t.id) { onSubtitle(t) }
+                    } +
                     // Timing, as the web player's, for the text subtitles shown now.
                     if (org.arcmediaserver.android.playback.SubtitleTiming.adjustable(state.subtitle)) {
                         listOf(Option(stringResource(R.string.player_subtitle_timing), stringResource(R.string.player_timing_seconds, timingSeconds(offset)), false) { onOpen(PlayerMenu.SubtitleTiming) })
                     } else emptyList()
                 if (state.subtitle != null && !org.arcmediaserver.android.playback.SubtitleTiming.adjustable(state.subtitle)) {
-                    body = stringResource(R.string.player_timing_text_only)
+                    body = stringResource(if (state.subtitle.image) R.string.player_timing_picture else R.string.player_timing_text_only)
                 }
             }
             PlayerMenu.SubtitleTiming -> {
@@ -767,6 +773,10 @@ internal fun statsRows(
     if (sourceAudio != null) add(stringResource(R.string.stats_audio) to (if (sent != null) "$sourceAudio → $sent" else sourceAudio))
     val output = stats.audioDecoder ?: if (stats.audioMime != null) stringResource(R.string.stats_passthrough) else null
     output?.let { add(stringResource(R.string.stats_audio_output) to it) }
+    // A picture subtitle Arc paints into the converted video.
+    plan.subtitleTracks.firstOrNull { plan.burnSubtitle != null && it.id == plan.burnSubtitle }?.let { t ->
+        add(stringResource(R.string.stats_subtitles) to stringResource(R.string.stats_burned_in, org.arcmediaserver.android.ui.components.codecName(t.codec) ?: t.codec))
+    }
     if (plan.sourceKbps > 0) add(stringResource(R.string.stats_bitrate) to String.format(java.util.Locale.ROOT, "%.1f Mbps", plan.sourceKbps / 1000.0))
     // How fast it arrives, to set against the bitrate: slower than the file means waiting.
     if (stats.downloadKbps > 0) add(stringResource(R.string.stats_download) to String.format(java.util.Locale.ROOT, "%.1f Mbps", stats.downloadKbps / 1000.0))

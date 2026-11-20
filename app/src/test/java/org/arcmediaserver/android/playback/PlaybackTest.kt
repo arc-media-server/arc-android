@@ -1,6 +1,7 @@
 package org.arcmediaserver.android.playback
 
 import org.arcmediaserver.android.data.PlaybackPlan
+import org.arcmediaserver.android.data.PlaybackRequest
 import org.arcmediaserver.android.data.PlayerCaps
 import org.arcmediaserver.android.data.SubtitleTrack
 import org.junit.Assert.assertEquals
@@ -96,8 +97,8 @@ class PlaybackTest {
         assertEquals(caps.copy(containers = emptyList(), video = emptyList()), fallbackCaps(caps, "remux"))
     }
 
-    private fun sub(id: String, lang: String?, forced: Boolean = false, sdh: Boolean = false, image: Boolean = false) =
-        SubtitleTrack(id = id, language = lang, forced = forced, hearingImpaired = sdh, image = image)
+    private fun sub(id: String, lang: String?, forced: Boolean = false, sdh: Boolean = false, image: Boolean = false, external: Boolean = false) =
+        SubtitleTrack(id = id, language = lang, forced = forced, hearingImpaired = sdh, image = image, external = external)
 
     @Test
     fun `subtitles start in the profile's language, else forced ones for the audio`() {
@@ -106,8 +107,54 @@ class PlaybackTest {
         assertEquals("4", chooseSubtitle(tracks, "fr", "eng")?.id)
         assertEquals("1", chooseSubtitle(tracks, "", "en")?.id)
         assertNull(chooseSubtitle(tracks, "", "jpn"))
-        // Picture subtitles can only be burned in, which the app doesn't ask for yet.
-        assertNull(chooseSubtitle(tracks, "jpn", "eng").takeIf { it?.id == "5" })
+    }
+
+    @Test
+    fun `a picture track is chosen when it's the only match, as on the web`() {
+        // Full text subtitles first, even after a picture track in the file.
+        val blurayAndText = listOf(sub("1", "eng", image = true), sub("2", "eng"))
+        assertEquals("2", chooseSubtitle(blurayAndText, "eng", "fre")?.id)
+        // Only PGS in the profile's language: that, to be burned in.
+        assertEquals("5", chooseSubtitle(listOf(sub("4", "fre"), sub("5", "jpn", image = true)), "jpn", "eng")?.id)
+        // Forced PGS for the audio's language, with no language chosen ("manual" mode too).
+        val forcedPgs = listOf(sub("7", "eng", forced = true, image = true), sub("8", "eng", image = true))
+        assertEquals("7", chooseSubtitle(forcedPgs, "", "eng")?.id)
+        assertEquals("7", chooseSubtitle(forcedPgs, "eng", "eng", mode = "manual")?.id)
+        // A picture file beside the video can't be burned in, so it's never chosen.
+        assertNull(chooseSubtitle(listOf(sub("9", "eng", image = true, external = true)), "eng", "fre"))
+    }
+
+    @Test
+    fun `picture tracks are offered and burned in, text tracks and Off aren't`() {
+        val text = sub("1", "eng")
+        val pgs = sub("2", "eng", image = true)
+        val besideFile = sub("3", "eng", image = true, external = true)
+        assertEquals(listOf(text, pgs), BurnIn.offered(listOf(text, pgs, besideFile)))
+        assertEquals("2", BurnIn.burnFor(pgs))
+        assertNull(BurnIn.burnFor(text))
+        assertNull(BurnIn.burnFor(null))
+        assertNull(BurnIn.burnFor(besideFile))
+        // Choosing a picture track restarts; another text track or Off restarts only to leave a burn.
+        assertTrue(BurnIn.restarts(null, pgs))
+        assertFalse(BurnIn.restarts("2", pgs))
+        assertTrue(BurnIn.restarts("2", text))
+        assertTrue(BurnIn.restarts("2", null))
+        assertFalse(BurnIn.restarts(null, text))
+        assertFalse(BurnIn.restarts(null, null))
+    }
+
+    @Test
+    fun `restarts ask for the burn again, with the file, audio and quality`() {
+        val caps = PlayerCaps(listOf("mp4"), listOf("h264"), listOf("aac"), 1080)
+        val plan = PlaybackPlan(method = "transcode", url = "/x", fileId = 7, audioStream = 2, burnSubtitle = "s:5")
+        // Quality, a seek past what's converted, a retry: the same file, audio and burn.
+        val again = BurnIn.request(caps, 90_000, plan, audioStream = null, fileId = null, maxKbps = 4000, burn = "s:5")
+        assertEquals(PlaybackRequest(caps, 90_000, fileId = 7, audioStream = 2, maxKbps = 4000, burnSubtitle = "s:5"), again)
+        // Another audio track keeps the burn too.
+        assertEquals("s:5", BurnIn.request(caps, 0, plan, audioStream = 3, fileId = null, maxKbps = null, burn = "s:5").burnSubtitle)
+        // Without a burn the field isn't sent at all.
+        val raw = org.arcmediaserver.android.data.ArcJson.encodeToString(PlaybackRequest.serializer(), BurnIn.request(caps, 0, plan, null, null, null, null))
+        assertFalse("burn_subtitle" in raw)
     }
 
     @Test

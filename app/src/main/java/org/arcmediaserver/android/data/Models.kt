@@ -490,6 +490,8 @@ data class PlaybackRequest(
     @SerialName("audio_stream") val audioStream: Int? = null,
     /** A quality limit chosen in the player (kbit/s); null for the original. */
     @SerialName("max_kbps") val maxKbps: Int? = null,
+    /** A picture subtitle track (its id) for Arc to paint into the converted video. */
+    @SerialName("burn_subtitle") val burnSubtitle: String? = null,
 )
 
 @Serializable
@@ -513,6 +515,8 @@ data class SubtitleTrack(
     @SerialName("hearing_impaired") val hearingImpaired: Boolean = false,
     /** A picture format (Blu-ray, DVD): Arc can only burn these in. */
     val image: Boolean = false,
+    /** A file beside the video rather than a track inside it. */
+    val external: Boolean = false,
 )
 
 @Serializable
@@ -543,6 +547,8 @@ data class PlaybackPlan(
     @SerialName("server_limit_kbps") val serverLimitKbps: Int = 0,
     /** The audio as Arc sends it (codec as ffprobe names it, channels, whether converted). */
     @SerialName("audio_output") val audioOutput: AudioOutput? = null,
+    /** The picture subtitle track painted into this stream, as asked for. */
+    @SerialName("burn_subtitle") val burnSubtitle: String? = null,
 )
 
 @Serializable

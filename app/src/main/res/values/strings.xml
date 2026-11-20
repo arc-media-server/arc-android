@@ -132,6 +132,8 @@
     <string name="stats_audio_output">Audio output</string>
     <string name="stats_passthrough">Passthrough to the TV or receiver</string>
     <string name="stats_passthrough_list">passthrough %1$s</string>
+    <string name="stats_subtitles">Subtitles</string>
+    <string name="stats_burned_in">%1$s, burned in by Arc</string>
     <string name="stats_bitrate">File bitrate</string>
     <string name="stats_buffer">Buffered ahead</string>
     <string name="stats_download">Download speed</string>
@@ -456,6 +458,7 @@
     <string name="player_timing_show_earlier">Show 0.5s Earlier</string>
     <string name="player_timing_show_later">Show 0.5s Later</string>
     <string name="player_timing_reset">Reset Subtitle Timing</string>
+    <string name="player_timing_picture">Timing can be adjusted for text subtitles. Picture subtitles are part of the converted video.</string>
     <string name="player_timing_text_only">Timing can be adjusted for text subtitles. These ASS subtitles keep their own timing.</string>
     <string name="player_track">Track %1$d</string>
     <string name="player_forced">Forced</string>
