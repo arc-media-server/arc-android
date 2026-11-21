@@ -230,6 +230,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeBackToTop() = shot("home-back-to-top", keys = List(3) { androidx.compose.ui.input.key.Key.DirectionDown } + List(3) { androidx.compose.ui.input.key.Key.DirectionUp }) {
+        // Down past Continue Watching and back up: the hero shows again above the first row.
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
+    }
+
+    @Test
     fun cardMenuOnContinue() = shot("card-menu-continue") {
         // A card on Home's Continue Watching row: its menu offers Remove from Continue Watching.
         Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {

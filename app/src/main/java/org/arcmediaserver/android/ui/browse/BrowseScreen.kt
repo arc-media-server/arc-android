@@ -493,7 +493,12 @@ fun HomeContent(
                         if (!it.hasFocus) return@onFocusChanged
                         lastRow = row.spec.id
                         // The first row sits under the hero, which stays in view while it has focus.
-                        if (isFirst) scope.launch { list.animateScrollToItem(0) }
+                        // The focused card asks to be scrolled into view too, and a newer scroll
+                        // cancels an older one: wait a frame so the hero's comes last and wins.
+                        if (isFirst) scope.launch {
+                            androidx.compose.runtime.withFrameNanos { }
+                            list.animateScrollToItem(0)
+                        }
                     },
                 ) {
                     HomeRow(
