@@ -996,6 +996,8 @@ private fun RecommendedView(rows: List<org.arcmediaserver.android.data.Recommend
                             cardFor(item),
                             landscape = style == "thumb",
                             backdrop = style == "arc",
+                            // The same sizes as Home's rows, so a Backdrops row isn't poster-narrow.
+                            width = when (style) { "thumb" -> HomeThumbWidth; "arc" -> HomeBackdropWidth; else -> HomePosterWidth },
                             onClick = { onOpen(item) },
                             modifier = if (index == 0 && i == 0) Modifier.focusRequester(first) else Modifier,
                         )
