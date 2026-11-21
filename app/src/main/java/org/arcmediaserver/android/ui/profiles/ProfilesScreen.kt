@@ -1,8 +1,10 @@
 package org.arcmediaserver.android.ui.profiles
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.aspectRatio
 import android.view.KeyEvent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -12,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.Dp
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.OutlinedButton
@@ -325,8 +328,11 @@ private fun ProfileTile(profile: Profile, index: Int, locked: Boolean, onClick: 
                 Avatar(profile, 112.dp, Modifier.padding(4.dp))
             }
             if (locked) {
+                // Drawn above the avatar (which rises when focused) and moved out with its 1.06 grow,
+                // so the lock stays on the rim instead of slipping behind it.
+                val grow by animateDpAsState(if (focused) 3.dp else 0.dp, label = "lockOffset")
                 Box(
-                    Modifier.align(Alignment.BottomEnd).size(34.dp).clip(CircleShape).background(ArcColors.Background).padding(4.dp)
+                    Modifier.align(Alignment.BottomEnd).zIndex(1f).offset(x = grow, y = grow).size(34.dp).clip(CircleShape).background(ArcColors.Background).padding(4.dp)
                         .clip(CircleShape).background(ArcColors.Surface3),
                     contentAlignment = Alignment.Center,
                 ) {

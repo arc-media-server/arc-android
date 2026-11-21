@@ -122,6 +122,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun profilesLockedFocused() = shot("profiles-locked-focused", keys = listOf(androidx.compose.ui.input.key.Key.DirectionRight)) {
+        // Alex has a PIN: focused, the lock stays on the rim of the grown avatar, above its border.
+        ProfilesScreen(ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles)), onChoose = {}, onRetry = {}, onDigit = {}, onDelete = {})
+    }
+
+    @Test
     fun profilesServerName() = shot("profiles-server-name") {
         // The server's own name (Arc's Settings), under the heading.
         ProfilesScreen(ProfilesUiState(profiles = LoadState.Ready(Fixtures.profiles), serverName = "Living Room"), onChoose = {}, onRetry = {}, onDigit = {}, onDelete = {})
