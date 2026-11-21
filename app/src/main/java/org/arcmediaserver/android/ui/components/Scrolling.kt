@@ -4,6 +4,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -63,5 +69,16 @@ fun rowsBringIntoView(top: Dp, below: Dp): BringIntoViewSpec {
                 else -> 0f
             }
         }
+    }
+}
+
+/** Reveal a whole captioned card, rather than just its focusable artwork, on either axis. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.revealOnFocus(): Modifier {
+    val reveal = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    return bringIntoViewRequester(reveal).onFocusChanged {
+        if (it.hasFocus) scope.launch { reveal.bringIntoView() }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -47,7 +48,7 @@ fun RoundIconButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.size(size).onFocusChanged { if (it.isFocused) onLabel(label) },
+        modifier = modifier.requiredSize(size).onFocusChanged { if (it.isFocused) onLabel(label) },
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(

@@ -159,6 +159,8 @@ fun cardFor(card: RecentCard): MediaCard {
     val base = cardFor(card.item, key = "${card.type}:${card.item.id}:${card.seasonNumber ?: ""}:${card.addedAt}")
     return if (card.type == "season") {
         base.copy(seasonNumber = card.seasonNumber, newEpisodes = card.episodes, seasonPoster = card.seasonPoster ?: base.poster)
+    } else if (card.type == "series") {
+        base.copy(newEpisodes = card.episodes)
     } else {
         base
     }
