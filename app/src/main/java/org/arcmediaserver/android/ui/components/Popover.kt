@@ -28,6 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -79,8 +83,19 @@ fun Popover(
     val gap = with(density) { 18.dp.roundToPx() }
     // The anchor is in root coordinates; this layer may not start at the root's corner.
     var origin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    // A menu opened by holding OK gets that press's repeats and release; they aren't a choice,
+    // so a key only counts once the menu has seen it pressed afresh.
+    val down = remember { mutableSetOf<androidx.compose.ui.input.key.Key>() }
     Box(
         Modifier.fillMaxSize()
+            .onPreviewKeyEvent { e ->
+                when (e.type) {
+                    // Held, a key repeats: only a fresh press counts (and repeats of it go on).
+                    KeyEventType.KeyDown -> if (e.nativeKeyEvent.repeatCount == 0) { down += e.key; false } else e.key !in down
+                    KeyEventType.KeyUp -> !down.remove(e.key)
+                    else -> false
+                }
+            }
             .onGloballyPositioned { origin = it.positionInRoot() }
             .then(if (shade) Modifier.background(Color.Black.copy(alpha = 0.45f)) else Modifier),
     ) {
