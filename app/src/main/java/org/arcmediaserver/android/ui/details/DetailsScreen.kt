@@ -772,9 +772,10 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
         }
         Spacer(Modifier.height(10.dp))
         // Outside the show's order an episode has no number in it.
-        ep.episodeNumber?.takeIf { numbered && ep.orderNumbers != null }?.let {
+        // The number as every Arc app writes it: "S1 · E3", or "Special 3" for season 0.
+        ep.orderNumbers?.takeIf { numbered }?.let { (s, e) ->
             Text(
-                stringResource(R.string.details_episode_n, it).uppercase(), maxLines = 1,
+                episodeCode(s, e), maxLines = 1,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = 0.5.sp), color = ArcColors.Muted,
             )
         }

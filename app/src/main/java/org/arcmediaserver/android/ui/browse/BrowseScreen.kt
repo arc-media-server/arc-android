@@ -273,6 +273,17 @@ private fun NavigationDrawerScope.Sidebar(
                 .selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            // Arc's mark at the top, above the profile, as in Arc's other TV apps. It's sized and
+            // placed like the icons below it, and isn't focusable.
+            Box(Modifier.height(34.dp).padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
+                Icon(
+                    androidx.compose.ui.res.painterResource(R.drawable.arc_mark),
+                    contentDescription = stringResource(R.string.app_name),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
             val profile = frame.profile
             if (profile != null && frame.canSwitchProfile) {
                 // The profile and the time, at the top as the Apple TV app's; choosing it switches profile.
