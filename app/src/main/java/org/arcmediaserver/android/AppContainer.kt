@@ -116,10 +116,14 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     /** The profile's Theme Music, as last read from (or saved to) its preferences. */
     val themeMusic = kotlinx.coroutines.flow.MutableStateFlow(true)
 
+    /** The profile's Show Missing Episodes, as last read from (or saved to) its preferences. */
+    val showMissingEpisodes = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     /** Takes up the profile's preferences that every screen follows. */
     fun applyPrefs(prefs: org.arcmediaserver.android.data.Prefs) {
         hideSpoilers.value = prefs.hideSpoilers
         themeMusic.value = prefs.themeMusic
+        showMissingEpisodes.value = prefs.showMissingEpisodes
     }
 
     /** A different profile (or none): what was kept for the last one doesn't carry over. */
@@ -128,6 +132,7 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
         together.reset()
         hideSpoilers.value = false
         themeMusic.value = true
+        showMissingEpisodes.value = false
         palettes.clear()
         itemChanges.clear()
         offContinue.clear()

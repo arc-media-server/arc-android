@@ -43,4 +43,10 @@ class ThemeTuneTest {
         assertEquals(false, ArcJson.decodeFromString(Prefs.serializer(), """{"theme_music":false}""").themeMusic)
         assertEquals("/api/items/m/theme", ArcJson.decodeFromString(Item.serializer(), """{"id":"m","kind":"movie","title":"M","theme_url":"/api/items/m/theme"}""").themeUrl)
     }
+
+    @Test
+    fun `Show Missing Episodes is off unless the profile turned it on`() {
+        assertEquals(false, ArcJson.decodeFromString(Prefs.serializer(), """{"home":[]}""").showMissingEpisodes)
+        assertEquals(true, ArcJson.decodeFromString(Prefs.serializer(), """{"show_missing_episodes":true}""").showMissingEpisodes)
+    }
 }
