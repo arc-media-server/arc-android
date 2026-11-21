@@ -370,6 +370,27 @@ class ScreenshotTest {
     }
 
     @Test
+    fun libraryRecommendedBackdrops() = shot("library-recommended-backdrops") {
+        // Continue Watching as Backdrops on a library's Recommended tab: as big as Home's.
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], Fixtures.movies)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
+                libraryExtras = libraryExtras.copy(
+                    recommended = LoadState.Ready(
+                        listOf(
+                            org.arcmediaserver.android.data.RecommendedRow(type = "continue", style = "arc", items = Fixtures.movies),
+                            org.arcmediaserver.android.data.RecommendedRow(type = "recently_added", items = Fixtures.movies),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun libraryFolders() = shot("library-folders") {
         // A home videos library's Folders tab, two folders deep: the way down above, two folders
         // (cover, Folder tag, count) and a video of its own.
