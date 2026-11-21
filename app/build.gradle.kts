@@ -19,9 +19,11 @@ android {
         minSdk = 26
         targetSdk = 36
         // GitHub's Build workflow passes its run number (-ParcVersionCode=N), so each build
-        // installs over the one before; local builds stay at 1.
+        // installs over the one before, and the version (-ParcVersionName=0.1.N, or a v* tag's);
+        // local builds stay at 1 and the version below. Raise it when a release starts a new
+        // minor or major: builds take its major.minor.
         versionCode = (project.findProperty("arcVersionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = "0.1.0"
+        versionName = (project.findProperty("arcVersionName") as String?) ?: "0.1.0"
     }
 
     // Arc's own key, when one is provided (ARC_KEYSTORE_FILE plus its passwords and alias, from

@@ -161,7 +161,14 @@ other screenshot tests use.
 GitHub builds the APK on request: Actions → Build → Run workflow (any branch), or push a commit
 whose message contains `[build]`. It never runs otherwise, to save Actions minutes. It runs the
 unit tests, builds the release APK with the run number as its version code, and attaches
-`arc-android-<run>` to the run (Summary → Artifacts).
+`arc-android-<version>` to the run (Summary → Artifacts).
+
+**Releases:** a Run workflow on `main` also publishes a pre-release named `android-build-<run>`
+on the [Releases](../../releases) page, with the APK and a `SHA256SUMS.txt`; pushing a `v*` tag
+(`v0.2.0`) makes a normal release with that version. A build's version is `versionName`'s
+major.minor (`app/build.gradle.kts`) plus the run number (`0.1.57`); raise `versionName` when a
+release starts a new minor or major. Only APKs signed with Arc's own key are released: without
+the signing secrets the release step stops with an error and the APK stays on the run.
 
 Release builds are signed with Arc's own key when `ARC_KEYSTORE_FILE`, `ARC_KEYSTORE_PASSWORD`,
 `ARC_KEY_ALIAS` and `ARC_KEY_PASSWORD` are set (on GitHub: the `ARC_KEYSTORE_BASE64`,
