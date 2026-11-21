@@ -261,6 +261,8 @@ data class Prefs(
     @SerialName("hide_spoilers") val hideSpoilers: Boolean = false,
     /** Theme Music: a title's theme tune plays quietly on its page; absent means on, as the web reads it. */
     @SerialName("theme_music") val themeMusic: Boolean = true,
+    /** Show Missing Episodes: show pages also list the episodes with no file; absent means off. */
+    @SerialName("show_missing_episodes") val showMissingEpisodes: Boolean = false,
     @SerialName("subtitle_style") val subtitleStyle: SubtitleStyle = SubtitleStyle(),
 )
 

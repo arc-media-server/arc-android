@@ -128,7 +128,6 @@ fun DetailsRoute(
                     onWatched = vm::toggleWatched, onWatchlist = vm::toggleWatchlist, problem = problem, onProblemShown = vm::problemShown,
                     onSeasonWatched = vm::toggleSeasonWatched,
                     onRate = vm::rate,
-                    onToggleMissing = vm::toggleMissing,
                     onShuffle = if (canShuffle) { { vm.shuffle(onPlayQueued) } } else null,
                     onShuffleSeason = if (canShuffle) { { n -> vm.shuffle(onPlayQueued, n) } } else null,
                     onPlayVersion = onPlayVersion,
@@ -157,8 +156,6 @@ data class TitleActions(
     val onSeasonWatched: (Int) -> Unit = {},
     /** The profile's own rating, 1–10 (0 clears it). */
     val onRate: (Int) -> Unit = {},
-    /** Show / Hide Missing Episodes, staying on the season numbered. */
-    val onToggleMissing: (Int) -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -278,15 +275,6 @@ fun DetailsScreen(
                             seasonMenu = null
                             shuffleSeason(number)
                         }
-                    }
-                    // Show / Hide Missing Episodes, as the web's show page: the whole show's
-                    // episodes with no file, dimmed. The page stays on this season.
-                    org.arcmediaserver.android.ui.components.PopoverItem(
-                        stringResource(if (details.missing) R.string.action_hide_missing else R.string.action_show_missing),
-                        icon = ArcIcons.ListVideo,
-                    ) {
-                        actions.onToggleMissing(number)
-                        close()
                     }
                 }
                 org.arcmediaserver.android.ui.components.FocusOnOpen(first)

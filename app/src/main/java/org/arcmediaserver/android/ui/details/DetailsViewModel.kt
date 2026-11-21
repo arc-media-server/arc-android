@@ -86,13 +86,6 @@ fun nextEpisode(seasons: List<Season>): Item? {
 /** A season counts as watched when it has episodes and every one is watched, as on the web. */
 fun Season.watched(): Boolean = episodes.filter { it.available }.let { on -> on.isNotEmpty() && on.all { it.userData?.played == true } }
 
-/**
- * The tab to keep after Show Missing Episodes changes the seasons: the season numbered
- * [seasonNumber] in the new list (seasons with only missing episodes come and go), else 0.
- */
-fun tabOfSeason(seasons: List<Season>, seasonNumber: Int): Int =
-    seasons.indexOfFirst { it.seasonNumber == seasonNumber }.coerceAtLeast(0)
-
 /** [seasons] with the season numbered [seasonNumber] marked watched or unwatched (resume points cleared). */
 fun withSeasonWatched(seasons: List<Season>, seasonNumber: Int, played: Boolean): List<Season> =
     seasons.map { s -> if (s.seasonNumber != seasonNumber) s else s.copy(episodes = s.episodes.map { it.withWatched(played) }) }
@@ -120,10 +113,6 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
     private val _state = MutableStateFlow<LoadState<Details>>(LoadState.Loading)
     val state: StateFlow<LoadState<Details>> = _state
 
-    /** Show Missing Episodes is on: the seasons include episodes the show has no file for. */
-    private var showMissing = false
-    /** The season number to stay on when the seasons next load (after Show Missing changes them). */
-    private var keepSeason: Int? = null
 
     private val _problem = MutableStateFlow<ActionProblem?>(null)
     /** The last action that failed and was undone, until the screen has said so. */
@@ -244,14 +233,6 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
         }
     }
 
-    /** Show / Hide Missing Episodes (a season's menu), as the web's show page, staying on [seasonNumber]. */
-    fun toggleMissing(seasonNumber: Int) {
-        showMissing = !showMissing
-        keepSeason = seasonNumber
-        ArcLog.Android.debug("missing episodes ${if (showMissing) "shown" else "hidden"}")
-        load(quiet = true)
-    }
-
     /** Loads the page; [quiet] keeps what's shown while it refreshes (coming back from playing). */
     fun load(quiet: Boolean = false) {
         val api = container.api() ?: return
@@ -260,14 +241,14 @@ class DetailsViewModel(private val container: AppContainer, private val itemId: 
             _state.value = try {
                 val item = api.item(itemId)
                 if (item.isSeries) {
+                    // Show Missing Episodes is the profile's setting (Settings), for every show.
+                    val showMissing = container.showMissingEpisodes.value
                     val response = api.seasons(item.id, missing = showMissing)
                     val seasons = response.seasons.filter { it.episodes.isNotEmpty() }
                     // Play, Resume and Up Next follow the order: the seasons, not what's outside it.
                     val next = nextEpisode(seasons)
                     val focus = episodeId?.let { id -> (seasons.flatMap { it.episodes } + response.unplaced).firstOrNull { it.id == id } }
-                    val keep = keepSeason
-                    keepSeason = null
-                    val idx = if (keep != null) tabOfSeason(seasons, keep) else initialTab(seasons, response.unplaced, focus ?: next)
+                    val idx = initialTab(seasons, response.unplaced, focus ?: next)
                     LoadState.Ready(
                         Details(
                             item, seasons, next, idx, focus, related = currentRelated(),

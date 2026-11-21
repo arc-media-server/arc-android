@@ -75,6 +75,7 @@
     <string name="settings_auto_skip">Skip Intros Automatically</string>
     <string name="settings_theme_music">Theme Music</string>
     <string name="settings_hide_spoilers">Hide Spoilers</string>
+    <string name="settings_show_missing">Show missing episodes</string>
     <string name="spoiler_hidden_description">Description hidden until you watch it.</string>
     <string name="settings_audio_language">Preferred Audio Language</string>
     <string name="settings_subtitles">Subtitles</string>
@@ -383,8 +384,6 @@
     <string name="rating_clear">Clear Rating</string>
     <string name="action_season_watched">Mark Season as Watched</string>
     <string name="action_season_unwatched">Mark Season as Unwatched</string>
-    <string name="action_show_missing">Show Missing Episodes</string>
-    <string name="action_hide_missing">Hide Missing Episodes</string>
     <string name="action_season_watched_failed">Couldn\'t change the season. Try again.</string>
 
     <!-- Media Info (as the web\'s "About This File") -->

@@ -262,6 +262,11 @@ fun SettingsContent(
                         onChange(p, p.copy(hideSpoilers = !p.hideSpoilers), buildJsonObject { put("hide_spoilers", !p.hideSpoilers) })
                     }
                 }
+                item {
+                    SettingsRow(stringResource(R.string.settings_show_missing), if (p.showMissingEpisodes) on else off) {
+                        onChange(p, p.copy(showMissingEpisodes = !p.showMissingEpisodes), buildJsonObject { put("show_missing_episodes", !p.showMissingEpisodes) })
+                    }
+                }
                 item { ChoiceRow(R.string.settings_audio_language, audio, p.audioLanguage) { setString("audio_language", it, p.copy(audioLanguage = it)) } }
                 item { Heading(R.string.settings_subtitles) }
                 item { ChoiceRow(R.string.settings_subtitle_mode, modes, p.subtitleMode) { setString("subtitle_mode", it, p.copy(subtitleMode = it)) } }
