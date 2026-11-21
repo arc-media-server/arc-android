@@ -9,6 +9,23 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import org.arcmediaserver.android.data.RecentCard
+import org.arcmediaserver.android.data.cardFor
+import org.arcmediaserver.android.ui.components.ArcIcons
+import org.arcmediaserver.android.ui.components.RoundIconButton
+import org.arcmediaserver.android.ui.components.PillTabs
+import org.arcmediaserver.android.ui.components.cardSubtitle
+import org.junit.Assert.assertTrue
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.screenshots.Fixtures
@@ -72,6 +89,70 @@ class SeasonTabsFocusTest {
         press(Key.DirectionDown) // into Season 1's episodes
         press(Key.DirectionUp)
         compose.onNodeWithText("Season 1").assertIsFocused()
+    }
+
+    @Test
+    fun `episode text and cast names scroll fully into view`() {
+        show(initialSeason = 0)
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        val episode = Fixtures.seasons[0].episodes[0]
+        val title = compose.onNodeWithText(episode.title).getUnclippedBoundsInRoot()
+        assertTrue("episode title is below screen: $title", title.top >= 0.dp && title.bottom <= 540.dp)
+        episode.overview?.takeIf { it.isNotBlank() }?.let {
+            val description = compose.onNodeWithText(it).getUnclippedBoundsInRoot()
+            assertTrue("episode description is below screen: $description", description.bottom <= 540.dp)
+        }
+        press(Key.DirectionDown)
+        val actor = Fixtures.show.credits.first { it.role == "actor" }
+        val name = compose.onNodeWithText(actor.name).getUnclippedBoundsInRoot()
+        assertTrue("cast name is below screen: $name", name.top >= 0.dp && name.bottom <= 540.dp)
+    }
+
+    @Test
+    fun `More stays a 44dp circle when the row offers less width`() {
+        compose.setContent {
+            ArcTheme {
+                Box(Modifier.width(30.dp)) {
+                    RoundIconButton(ArcIcons.More, "More", {}, containerColor = androidx.compose.ui.graphics.Color.White)
+                }
+            }
+        }
+        compose.waitForIdle()
+        val button = compose.onNodeWithContentDescription("More").getUnclippedBoundsInRoot()
+        assertEquals(44.dp, button.right - button.left)
+        assertEquals(44.dp, button.bottom - button.top)
+    }
+
+    @Test
+    fun `standalone pills are 36dp high and 10dp apart`() {
+        val selected = mutableIntStateOf(0)
+        compose.setContent { ArcTheme { PillTabs(listOf("Recommended", "Library"), selected.intValue, { selected.intValue = it }) } }
+        compose.waitForIdle()
+        val first = compose.onNodeWithText("Recommended").getUnclippedBoundsInRoot()
+        val second = compose.onNodeWithText("Library").getUnclippedBoundsInRoot()
+        assertEquals(36.dp, first.bottom - first.top)
+        assertEquals(10.dp, second.left - first.right)
+        compose.onNodeWithText("Recommended").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        press(Key.DirectionRight)
+        compose.onNodeWithText("Library").assertIsFocused()
+        assertEquals(1, selected.intValue)
+    }
+
+    @Test
+    fun `recent captions are season name batch count and episode code`() {
+        compose.setContent {
+            ArcTheme {
+                Column {
+                    androidx.tv.material3.Text(cardSubtitle(cardFor(RecentCard("season", Fixtures.show, seasonNumber = 2, episodes = 4)))!!)
+                    androidx.tv.material3.Text(cardSubtitle(cardFor(RecentCard("series", Fixtures.show, episodes = 6)))!!)
+                    androidx.tv.material3.Text(cardSubtitle(cardFor(RecentCard("episode", Fixtures.seasons[0].episodes[3])))!!)
+                }
+            }
+        }
+        compose.onNodeWithText("Season 2").assertExists()
+        compose.onNodeWithText("6 new episodes").assertExists()
+        compose.onNodeWithText("S1 · E4").assertExists()
     }
 
     @Test

@@ -260,6 +260,9 @@ private fun NavigationDrawerScope.Sidebar(
     // slide in beside them (owner, 31 October).
     val width by androidx.compose.animation.core.animateDpAsState(if (open) 220.dp else 52.dp, SidebarEasing, label = "width")
     val shown by androidx.compose.animation.core.animateFloatAsState(if (open) 1f else 0f, SidebarEasingF, label = "panel")
+    val logoInset by androidx.compose.animation.core.animateDpAsState(if (open) 15.dp else 10.dp, SidebarEasing, label = "logo-inset")
+    val logoWidth by androidx.compose.animation.core.animateDpAsState(if (open) 136.dp else 20.dp, SidebarEasing, label = "logo-width")
+    val logoHeight by androidx.compose.animation.core.animateDpAsState(if (open) 36.dp else 20.dp, SidebarEasing, label = "logo-height")
     Box(Modifier.fillMaxHeight().padding(12.dp)) {
         Column(
             Modifier
@@ -273,14 +276,13 @@ private fun NavigationDrawerScope.Sidebar(
                 .selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            // Arc's mark at the top, above the profile, as in Arc's other TV apps. It's sized and
-            // placed like the icons below it, and isn't focusable.
-            Box(Modifier.height(34.dp).padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
+            // Match the entries' animated leading inset; expand the mark into Arc's full logo.
+            Box(Modifier.height(44.dp).padding(start = logoInset), contentAlignment = Alignment.CenterStart) {
                 Icon(
-                    androidx.compose.ui.res.painterResource(R.drawable.arc_mark),
+                    androidx.compose.ui.res.painterResource(if (open) R.drawable.arc_logo else R.drawable.arc_mark),
                     contentDescription = stringResource(R.string.app_name),
                     tint = Color.White,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.width(logoWidth).height(logoHeight),
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -810,7 +812,7 @@ internal fun HeaderButton(label: String, modifier: Modifier = Modifier, icon: an
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
         scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.04f),
         colors = androidx.tv.material3.ButtonDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.1f), contentColor = ArcColors.Foreground,
+            containerColor = ArcColors.Pill, contentColor = ArcColors.Foreground,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black,
         ),
     ) {

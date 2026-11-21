@@ -25,6 +25,9 @@ object ArcColors {
     val Foreground = Color(0xFFF5F5F7)
     val Muted = Color(0xFFA1A1AD)
     val Subtle = Color(0xFF6B6B78)
+    // Owner-confirmed TV controls (server #499).
+    val Pill = Color.White.copy(alpha = 0.10f)
+    val SelectedPill = Color.White.copy(alpha = 0.18f)
     // No UI colour (owner, 1 November): Accent (focus rings, highlights, progress) and
     // AccentStrong (filled badges and buttons, with OnAccent text) are white; Arc's teal is the
     // logo's alone (LogoLight → LogoStrong, the drawables and TV banner).

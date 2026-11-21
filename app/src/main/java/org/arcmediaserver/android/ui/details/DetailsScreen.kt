@@ -13,6 +13,7 @@ import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import org.arcmediaserver.android.ui.components.revealOnFocus
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -201,12 +202,10 @@ fun DetailsScreen(
                     }
                 }
                 if (item.isSeries) {
-                    // The seasons show whole while they have focus, so episode names and
-                    // details under the pictures aren't cut off at the bottom.
                     item {
-                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(1) } }) {
-                            Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
-                        }
+                        // Each episode reveals its full text. Don't pin the entire seasons block
+                        // to item 1: that competes with the focused card's bring-into-view request.
+                        Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
                     }
                 }
                 // Under the title, as the web's page: the cast, the collections it's in, More
@@ -747,7 +746,7 @@ fun seasonName(season: Season): String = season.name.takeIf { it.isNotBlank() }
 private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modifier, numbered: Boolean = true) {
     var focused by remember { mutableStateOf(false) }
     val card = cardFor(ep)
-    Column(Modifier.width(EpisodeWidth)) {
+    Column(Modifier.width(EpisodeWidth).revealOnFocus()) {
         // An episode with no file (Show Missing Episodes) is dimmed and doesn't play; it can still
         // be focused, to read about it.
         FocusCard(onClick = { if (ep.available) onClick() }, onFocused = { focused = it }, modifier = modifier) {

@@ -6,6 +6,11 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -45,7 +50,6 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Tab
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import org.arcmediaserver.android.R
@@ -174,10 +178,10 @@ fun BoxScope.ProgressLine(progress: Float?) {
 
 /** A tick in the corner for something watched; the number of episodes left for a show. */
 @Composable
-fun BoxScope.WatchBadge(item: Item) {
-    val unwatched = item.unwatchedCount ?: 0
+fun BoxScope.WatchBadge(item: Item, newEpisodes: Int? = null) {
+    val unwatched = newEpisodes ?: item.unwatchedCount ?: 0
     when {
-        item.isSeries && unwatched > 0 -> Box(
+        (newEpisodes != null || item.isSeries) && unwatched > 0 -> Box(
             Modifier.align(Alignment.TopEnd).padding(6.dp).clip(RoundedCornerShape(6.dp)).background(ArcColors.AccentStrong).padding(horizontal = 7.dp, vertical = 2.dp),
         ) { Text(unwatched.toString(), style = MaterialTheme.typography.labelMedium, color = ArcColors.OnAccent) }
         item.userData?.played == true -> Box(
@@ -187,14 +191,14 @@ fun BoxScope.WatchBadge(item: Item) {
     }
 }
 
-/** The line under a card: "S1 · E3" for an episode, "Season 2 · 3 new episodes", or the year. */
+/** Recently Added captions follow the web: season, batch count or episode code. */
 @Composable
 fun cardSubtitle(card: MediaCard): String? {
     val item = card.item
     return when {
         card.sub != null -> card.sub
-        card.seasonNumber != null -> stringResource(R.string.season_number, card.seasonNumber) + " · " +
-            pluralStringResource(R.plurals.new_episodes, card.newEpisodes, card.newEpisodes)
+        card.seasonNumber != null -> stringResource(R.string.season_number, card.seasonNumber)
+        card.newEpisodes > 0 -> pluralStringResource(R.plurals.new_episodes, card.newEpisodes, card.newEpisodes)
         item.isEpisode -> episodeCode(item)
         else -> item.year?.toString()
     }
@@ -299,7 +303,7 @@ fun MediaCardView(
                 )
             }
             card.tag?.let { CornerTag(it) }
-            WatchBadge(card.item)
+            WatchBadge(card.item, newEpisodes = card.newEpisodes.takeIf { card.seasonNumber != null })
             ProgressLine(card.progress)
         }
         if (!caption) return@Column
@@ -343,7 +347,7 @@ fun Shelf(title: String, start: Dp = 48.dp, content: androidx.compose.foundation
 /** A person: a round picture (or initials), their name and a line under it (a character, how many titles). */
 @Composable
 fun PersonCard(name: String, image: String?, sub: String?, onClick: () -> Unit) {
-    Column(Modifier.width(112.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.width(112.dp).revealOnFocus(), horizontalAlignment = Alignment.CenterHorizontally) {
         androidx.tv.material3.Surface(
             onClick = onClick,
             modifier = Modifier.size(104.dp),
@@ -378,35 +382,26 @@ fun PillTabs(
     onClick: ((Int) -> Unit)? = null,
     selectedTab: Modifier = Modifier,
 ) {
-    // The Apple TV app's segmented control: a glass pill holding the tabs, the current one lighter
-    // and the focused one white (owner, 1 November).
-    androidx.tv.material3.TabRow(
-        selectedTabIndex = selected,
-        modifier = modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.08f)).padding(3.dp),
-        containerColor = Color.Transparent,
-        indicator = { tabPositions, doesTabRowHaveFocus ->
-            androidx.tv.material3.TabRowDefaults.PillIndicator(
-                currentTabPosition = tabPositions[selected],
-                doesTabRowHaveFocus = doesTabRowHaveFocus,
-                activeColor = ArcColors.Foreground,
-                inactiveColor = Color.White.copy(alpha = 0.18f),
-            )
-        },
-    ) {
+    // Standalone header-style pills: no holder, 10dp between pills (owner, server #499).
+    Row(modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         labels.forEachIndexed { i, label ->
-            Tab(
-                selected = i == selected,
-                onFocus = { onSelect(i) },
+            val chosen = i == selected
+            androidx.tv.material3.Button(
                 onClick = { onClick?.invoke(i) },
-                modifier = if (i == selected) selectedTab else Modifier,
-                colors = androidx.tv.material3.TabDefaults.pillIndicatorTabColors(
-                    contentColor = ArcColors.Foreground.copy(alpha = 0.65f),
-                    selectedContentColor = ArcColors.Foreground,
-                    focusedContentColor = ArcColors.Background,
-                    focusedSelectedContentColor = ArcColors.Background,
+                modifier = (if (chosen) selectedTab else Modifier)
+                    .height(36.dp)
+                    .onFocusChanged { if (it.isFocused) onSelect(i) }
+                    .semantics { this.selected = chosen },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.04f),
+                colors = androidx.tv.material3.ButtonDefaults.colors(
+                    containerColor = if (chosen) ArcColors.SelectedPill else ArcColors.Pill,
+                    contentColor = ArcColors.Foreground,
+                    focusedContainerColor = Color.White,
+                    focusedContentColor = Color.Black,
                 ),
             ) {
-                Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 15.dp, vertical = 6.dp))
+                Text(label, style = MaterialTheme.typography.labelLarge)
             }
         }
     }

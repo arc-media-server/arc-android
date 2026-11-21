@@ -396,6 +396,23 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeRecentBatches() = shot("home-recent-batches", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        val row = Fixtures.homeRows.last()
+        val cards = listOf(
+            org.arcmediaserver.android.data.RecentCard("season", Fixtures.show, seasonNumber = 2, episodes = 4, addedAt = 2000),
+            org.arcmediaserver.android.data.RecentCard("series", Fixtures.show, episodes = 6, addedAt = 2000),
+            org.arcmediaserver.android.data.RecentCard("episode", Fixtures.seasons[0].episodes[3], addedAt = 2000),
+            org.arcmediaserver.android.data.RecentCard("season", Fixtures.show, seasonNumber = 2, episodes = 2, addedAt = 1000),
+        ).map { org.arcmediaserver.android.data.cardFor(it) }
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = listOf(Fixtures.homeRows.first(), row.copy(cards = LoadState.Ready(cards)))))
+    }
+
+    @Test
+    fun showCast() = shot("show-cast", keys = List(3) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        DetailsScreen(Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2]), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
     fun homeError() = shot("home-error") {
         browse(BrowseUiState(frame = LoadState.Failed(UiError.Timeout)))
     }
