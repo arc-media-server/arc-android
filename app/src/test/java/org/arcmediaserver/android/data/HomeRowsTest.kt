@@ -127,6 +127,16 @@ class HomeRowsTest {
     }
 
     @Test
+    fun `a series batch keeps its new episode count and distinct added time`() {
+        val show = Item(id = "s", kind = "series", title = "Show")
+        val first = cardFor(RecentCard("series", show, episodes = 6, addedAt = 2000))
+        val second = cardFor(RecentCard("series", show, episodes = 2, addedAt = 1000))
+        assertEquals(6, first.newEpisodes)
+        assertNull(first.seasonNumber)
+        assertNotEquals(first.key, second.key)
+    }
+
+    @Test
     fun `Continue Watching's saved look is shown, other rows keep theirs`() {
         val prefs = Prefs(home = listOf(HomeRowPref("continue", style = "arc", posters = "season"), HomeRowPref("recent:2", style = "thumb", posters = "series")))
         val rows = resolveHomeRows(prefs, libs, june)
