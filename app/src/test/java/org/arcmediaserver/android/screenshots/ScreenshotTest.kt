@@ -562,6 +562,17 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showSeasonTabs() = shot("show-season-tabs", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // Down from Play to the season tabs: the page scrolls up far enough to show the season's
+        // episodes and their descriptions, not just the tabs.
+        DetailsScreen(
+            Details(Fixtures.show, Fixtures.seasons, next = Fixtures.seasons[0].episodes[2], initialSeason = 0),
+            onPlay = { _: Item, _: Long -> },
+            onOpen = {},
+        )
+    }
+
+    @Test
     fun showSeasonMenu() = shot("show-season-menu", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown, androidx.compose.ui.input.key.Key.DirectionCenter)) {
         // Down to the season tabs (landing on Season 1, the season shown), then OK: its menu offers
         // Mark Season as Watched and Shuffle Season.

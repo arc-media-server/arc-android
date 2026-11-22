@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -679,7 +680,12 @@ private fun Seasons(
     }
     // Show Missing Episodes can add or drop seasons, so the tab starts again (on the season kept).
     var selected by rememberSaveable(details.item.id, details.missing) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
-    Column(Modifier.padding(top = 24.dp)) {
+    // Coming to the tabs shows the season's episodes too, not just the tabs (as Plex): the page
+    // scrolls the whole block into view. A frame later, so the tab's own (smaller) request is
+    // already on its way and this one, newer, wins.
+    val block = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    Column(Modifier.bringIntoViewRequester(block).padding(top = 24.dp)) {
         val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
         val unplacedTab = selected >= details.seasons.size
         val episodes = if (unplacedTab) details.unplaced else details.seasons[selected].episodes
@@ -688,7 +694,10 @@ private fun Seasons(
         // Watched / Unwatched), as Plex's season menu. Not in This Order isn't a season, so it
         // has no menu.
         var tabBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.onFocusChanged { if (it.hasFocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; block.bringIntoView() } },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             PillTabs(
                 labels, selected, onSelect = { selected = it },
                 // Coming into the tabs (Down from Play, Up from the episodes) lands on the season
