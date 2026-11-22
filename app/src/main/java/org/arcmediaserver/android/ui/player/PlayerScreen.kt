@@ -378,6 +378,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                         onLeave = onClose,
                         onNewCode = vm::newRoomCode,
                         onInvite = { invitingMore = true },
+                        onCancel = { vm.cancelRoom(); onClose() },
                     )
                 }
                 if (invitingMore && state.room?.hosting == true) {
