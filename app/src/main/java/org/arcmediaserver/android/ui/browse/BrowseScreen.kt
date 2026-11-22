@@ -167,7 +167,7 @@ fun BrowseRoute(
         onPlayQueued = onPlayQueued,
         settingsContent = { org.arcmediaserver.android.ui.settings.SettingsRoute(onSignedOut = onSignedOut, onSwitchServer = onSwitchServer) },
         onPlay = onPlay,
-        togetherContent = { org.arcmediaserver.android.ui.together.TogetherPage(container) },
+        joinTogether = { close -> org.arcmediaserver.android.ui.together.JoinTogetherDialog(container, close) },
         onRoom = { roomMenu = it },
     )
     roomMenu?.let { id -> org.arcmediaserver.android.ui.together.RoomMenu(container, id, onClose = { roomMenu = null }) }
@@ -198,12 +198,17 @@ fun BrowseScreen(
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
     settingsContent: @Composable () -> Unit = {},
     onPlay: (Item, Long) -> Unit = { _, _ -> },
-    togetherContent: @Composable () -> Unit = {},
+    /** Join Watch Together (a code the host shared), from the profile at the top of the sidebar. */
+    joinTogether: @Composable (onClose: () -> Unit) -> Unit = {},
     /** A Watch Together card on Home: the room's choices. */
     onRoom: (String) -> Unit = {},
 ) {
     var focusedCard by remember { mutableStateOf<MediaCard?>(null) }
     var homeScrolled by remember { mutableStateOf(false) }
+    // With Watch Together, choosing the profile offers Switch Profile and Join Watch Together, as
+    // the web's profile menu; without it, it switches profile at once.
+    var profileMenu by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    var joining by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         // Home's whole-screen hero artwork sits behind the sidebar too.
         if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
@@ -215,7 +220,11 @@ fun BrowseScreen(
                 // drawer has no blur and draws the page over the panel's edge, so the shade stays.
                 scrimBrush = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Black.copy(alpha = 0.25f))),
                 drawerContent = { value ->
-                    Sidebar(frame, state.section, value, onSection, onSwitchProfile, onSignOut, together = state.together)
+                    Sidebar(
+                        frame, state.section, value, onSection,
+                        onProfile = { at -> if (state.together) profileMenu = at else onSwitchProfile() },
+                        onSignOut = onSignOut,
+                    )
                 },
             ) {
                 // The rail is 72dp wide but its icons end at 60dp: starting the content 48dp in
@@ -228,14 +237,28 @@ fun BrowseScreen(
                             Section.Watchlist -> WatchlistContent(state.watchlist, onOpen, onRetryWatchlist)
                             Section.Playlists -> PlaylistsContent(state.playlists, onOpenPlaylist, onRetryPlaylists)
                             Section.Settings -> settingsContent()
-                            Section.WatchTogether -> togetherContent()
                             is Section.Library -> LibraryContent(state.library, state.libraryTab, state.libraryExtras, onLibraryTab, onOpen, onOpenCollection, onRetryLibrary, onRetryLibraryExtras, onNeedTitles, onLibraryQuery, onFolder, onFolderUp)
                         }
                     }
                 }
             }
         }
+        profileMenu?.let { at ->
+            ProfileMenu(at, onSwitchProfile = { profileMenu = null; onSwitchProfile() }, onJoin = { profileMenu = null; joining = true }, onClose = { profileMenu = null })
+        }
+        if (joining) joinTogether { joining = false }
     }
+}
+
+/** The profile's menu at the top of the sidebar, when Watch Together is on: as the web's profile menu. */
+@Composable
+private fun ProfileMenu(at: androidx.compose.ui.geometry.Rect, onSwitchProfile: () -> Unit, onJoin: () -> Unit, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    org.arcmediaserver.android.ui.components.Popover(anchor = at, onClose = onClose, width = 260.dp) {
+        org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.nav_switch_profile), null, focus = first, onClick = onSwitchProfile)
+        org.arcmediaserver.android.ui.components.PopoverItem(stringResource(R.string.together_join_menu), ArcIcons.Users, onClick = onJoin)
+    }
+    LaunchedEffect(Unit) { first.requestWhenReady() }
 }
 
 /**
@@ -250,9 +273,9 @@ private fun NavigationDrawerScope.Sidebar(
     section: Section,
     value: DrawerValue,
     onSection: (Section) -> Unit,
-    onSwitchProfile: () -> Unit,
+    /** The profile was chosen; where its entry is, for a menu beside it. */
+    onProfile: (androidx.compose.ui.geometry.Rect?) -> Unit,
     onSignOut: () -> Unit,
-    together: Boolean = false,
 ) {
     val open = value == DrawerValue.Open
     val panel = RoundedCornerShape(24.dp)
@@ -288,13 +311,16 @@ private fun NavigationDrawerScope.Sidebar(
             Spacer(Modifier.height(4.dp))
             val profile = frame.profile
             if (profile != null && frame.canSwitchProfile) {
-                // The profile and the time, at the top as the Apple TV app's; choosing it switches profile.
+                // The profile and the time, at the top as the Apple TV app's; choosing it switches
+                // profile (or, with Watch Together, offers that and Join Watch Together).
+                val bounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
                 SidebarEntry(
                     leading = { Avatar(profile, 22.dp) },
                     label = profile.name,
                     extra = { SidebarClock() },
                     selected = false,
-                    onClick = onSwitchProfile,
+                    onClick = { onProfile(bounds[0]) },
+                    modifier = Modifier.onGloballyPositioned { bounds[0] = it.boundsInRoot() },
                 )
             } else {
                 // A friend's TV has no profile picker, so keeps Sign Out here.
@@ -314,8 +340,6 @@ private fun NavigationDrawerScope.Sidebar(
             if (frame.watchlistAt >= frame.libraries.size) watchlist()
             // Playlists after the libraries, as Plex and the web list them.
             SidebarItem(ArcIcons.ListVideo, stringResource(R.string.nav_playlists), section == Section.Playlists) { onSection(Section.Playlists) }
-            // Watch Together after Playlists, as the web's sidebar, when this server and profile have it.
-            if (together) SidebarItem(ArcIcons.Users, stringResource(R.string.together_title), section == Section.WatchTogether) { onSection(Section.WatchTogether) }
             Spacer(Modifier.weight(1f))
             SidebarItem(ArcIcons.Settings, stringResource(R.string.nav_settings), section == Section.Settings) { onSection(Section.Settings) }
         }
@@ -358,10 +382,11 @@ private fun NavigationDrawerScope.SidebarEntry(
     extra: (@Composable () -> Unit)?,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     androidx.tv.material3.Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(34.dp),
+        modifier = modifier.fillMaxWidth().height(34.dp),
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(

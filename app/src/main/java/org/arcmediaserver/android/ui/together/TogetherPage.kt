@@ -113,39 +113,22 @@ fun RoomMenu(container: AppContainer, roomId: String, onClose: () -> Unit) {
 }
 
 /**
- * The sidebar's Watch Together page, as the web's: Join with a Code (the code the host shared,
- * typed with the remote or the TV's keyboard), then the rooms this profile made, was invited to or
- * is in. Joining opens the player on the room's lobby.
+ * Join Watch Together, from the profile at the top of the sidebar (as the web's profile menu):
+ * the code the host shared, typed with the remote or the TV's keyboard. Joining opens the player
+ * on the room's lobby; rooms this profile made or was invited to are on Home's Watch Together row.
  */
 @Composable
-fun TogetherPage(container: AppContainer) {
-    val rooms by container.together.rooms.collectAsState()
-    var menu by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { container.together.refreshRooms() }
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 48.dp)) {
-            Text(
-                stringResource(R.string.together_title), style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(start = 48.dp, top = 28.dp, bottom = 12.dp),
-            )
-            JoinWithCode(container, Modifier.padding(horizontal = 48.dp))
-            val cards = roomCards(rooms, container)
-            if (cards.isNotEmpty()) {
-                Spacer(Modifier.height(28.dp))
-                Shelf(stringResource(R.string.together_rooms)) {
-                    items(cards, key = { it.key }) { card ->
-                        MediaCardView(card, landscape = true, onClick = { menu = card.roomId() })
-                    }
-                }
-            }
-        }
-        menu?.let { id -> RoomMenu(container, id, onClose = { menu = null }) }
+fun JoinTogetherDialog(container: AppContainer, onClose: () -> Unit) {
+    val box = remember { FocusRequester() }
+    org.arcmediaserver.android.ui.details.Overlay(620.dp, onBack = onClose) {
+        JoinWithCode(container, onJoined = onClose, focus = box)
     }
+    LaunchedEffect(Unit) { box.requestWhenReady() }
 }
 
 /** The code box and Join, with the web's messages when a code doesn't work. */
 @Composable
-private fun JoinWithCode(container: AppContainer, modifier: Modifier = Modifier) {
+private fun JoinWithCode(container: AppContainer, modifier: Modifier = Modifier, onJoined: () -> Unit = {}, focus: FocusRequester? = null) {
     var code by remember { mutableStateOf("") }
     var problem by remember { mutableStateOf<JoinProblem?>(null) }
     var joining by remember { mutableStateOf(false) }
@@ -160,7 +143,10 @@ private fun JoinWithCode(container: AppContainer, modifier: Modifier = Modifier)
             scope.launch {
                 problem = container.together.join(WatchCode.normalize(code))
                 joining = false
-                if (problem == null) code = ""
+                if (problem == null) {
+                    code = ""
+                    onJoined()
+                }
             }
         }
     }
@@ -180,7 +166,7 @@ private fun JoinWithCode(container: AppContainer, modifier: Modifier = Modifier)
                 cursorBrush = SolidColor(if (focused) Color.Black else ArcColors.Foreground),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Go, autoCorrectEnabled = false),
                 keyboardActions = KeyboardActions(onGo = { join() }),
-                modifier = Modifier.width(260.dp).onFocusChanged { focused = it.isFocused },
+                modifier = Modifier.width(260.dp).then(if (focus != null) Modifier.focusRequester(focus) else Modifier).onFocusChanged { focused = it.isFocused },
                 decorationBox = { inner ->
                     Box(
                         Modifier.clip(RoundedCornerShape(50)).background(if (focused) Color.White else Color.White.copy(alpha = 0.1f))

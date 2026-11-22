@@ -283,6 +283,21 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeSidebarTogether() = shot("home-sidebar-together", keys = listOf(androidx.compose.ui.input.key.Key.DirectionLeft)) {
+        // With Watch Together: no Watch Together entry; it's in the profile's menu.
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows, together = true))
+    }
+
+    @Test
+    fun profileMenuTogether() = shot(
+        "profile-menu-together",
+        keys = listOf(androidx.compose.ui.input.key.Key.DirectionLeft) + List(8) { androidx.compose.ui.input.key.Key.DirectionUp } + androidx.compose.ui.input.key.Key.DirectionCenter,
+    ) {
+        // Choosing the profile at the top of the sidebar: Switch Profile and Join Watch Together.
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows, together = true))
+    }
+
+    @Test
     fun library() = shot("library") {
         browse(
             BrowseUiState(
