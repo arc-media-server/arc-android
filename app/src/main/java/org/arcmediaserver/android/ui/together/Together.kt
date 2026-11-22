@@ -215,6 +215,27 @@ class Together(private val container: AppContainer) {
         runCatching { _session.value?.end() }.onFailure { log.warn("watch together: ending the room failed (${it.javaClass.simpleName})") }
     }
 
+    /**
+     * Cancels the room this TV hosts, from its lobby: ends it for everyone and lets go of it, so
+     * it doesn't linger on anyone's Home. If Arc couldn't end it, this TV still leaves.
+     */
+    suspend fun cancel() {
+        val s = _session.value ?: return
+        // Let go first, so closing the player doesn't also leave (and the end isn't shown as news).
+        _session.value = null
+        _code.value = null
+        val ended = runCatching { s.end() }
+            .onFailure { log.warn("watch together: cancelling the room failed (${it.javaClass.simpleName})") }
+            .isSuccess
+        if (ended) {
+            s.stop()
+            log.info("watch together: cancelled the room")
+        } else {
+            s.leave()
+        }
+        container.appScope.launch { refreshRooms() }
+    }
+
     /** A new code for the room this TV hosts. */
     suspend fun renewCode() {
         val s = _session.value ?: return

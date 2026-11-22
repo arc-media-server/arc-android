@@ -741,6 +741,12 @@ class PlayerViewModel(
         viewModelScope.launch { container.together.end() }
     }
 
+    /** Cancels the room from its lobby (host); outlives this player, which closes straight after. */
+    fun cancelRoom() {
+        // Undispatched: the room is let go of before the player closes (closing would leave it).
+        container.appScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { container.together.cancel() }
+    }
+
     /** A new code to share (host). */
     fun newRoomCode() {
         viewModelScope.launch { container.together.renewCode() }
