@@ -98,7 +98,12 @@ class LiveServerTest {
         }
         api.chooseProfile(sam.id, "2468")
         assertEquals(sam.id, api.authStatus().profile?.id)
-        step("using profile ${sam.name}")
+        api.leaveProfile()
+        val left = api.authStatus()
+        assertTrue(left.signedIn)
+        assertNull(left.profile)
+        api.chooseProfile(sam.id, "2468")
+        step("left the profile while retaining the device sign-in, then chose it again")
 
         // Wait for the first scan.
         var libraries = api.libraries()

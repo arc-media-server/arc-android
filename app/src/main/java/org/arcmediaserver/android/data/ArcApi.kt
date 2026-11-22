@@ -76,6 +76,11 @@ class ArcApi(
         return send("POST", "auth/profile", JsonObject(body).toString(), Profile.serializer())
     }
 
+    suspend fun leaveProfile() {
+        val (status, body) = raw("DELETE", "auth/profile", null)
+        if (status !in 200..299) throw failure(status, body, "auth/profile")
+    }
+
     suspend fun signOut() {
         raw("POST", "auth/logout", "{}")
     }

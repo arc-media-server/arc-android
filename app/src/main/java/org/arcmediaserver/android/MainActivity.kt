@@ -4,17 +4,26 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.key
 import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.ui.ArcNavHost
 import org.arcmediaserver.android.watchnext.DeepLink
 import org.arcmediaserver.android.ui.theme.ArcTheme
 
 class MainActivity : ComponentActivity() {
+    private companion object {
+        val processNavigationKey = java.util.UUID.randomUUID().toString()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) resumeFrom(intent)
         setContent {
-            ArcTheme { ArcNavHost() }
+            // Android can restore a task's navigation after process death. That is a fresh
+            // launch, while recreation in this process and returning from Home keep their state.
+            key(processNavigationKey) {
+                ArcTheme { ArcNavHost() }
+            }
         }
     }
 

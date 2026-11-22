@@ -209,6 +209,18 @@ class ScreenshotTest {
     }
 
     @Test
+    fun launchPickerSetting() = shot("launch-picker-setting", keys = List(12) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(
+                prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs()),
+                profile = Fixtures.profiles.first(),
+                automaticProfileId = Fixtures.profiles.first().id,
+            ),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
+        )
+    }
+
+    @Test
     fun settingsAbout() = shot("settings-about") {
         org.arcmediaserver.android.ui.settings.SettingsContent(
             org.arcmediaserver.android.ui.settings.SettingsUiState(
