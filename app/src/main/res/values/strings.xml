@@ -482,7 +482,6 @@
     <!-- Watch Together (the web's player.json together.*) -->
     <string name="together_title">Watch Together</string>
     <string name="together_row_title">Watch Together</string>
-    <string name="together_rooms">Rooms</string>
     <string name="together_host">Host</string>
     <string name="together_you">%1$s (you)</string>
     <string name="together_status_unavailable">Can\'t watch this</string>
@@ -512,6 +511,7 @@
     <string name="together_ended_by_host">The host ended Watch Together. You\'re watching on your own.</string>
     <string name="together_lost">You\'re no longer in the Watch Together room. You\'re watching on your own.</string>
     <string name="together_join_title">Join with a Code</string>
+    <string name="together_join_menu">Join Watch Together</string>
     <string name="together_join_body">Enter the code the host shared. You need to be able to watch the title yourself.</string>
     <string name="together_code_placeholder">ABCD-1234</string>
     <string name="together_join_action">Join</string>

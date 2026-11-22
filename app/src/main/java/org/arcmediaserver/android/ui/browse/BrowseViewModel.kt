@@ -144,8 +144,6 @@ sealed interface Section {
     data object Watchlist : Section
     data object Playlists : Section
     data object Settings : Section
-    /** Watch Together: Join with a Code, and the rooms (when this server and profile have it). */
-    data object WatchTogether : Section
 }
 
 data class BrowseUiState(
