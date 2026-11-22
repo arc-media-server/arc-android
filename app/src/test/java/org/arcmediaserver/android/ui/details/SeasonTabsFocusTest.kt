@@ -6,6 +6,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -96,8 +98,10 @@ class SeasonTabsFocusTest {
         show(initialSeason = 0)
         press(Key.DirectionDown)
         press(Key.DirectionDown)
-        val episode = Fixtures.seasons[0].episodes[0]
-        val title = compose.onNodeWithText(episode.title).getUnclippedBoundsInRoot()
+        // Focus enters the episodes on the one Play would start (S1 · E3 here), not the first.
+        val episode = Fixtures.seasons[0].episodes[2]
+        // The artwork's placeholder carries the title too: the caption under it is the last.
+        val title = compose.onAllNodesWithText(episode.title).onLast().getUnclippedBoundsInRoot()
         assertTrue("episode title is below screen: $title", title.top >= 0.dp && title.bottom <= 540.dp)
         episode.overview?.takeIf { it.isNotBlank() }?.let {
             val description = compose.onNodeWithText(it).getUnclippedBoundsInRoot()

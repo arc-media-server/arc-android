@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.semantics
@@ -383,7 +384,8 @@ fun PillTabs(
     selectedTab: Modifier = Modifier,
 ) {
     // Standalone header-style pills: no holder, 10dp between pills (owner, server #499).
-    Row(modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // One focus group, so a focusRestorer in [modifier] decides which pill focus enters on.
+    Row(modifier.focusGroup().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         labels.forEachIndexed { i, label ->
             val chosen = i == selected
             androidx.tv.material3.Button(
