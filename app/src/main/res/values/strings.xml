@@ -544,4 +544,7 @@
     <string name="together_join_now">Join Now</string>
     <string name="together_not_now">Not Now</string>
     <string name="together_start_failed">Couldn\'t start Watch Together. Check your connection and try again.</string>
+    <string name="settings_automatic_sign_in">Sign in automatically</string>
+    <string name="settings_automatic_sign_in_hint">Open as %1$s on this device, without asking who\'s watching.</string>
+    <string name="settings_automatic_sign_in_pin">Not available for a profile with a PIN: it\'s asked for each time.</string>
 </resources>

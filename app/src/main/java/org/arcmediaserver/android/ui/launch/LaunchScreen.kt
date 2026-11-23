@@ -44,6 +44,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.arcmediaserver.android.AppContainer
 import org.arcmediaserver.android.R
+import org.arcmediaserver.android.data.ApiException
+import org.arcmediaserver.android.data.launchProfile
 import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.ui.arcViewModel
 import org.arcmediaserver.android.ui.components.ErrorPane
@@ -56,20 +58,38 @@ import org.arcmediaserver.android.ui.theme.ArcColors
 enum class Destination { Server, SignIn, Profiles, Home }
 
 /** Asks Arc whether this TV is still signed in, and as whom. */
-suspend fun whereNext(container: AppContainer): Destination {
+suspend fun whereNext(container: AppContainer, fresh: Boolean = false): Destination {
     val api = container.api() ?: return Destination.Server
     if (container.session.token == null) return Destination.SignIn
     val status = api.authStatus()
-    return when {
-        !status.signedIn -> {
-            // Signed out from Arc's Settings > Devices: start again with a new code.
-            ArcLog.Android.info("this TV's sign-in is no longer valid; asking for a new code")
-            container.session.token = null
-            Destination.SignIn
-        }
-        status.friend || status.profile != null -> Destination.Home
-        else -> Destination.Profiles
+    if (!status.signedIn) {
+        ArcLog.Android.info("this TV's sign-in is no longer valid; asking for a new code")
+        container.session.token = null
+        return Destination.SignIn
     }
+    if (status.friend) return Destination.Home
+
+    val automaticId = container.session.automaticProfileId
+    val selected = launchProfile(status, automaticId, fresh)
+    if (selected != null) {
+        val chosen = if (selected.id == status.profile?.id) true else try {
+            api.chooseProfile(selected.id, pin = null)
+            true
+        } catch (e: ApiException) {
+            if (e.status !in 400..499) throw e
+            ArcLog.Android.warn("automatic profile sign-in failed (HTTP ${e.status})")
+            false
+        }
+        if (chosen) {
+            if (fresh && selected.id == automaticId) ArcLog.Android.info("signing in automatically as the saved profile")
+            return Destination.Home
+        }
+    }
+    if (fresh) {
+        if (status.profile != null) api.leaveProfile()
+        ArcLog.Android.info("starting at Who's watching")
+    }
+    return Destination.Profiles
 }
 
 class LaunchViewModel(private val container: AppContainer) : ViewModel() {
@@ -95,7 +115,7 @@ class LaunchViewModel(private val container: AppContainer) : ViewModel() {
         if (quiet) _retrying.value = true else _state.value = LoadState.Loading
         viewModelScope.launch {
             val next = try {
-                LoadState.Ready(whereNext(container))
+                LoadState.Ready(whereNext(container, fresh = true))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 LoadState.Failed(e.toUiError())

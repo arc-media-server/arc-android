@@ -71,6 +71,7 @@ data class SettingsUiState(
     val serverName: String? = null,
     /** Who's watching, shown beside the list as tvOS's Settings shows its icon. */
     val profile: org.arcmediaserver.android.data.Profile? = null,
+    val automaticProfileId: String? = null,
     /** About: the server's name and versions (GET /health). */
     val health: org.arcmediaserver.android.data.Health? = null,
     /** About: the server's address (scheme, host and port only). */
@@ -86,6 +87,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(
         SettingsUiState(
             serverName = container.session.serverName,
+            automaticProfileId = container.session.automaticProfileId,
             address = container.session.server?.let { "${it.scheme}://${it.host}:${it.port}" },
         ),
     )
@@ -142,6 +144,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    fun setAutomaticSignIn(enabled: Boolean) {
+        val profile = _state.value.profile?.takeUnless { it.hasPin } ?: return
+        val id = if (enabled) profile.id else null
+        container.session.automaticProfileId = id
+        _state.update { it.copy(automaticProfileId = id) }
+    }
+
     fun signOut(done: () -> Unit) = container.signOut(done)
 }
 
@@ -152,6 +161,7 @@ fun SettingsRoute(onSignedOut: () -> Unit, onSwitchServer: () -> Unit) {
     SettingsContent(
         state,
         onChange = vm::change,
+        onAutomaticSignIn = vm::setAutomaticSignIn,
         onRetry = vm::load,
         onSwitchServer = { vm.signOut(onSwitchServer) },
         onSignOut = { vm.signOut(onSignedOut) },
@@ -181,6 +191,7 @@ fun SettingsContent(
     onSignOut: () -> Unit,
     /** Open on About (screenshots). */
     initialAbout: Boolean = false,
+    onAutomaticSignIn: (Boolean) -> Unit = {},
 ) {
     var picking by remember { mutableStateOf<Picking?>(null) }
     var about by remember { mutableStateOf(initialAbout) }
@@ -277,6 +288,18 @@ fun SettingsContent(
                 item { ChoiceRow(R.string.settings_subtitle_position, positions, style.position.ifEmpty { "bottom" }) { setStyle(style.copy(position = it)) } }
                 item { Note(stringResource(if (state.failed) R.string.settings_save_failed else R.string.settings_profile_note), warn = state.failed) }
                 item { Heading(R.string.settings_this_tv) }
+                state.profile?.let { profile ->
+                    val enabled = !profile.hasPin
+                    val checked = enabled && state.automaticProfileId == profile.id
+                    item {
+                        val hint = if (enabled) stringResource(R.string.settings_automatic_sign_in_hint, profile.name)
+                            else stringResource(R.string.settings_automatic_sign_in_pin)
+                        SettingsRow(
+                            stringResource(R.string.settings_automatic_sign_in), if (checked) on else off,
+                            enabled = enabled, description = hint,
+                        ) { onAutomaticSignIn(!checked) }
+                    }
+                }
                 item { SettingsRow(stringResource(R.string.settings_server), state.serverName.orEmpty(), onClick = onSwitchServer) }
                 item { SettingsRow(stringResource(R.string.settings_sign_out), "", onClick = onSignOut) }
                 item { SettingsRow(stringResource(R.string.settings_about), version, Modifier.focusRequester(aboutRow)) { about = true } }
@@ -397,10 +420,14 @@ private fun Note(text: String, warn: Boolean = false) {
 
 /** One setting: its name on the left, its value on the right; white when focused. */
 @Composable
-private fun SettingsRow(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SettingsRow(
+    label: String, value: String, modifier: Modifier = Modifier, enabled: Boolean = true,
+    description: String? = null, onClick: () -> Unit,
+) {
     Surface(
         onClick = onClick,
-        modifier = modifier.padding(bottom = 4.dp).fillMaxWidth().height(38.dp),
+        enabled = enabled,
+        modifier = modifier.padding(bottom = 4.dp).fillMaxWidth().height(if (description == null) 38.dp else 62.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
@@ -411,7 +438,13 @@ private fun SettingsRow(label: String, value: String, modifier: Modifier = Modif
         ),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (description != null) {
+                    Text(description, style = MaterialTheme.typography.bodySmall,
+                        color = LocalContentColor.current.copy(alpha = 0.75f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
             if (value.isNotEmpty()) {
                 Spacer(Modifier.width(12.dp))
                 Text(value, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)

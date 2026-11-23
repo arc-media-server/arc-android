@@ -80,6 +80,16 @@ class ArcApiTest {
     }
 
     @Test
+    fun `leaving a profile keeps the device token`() = runTest {
+        answer(204, "")
+        api.leaveProfile()
+        val request = server.takeRequest()
+        assertEquals("DELETE", request.method)
+        assertEquals("/api/v1/auth/profile", request.url.encodedPath)
+        assertEquals("Bearer secret-token", request.headers["Authorization"])
+    }
+
+    @Test
     fun `errors carry Arc's words and what it needs`() = runTest {
         answer(401, """{"error":"wrong PIN","needs":"pin"}""")
         try {

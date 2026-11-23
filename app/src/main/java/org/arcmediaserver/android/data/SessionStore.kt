@@ -32,7 +32,7 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
             prefs.edit().apply {
                 if (value == null) remove(KEY_SERVER) else putString(KEY_SERVER, value.toString())
                 // A token belongs to the server that gave it.
-                if (changed) remove(KEY_TOKEN).remove(KEY_NAME)
+                if (changed) remove(KEY_TOKEN).remove(KEY_NAME).remove(KEY_AUTO_PROFILE)
             }.apply()
             if (changed) {
                 cached = null
@@ -56,9 +56,16 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
             cached = value
             loaded = true
             prefs.edit().apply {
-                if (value == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, box.seal(value))
+                if (value == null) remove(KEY_TOKEN).remove(KEY_AUTO_PROFILE) else putString(KEY_TOKEN, box.seal(value))
             }.apply()
         }
+
+    /** A local device preference. Only the device token goes through the Keystore. */
+    var automaticProfileId: String?
+        get() = prefs.getString(KEY_AUTO_PROFILE, null)
+        set(value) = prefs.edit().apply {
+            if (value == null) remove(KEY_AUTO_PROFILE) else putString(KEY_AUTO_PROFILE, value)
+        }.apply()
 
     /** The server's own name (as set in Arc), remembered for the screens before a profile is chosen. */
     var serverName: String?
@@ -68,6 +75,7 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
     private companion object {
         const val KEY_NAME = "server_name"
         const val KEY_SERVER = "server"
+        const val KEY_AUTO_PROFILE = "auto_profile_id"
         const val KEY_TOKEN = "token"
     }
 }
