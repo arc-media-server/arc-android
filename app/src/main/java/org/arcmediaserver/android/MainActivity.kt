@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as ArcApplication).container
         container.live.stop()
         container.syncWatchNext()
+        container.deviceLogs.flush()
     }
 
     /** A title chosen in Google TV's Continue watching row: it plays once the app is ready. */

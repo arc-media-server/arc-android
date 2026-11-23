@@ -50,7 +50,13 @@ class ArcApi(
     private val client: OkHttpClient,
     private val token: () -> String?,
     private val log: ArcLog = ArcLog.Android,
+    private val deviceLogs: DeviceLogs? = null,
 ) {
+    suspend fun sendDeviceLogs(body: String) {
+        val (status, answer) = raw("POST", "client-logs", body)
+        if (status != 204) throw failure(status, answer, "client-logs")
+    }
+
     suspend fun health(): Health = get("health", Health.serializer())
 
     suspend fun startLink(device: String): LinkStart =
@@ -321,7 +327,7 @@ class ArcApi(
         val message = obj?.get("error")?.jsonPrimitive?.contentOrNull ?: "the server answered $status"
         val needs = obj?.get("needs")?.jsonPrimitive?.contentOrNull
         // Signed out, a wrong PIN or a missing profile are expected; anything else is worth a warning.
-        if (status >= 500) log.warn("$route failed: $status $message") else log.debug("$route answered $status")
+        if (status >= 500) log.warn("$route failed: $status") else log.debug("$route answered $status")
         return ApiException(status, message, needs, body)
     }
 
@@ -332,10 +338,17 @@ class ArcApi(
         token()?.let { builder.header("Authorization", "Bearer $it") }
         val body = json?.toRequestBody(JSON)
         builder.method(method, body ?: if (method == "POST" || method == "PUT") ByteArray(0).toRequestBody(JSON) else null)
-        val call = client.newCall(builder.build())
+        val transport = if (route == "client-logs") client.newBuilder().followRedirects(false).followSslRedirects(false).build() else client
+        val call = transport.newCall(builder.build())
         return try {
-            call.awaitText()
+            call.awaitText().also { (status, _) ->
+                if (status >= 500 && route != "client-logs") deviceLogs?.record(DeviceLogs.Level.warn, DeviceLogs.Event.request_failed)
+            }
         } catch (e: IOException) {
+            if (route != "client-logs" && !call.isCanceled()) {
+                val event = if (e is java.net.SocketTimeoutException) DeviceLogs.Event.request_timeout else DeviceLogs.Event.request_failed
+                deviceLogs?.record(DeviceLogs.Level.warn, event)
+            }
             log.warn("$route: can't reach the server (${e.javaClass.simpleName})")
             throw e
         }

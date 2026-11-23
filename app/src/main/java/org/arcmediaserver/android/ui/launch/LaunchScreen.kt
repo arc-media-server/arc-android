@@ -46,6 +46,7 @@ import org.arcmediaserver.android.AppContainer
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.ApiException
 import org.arcmediaserver.android.data.launchProfile
+import org.arcmediaserver.android.data.DeviceLogs
 import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.ui.arcViewModel
 import org.arcmediaserver.android.ui.components.ErrorPane
@@ -65,6 +66,7 @@ suspend fun whereNext(container: AppContainer, fresh: Boolean = false): Destinat
     if (!status.signedIn) {
         ArcLog.Android.info("this TV's sign-in is no longer valid; asking for a new code")
         container.session.token = null
+        container.deviceLogs.clear()
         return Destination.SignIn
     }
     if (status.friend) return Destination.Home
@@ -81,13 +83,17 @@ suspend fun whereNext(container: AppContainer, fresh: Boolean = false): Destinat
             false
         }
         if (chosen) {
-            if (fresh && selected.id == automaticId) ArcLog.Android.info("signing in automatically as the saved profile")
+            if (fresh && selected.id == automaticId) {
+                ArcLog.Android.info("signing in automatically as the saved profile")
+                container.deviceLogs.record(DeviceLogs.Level.info, DeviceLogs.Event.automatic_sign_in)
+            }
             return Destination.Home
         }
     }
     if (fresh) {
         if (status.profile != null) api.leaveProfile()
         ArcLog.Android.info("starting at Who's watching")
+        container.deviceLogs.record(DeviceLogs.Level.info, DeviceLogs.Event.profile_picker)
     }
     return Destination.Profiles
 }

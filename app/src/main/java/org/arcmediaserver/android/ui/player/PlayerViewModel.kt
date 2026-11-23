@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import org.arcmediaserver.android.AppContainer
 import org.arcmediaserver.android.data.ApiException
 import org.arcmediaserver.android.data.ArcApi
+import org.arcmediaserver.android.data.DeviceLogs
 import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.PlaybackPlan
@@ -367,6 +368,7 @@ class PlayerViewModel(
             plan = p
             reportBurn(p)
             // Why it converts is worth explaining later (CLAUDE.md, Logging).
+            container.deviceLogs.record(DeviceLogs.Level.debug, DeviceLogs.Event.playback_started)
             if (p.method == "direct") log.info("playing directly")
             else log.info("Arc is ${if (p.method == "remux") "repackaging" else "converting"}: ${p.reasons.joinToString()}${p.encoder?.let { " ($it)" } ?: ""}")
             _state.update { it.copy(plan = p, durationMs = p.durationMs, subtitle = subtitle) }
@@ -566,6 +568,7 @@ class PlayerViewModel(
             load(position())
             return
         }
+        container.deviceLogs.record(DeviceLogs.Level.error, DeviceLogs.Event.playback_failed)
         log.warn("playback failed: ${error.errorCodeName}")
         _state.update { it.copy(error = UiError.Server(error.errorCodeName, 0), loading = false) }
     }

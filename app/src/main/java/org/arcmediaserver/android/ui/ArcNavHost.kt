@@ -83,6 +83,7 @@ fun ArcNavHost() {
                 ProfilesRoute(onChosen = { nav.startAt(BrowseDest) }, onSignedOut = { nav.startAt(SignInDest) })
             }
             composable<BrowseDest> {
+                org.arcmediaserver.android.ui.settings.CrashLogPrompt(container)
                 BrowseRoute(
                     onOpen = { item -> nav.navigate(detailsFor(item)) },
                     onPerson = { person -> nav.navigate(PersonDest(person.id)) },
