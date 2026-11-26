@@ -114,6 +114,32 @@ class SeasonTabsFocusTest {
     }
 
     @Test
+    fun `opening a linked episode lands at the same height as navigating down in the show`() {
+        val linked = androidx.compose.runtime.mutableStateOf(false)
+        val episode = Fixtures.seasons[0].episodes[2]
+        compose.setContent {
+            ArcTheme {
+                androidx.compose.runtime.key(linked.value) {
+                    DetailsScreen(
+                        Details(Fixtures.show, Fixtures.seasons, next = episode, focus = episode.takeIf { linked.value }),
+                        onPlay = { _, _ -> }, onOpen = {},
+                    )
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        val manual = compose.onAllNodesWithText(episode.title).onLast().getUnclippedBoundsInRoot().top
+        compose.runOnIdle { linked.value = true }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        val direct = compose.onAllNodesWithText(episode.title).onLast().getUnclippedBoundsInRoot().top
+        assertEquals(manual, direct)
+    }
+
+    @Test
     fun `More stays a 44dp circle when the row offers less width`() {
         compose.setContent {
             ArcTheme {
