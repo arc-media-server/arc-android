@@ -216,7 +216,8 @@ fun BrowseScreen(
     var joining by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         // Home's whole-screen hero artwork sits behind the sidebar too.
-        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
+        if (!HomePlainBackground && state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
+        if (HomePlainBackground) androidx.compose.runtime.LaunchedEffect(Unit) { android.util.Log.i("Arc", "Diagnostic build: Home draws no backdrop") }
         Loaded(state.frame, onRetry) { frame ->
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
@@ -254,6 +255,13 @@ fun BrowseScreen(
         if (joining) joinTogether { joining = false }
     }
 }
+
+/**
+ * Diagnostic build only, not for merging: Home draws no backdrop, fades or dim layer, over the
+ * plain page. The hero text and logo, shelves, scrolling and focus are unchanged, so a Chromecast
+ * frame-timing run against build 153 shows how much of Home's cost is the backdrop.
+ */
+private const val HomePlainBackground = true
 
 /** The profile's menu at the top of the sidebar, when Watch Together is on: as the web's profile menu. */
 @Composable
