@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import org.arcmediaserver.android.ui.components.rowsBringIntoView
 import org.arcmediaserver.android.ui.components.ScrollByShelf
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
@@ -71,6 +72,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -490,10 +493,12 @@ fun HomeContent(
         LoadingPane()
         return
     }
-    // The hero is the focused card, or the one last focused; before any, the first row's first.
-    var focused by remember { mutableStateOf<MediaCard?>(null) }
-    val first = visible.firstNotNullOfOrNull { (it.cards as? LoadState.Ready)?.value?.firstOrNull() }
-    val hero = focused ?: first
+    // Only the first shelf drives the hero. Keep its last backdrop behind the lower shelves
+    // so that moving focus across the dimmed page doesn't load and draw full-screen images.
+    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready }
+    val heroCards = (firstReady?.cards as? LoadState.Ready)?.value.orEmpty()
+    var heroKey by remember(firstReady?.spec?.id) { mutableStateOf<String?>(null) }
+    val hero = heroCards.firstOrNull { it.key == heroKey } ?: heroCards.firstOrNull()
     val list = rememberLazyListState()
     val scrolled by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 40 } }
     LaunchedEffect(hero?.key) { onFocusedCard(hero) }
@@ -502,14 +507,16 @@ fun HomeContent(
     // The row last focused, kept while away (a title's page, the player), to come back to.
     var lastRow by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
-    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready }
-    fun shelfPosition(id: String): Int {
+    val shelfPosition by rememberUpdatedState<(String) -> Int> { id ->
         // At the first shelf the hero stays visible. Other shelves go to the top of the list.
         val index = visible.indexOfFirst { it.spec.id == id }
-        return if (index < 0 || visible[index] === firstReady) 0 else index + if (hero != null) 1 else 0
+        if (index < 0 || visible[index] === firstReady) 0 else index + if (hero != null) 1 else 0
     }
-    LaunchedEffect(lastRow) {
-        lastRow?.let { list.animateScrollToItem(shelfPosition(it)) }
+    // Focus alone can move the scroll position without recomposing all the shelf definitions.
+    LaunchedEffect(list) {
+        snapshotFlow { lastRow }.collectLatest { id ->
+            if (id != null) list.animateScrollToItem(shelfPosition(id))
+        }
     }
     CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
@@ -538,7 +545,7 @@ fun HomeContent(
                                 else -> onOpen(card.item)
                             }
                         },
-                        onFocused = { focused = it },
+                        onFocused = { if (isFirst) heroKey = it.key },
                         onRetry = { onRetryRow(row.spec) },
                         firstCard = if (isFirst) firstCard else null,
                         rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
@@ -1017,8 +1024,11 @@ private fun RecommendedView(rows: List<org.arcmediaserver.android.data.Recommend
     }
     val list = rememberLazyListState()
     var focusedShelf by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(focusedShelf) {
-        focusedShelf?.takeIf { it < rows.size }?.let { list.animateScrollToItem(it) }
+    val rowCount by rememberUpdatedState(rows.size)
+    LaunchedEffect(list) {
+        snapshotFlow { focusedShelf }.collectLatest { index ->
+            if (index != null && index < rowCount) list.animateScrollToItem(index)
+        }
     }
     CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
         LazyColumn(state = list, contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
