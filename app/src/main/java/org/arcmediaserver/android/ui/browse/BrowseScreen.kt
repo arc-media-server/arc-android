@@ -216,7 +216,18 @@ fun BrowseScreen(
     var joining by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         // Home's whole-screen hero artwork sits behind the sidebar too.
-        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
+        // Only behind the first shelf: below it Home is the plain page, as a library's Recommended
+        // tab, so the art never belongs to a card that isn't focused and the lower shelves draw
+        // nothing behind them (on a Chromecast, Home ran at Recommended's speed without it).
+        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { item ->
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !homeScrolled,
+                enter = androidx.compose.animation.fadeIn(tween(HomeBackdropFadeMs)),
+                exit = androidx.compose.animation.fadeOut(tween(HomeBackdropFadeMs)),
+            ) {
+                org.arcmediaserver.android.ui.details.HeroBackdrop(item, dim = false)
+            }
+        }
         Loaded(state.frame, onRetry) { frame ->
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
@@ -461,8 +472,8 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
  * and overview over its artwork) with the profile's rows beneath, Continue Watching first, just
  * under it. Focus starts on the first card, and moving along a row changes the hero. The hero
  * has no buttons of its own: Select on a card opens its title (a play queue card plays on), and
- * holding Select gives its actions. Further down, the hero scrolls away over a dimmed copy of the
- * artwork. Empty rows are left out.
+ * holding Select gives its actions. Further down, the hero scrolls away and its artwork fades to
+ * the plain page. Empty rows are left out.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -472,7 +483,7 @@ fun HomeContent(
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
-    /** Whether the page has scrolled past the hero (the backdrop dims). */
+    /** Whether the page has scrolled past the hero (the backdrop fades out). */
     onScrolled: (Boolean) -> Unit = {},
     /** A Watch Together card: the room's choices. */
     onRoom: (String) -> Unit = {},
@@ -493,8 +504,7 @@ fun HomeContent(
         LoadingPane()
         return
     }
-    // Only the first shelf drives the hero. Keep its last backdrop behind the lower shelves
-    // so that moving focus across the dimmed page doesn't load and draw full-screen images.
+    // Only the first shelf drives the hero and its backdrop, which fades out below it.
     val firstReady = visible.firstOrNull { it.cards is LoadState.Ready }
     val heroCards = (firstReady?.cards as? LoadState.Ready)?.value.orEmpty()
     var heroKey by remember(firstReady?.spec?.id) { mutableStateOf<String?>(null) }
@@ -569,6 +579,9 @@ fun HomeContent(
         }
     }
 }
+
+/** How long Home's backdrop takes to fade out below the first shelf, and back in. */
+private const val HomeBackdropFadeMs = 300
 
 /** The hero's share of the screen: the first row's cards show in full just under it. */
 private const val HeroHeight = 0.6f
