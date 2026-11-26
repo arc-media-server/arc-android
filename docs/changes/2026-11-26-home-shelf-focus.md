@@ -43,7 +43,12 @@ rendering work while browsing.
   sidebar clock. The back-to-top shot (3 down, 3 up) on main ended on
   Arrival, the right-most Continue Watching card, though focus started on
   Oppenheimer. It now returns to Oppenheimer.
-- Not tried: a Chromecast run.
+- Chromecast with Google TV, the owner's script (Home: 3 down and 3 up,
+  twice; three trials), build 159 from this branch, still with the backdrop:
+  median 81–85 ms against main's 89–93 ms, janky frames 86% against 93–96%,
+  and about 180 frames drawn instead of 165. The backdrop (PR #71) is the
+  larger cost. Whether focus lands where expected on the TV is for the owner
+  to try by hand.
 
 [Back to top, before](2026-11-26-home-shelf-focus/back-to-top-before.jpg) ·
 [after](2026-11-26-home-shelf-focus/back-to-top-after.jpg)
