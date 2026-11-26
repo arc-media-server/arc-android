@@ -40,7 +40,19 @@ full-screen see-through layers on every frame.
   identical. The 11 dimmed ones (Home scrolled, title pages scrolled) differ
   by at most 1 colour level out of 255, which is blending round-off. Three
   differ only in the sidebar clock, which moved on a minute between runs.
-- Not tried yet: a Chromecast frame-timing run.
+- Chromecast with Google TV, the owner's script (Home: 3 down and 3 up,
+  twice, one-second pauses; three trials each), build 158 from this branch:
+
+  | Home | Median | P95 | Janky |
+  |---|---|---|---|
+  | 153 (main) | 89–93 ms | 150 ms | 93–96% |
+  | 155 (no backdrop) | 34–36 ms | 57–73 ms | 9–10% |
+  | 158 (this change) | 34–40 ms | 117–125 ms | 14–19% |
+
+  Home's median is now at the no-backdrop build's, and it draws about 250
+  frames for the sequence instead of 165. It still pays for drawing the saved
+  layer each frame: more frames at 48–61 ms than build 155, and a slower tail.
+  The Recommended tab was unchanged at 30 ms.
 
 [Home](2026-11-26-backdrop-layer/home.jpg) ·
 [Show page, dimmed](2026-11-26-backdrop-layer/show-dimmed.jpg)
