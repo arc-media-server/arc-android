@@ -53,6 +53,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -559,35 +560,50 @@ private fun PlayPill(label: String, modifier: Modifier = Modifier, progress: Flo
     }
 }
 
-/** The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled. */
+/**
+ * The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled.
+ *
+ * The artwork and its shading are kept as one offscreen layer, which Android draws once and then
+ * reuses until the artwork changes, so scrolling the page in front of it paints a single saved
+ * picture instead of the image and both fades every frame (on a Chromecast, Home's frames took
+ * about three times as long with the backdrop as without). Dimming fades that layer rather than
+ * painting the page colour over it: both callers draw it over the solid page, so the result is
+ * the same, and changing a layer's opacity doesn't repaint it.
+ */
 @Composable
 internal fun HeroBackdrop(item: Item, dim: Boolean) {
     val url = org.arcmediaserver.android.ui.browse.backdropOf(item)
     val resolve = org.arcmediaserver.android.ui.components.LocalImageUrl.current
-    val dimAlpha = androidx.compose.animation.core.animateFloatAsState(if (dim) 0.82f else 0f, label = "dim")
+    val dimAlpha = androidx.compose.animation.core.animateFloatAsState(if (dim) BackdropDim else 0f, label = "dim")
     Box(
-        Modifier.fillMaxSize().drawWithCache {
-            val bg = ArcColors.Background
-            val bottom = Brush.verticalGradient(
-                0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f),
-            )
-            val left = Brush.horizontalGradient(
-                0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent,
-            )
-            onDrawWithContent {
-                drawContent()
-                drawRect(bottom)
-                drawRect(left)
-                val alpha = dimAlpha.value
-                if (alpha > 0f) drawRect(bg.copy(alpha = alpha))
+        Modifier.fillMaxSize()
+            .graphicsLayer {
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                alpha = 1f - dimAlpha.value
             }
-        },
+            .drawWithCache {
+                val bg = ArcColors.Background
+                val bottom = Brush.verticalGradient(
+                    0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f),
+                )
+                val left = Brush.horizontalGradient(
+                    0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent,
+                )
+                onDrawWithContent {
+                    drawContent()
+                    drawRect(bottom)
+                    drawRect(left)
+                }
+            },
     ) {
         if (url != null) {
             coil3.compose.AsyncImage(model = resolve(url), contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
     }
 }
+
+/** How far the artwork dims once the page scrolls past the hero (the page colour's share). */
+internal const val BackdropDim = 0.82f
 
 /**
  * The About section at the foot of a title's page, as the Apple TV app's: an About card across the
