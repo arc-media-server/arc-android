@@ -40,6 +40,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -53,7 +54,10 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil3.BitmapImage
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.MediaCard
@@ -98,19 +102,39 @@ val ThumbWidth = 220.dp
  */
 @Composable
 fun Artwork(url: String?, label: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
-    val resolve = LocalImageUrl.current
-    Box(modifier.background(Brush.linearGradient(listOf(ArcColors.Surface3, ArcColors.Surface)))) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleSmall,
-            color = ArcColors.Muted,
-            textAlign = TextAlign.Center,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.Center).padding(12.dp),
-        )
-        if (url != null) {
-            AsyncImage(model = resolve(url), contentDescription = null, contentScale = contentScale, modifier = Modifier.fillMaxSize())
+    val resolved = url?.let(LocalImageUrl.current)
+    val context = LocalContext.current
+    val request = remember(resolved, context) {
+        resolved?.let { ImageRequest.Builder(context).data(it).crossfade(false).build() }
+    }
+    var opaque by remember(request) { mutableStateOf(false) }
+    val showPlaceholder = !opaque || contentScale != ContentScale.Crop
+    val placeholder = if (showPlaceholder) {
+        Modifier.background(Brush.linearGradient(listOf(ArcColors.Surface3, ArcColors.Surface)))
+    } else Modifier
+    Box(modifier.then(placeholder)) {
+        if (showPlaceholder && label.isNotEmpty()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                color = ArcColors.Muted,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.Center).padding(12.dp),
+            )
+        }
+        if (request != null) {
+            AsyncImage(
+                model = request,
+                contentDescription = label.takeIf { !showPlaceholder && it.isNotEmpty() },
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
+                onSuccess = {
+                    // Opaque artwork covers the placeholder. Transparent artwork still needs it.
+                    opaque = (it.result.image as? BitmapImage)?.bitmap?.hasAlpha() == false
+                },
+            )
         }
     }
 }

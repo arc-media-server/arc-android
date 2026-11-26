@@ -85,6 +85,34 @@ class BrowseLayoutTest {
     }
 
     @Test
+    fun `Home keeps the first shelf backdrop while navigating lower shelves`() {
+        val rows = (1..3).map { index ->
+            val cards = movies.map { cardFor(it.copy(id = "${it.id}-row-$index")) }
+            HomeRowState(
+                HomeRowSpec("row-$index", RowSource.Collection("$index", "Shelf $index"), CardStyle.Thumb),
+                LoadState.Ready(cards),
+            )
+        }
+        val shown = mutableListOf<String>()
+        compose.setContent {
+            ArcTheme {
+                HomeContent(rows, onOpen = {}, onRetryRow = {}, onFocusedCard = { it?.item?.id?.let(shown::add) })
+            }
+        }
+        settle()
+        press(Key.DirectionRight)
+        assertEquals("movie-2-row-1", shown.last())
+        val changes = shown.size
+        press(Key.DirectionDown)
+        assertTrue(bounds("Shelf 2").top < 120.dp)
+        press(Key.DirectionRight)
+        assertEquals(changes, shown.size)
+        press(Key.DirectionUp)
+        press(Key.DirectionLeft)
+        assertEquals("movie-1-row-1", shown.last())
+    }
+
+    @Test
     fun `Recommended shelves land at the same height in both directions`() {
         val rows = (1..4).map { index ->
             RecommendedRow(type = "custom", title = "Shelf $index", items = movies)

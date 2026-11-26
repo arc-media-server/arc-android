@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -563,15 +564,28 @@ private fun PlayPill(label: String, modifier: Modifier = Modifier, progress: Flo
 internal fun HeroBackdrop(item: Item, dim: Boolean) {
     val url = org.arcmediaserver.android.ui.browse.backdropOf(item)
     val resolve = org.arcmediaserver.android.ui.components.LocalImageUrl.current
-    val dimAlpha by androidx.compose.animation.core.animateFloatAsState(if (dim) 0.82f else 0f, label = "dim")
-    Box(Modifier.fillMaxSize()) {
+    val dimAlpha = androidx.compose.animation.core.animateFloatAsState(if (dim) 0.82f else 0f, label = "dim")
+    Box(
+        Modifier.fillMaxSize().drawWithCache {
+            val bg = ArcColors.Background
+            val bottom = Brush.verticalGradient(
+                0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f),
+            )
+            val left = Brush.horizontalGradient(
+                0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent,
+            )
+            onDrawWithContent {
+                drawContent()
+                drawRect(bottom)
+                drawRect(left)
+                val alpha = dimAlpha.value
+                if (alpha > 0f) drawRect(bg.copy(alpha = alpha))
+            }
+        },
+    ) {
         if (url != null) {
             coil3.compose.AsyncImage(model = resolve(url), contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
-        val bg = ArcColors.Background
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f))))
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(bg.copy(alpha = dimAlpha)))
     }
 }
 
