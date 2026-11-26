@@ -12,6 +12,7 @@ import org.arcmediaserver.android.ui.components.Shelf
 import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import org.arcmediaserver.android.ui.components.revealOnFocus
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
@@ -204,8 +205,6 @@ fun DetailsScreen(
                 }
                 if (item.isSeries) {
                     item {
-                        // Each episode reveals its full text. Don't pin the entire seasons block
-                        // to item 1: that competes with the focused card's bring-into-view request.
                         Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
                     }
                 }
@@ -306,10 +305,7 @@ fun DetailsScreen(
     LaunchedEffect(item.id) {
         if (initialPanel != DetailsPanel.None) return@LaunchedEffect
         // Opened from an episode's card: land on that episode in its show, as Plex does.
-        if (details.focus != null) {
-            page.scrollToItem(1)
-            if (episodeFocus.requestWhenReady()) return@LaunchedEffect
-        }
+        if (details.focus != null && episodeFocus.requestWhenReady()) return@LaunchedEffect
         primary.requestWhenReady()
     }
 }
@@ -680,12 +676,15 @@ private fun Seasons(
     }
     // Show Missing Episodes can add or drop seasons, so the tab starts again (on the season kept).
     var selected by rememberSaveable(details.item.id, details.missing) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
-    // Coming to the tabs shows the season's episodes too, not just the tabs (as Plex): the page
-    // scrolls the whole block into view. A frame later, so the tab's own (smaller) request is
-    // already on its way and this one, newer, wins.
+    // Reveal the same block whether focus enters through a season tab or a linked episode.
+    // Wait a frame so the focusable child's smaller request starts first.
     val block = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    Column(Modifier.bringIntoViewRequester(block).padding(top = 24.dp)) {
+    Column(
+        Modifier.bringIntoViewRequester(block).onFocusChanged {
+            if (it.hasFocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; block.bringIntoView() }
+        }.focusGroup().padding(top = 24.dp),
+    ) {
         val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
         val unplacedTab = selected >= details.seasons.size
         val episodes = if (unplacedTab) details.unplaced else details.seasons[selected].episodes
@@ -695,7 +694,6 @@ private fun Seasons(
         // has no menu.
         var tabBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
         Row(
-            Modifier.onFocusChanged { if (it.hasFocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; block.bringIntoView() } },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PillTabs(

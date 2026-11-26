@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.screenshots
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.foundation.layout.padding
@@ -254,6 +255,13 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeShelfScrolledRight() = shot("home-shelf-scrolled-right", keys = List(6) { Key.DirectionRight }) {
+        val cards = (Fixtures.movies + Fixtures.moreMovies).map { org.arcmediaserver.android.data.cardFor(it) }
+        val row = Fixtures.homeRows.first().copy(cards = LoadState.Ready(cards))
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = listOf(row)))
+    }
+
+    @Test
     fun cardMenuOnContinue() = shot("card-menu-continue") {
         // A card on Home's Continue Watching row: its menu offers Remove from Continue Watching.
         Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {
@@ -413,6 +421,21 @@ class ScreenshotTest {
                         ),
                     ),
                 ),
+            ),
+        )
+    }
+
+    @Test
+    fun recommendedShelfScrolledRight() = shot("recommended-shelf-scrolled-right", keys = List(6) { Key.DirectionRight }) {
+        val movies = Fixtures.movies + Fixtures.moreMovies
+        val row = org.arcmediaserver.android.data.RecommendedRow(type = "continue", style = "arc", items = movies)
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], movies)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
+                libraryExtras = libraryExtras.copy(recommended = LoadState.Ready(listOf(row))),
             ),
         )
     }

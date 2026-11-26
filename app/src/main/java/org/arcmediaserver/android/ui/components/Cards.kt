@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -327,17 +328,25 @@ fun MediaCardView(
 /**
  * A titled row of cards (search results, a title's cast and related rows): the heading, then a
  * row that leaves room for the focused card to grow. [start] lines it up with the screen's text.
+ * [leadingInset] moves the start of the scrolling viewport into that clearance.
  */
 @Composable
-fun Shelf(title: String, start: Dp = 48.dp, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    Column {
+fun Shelf(
+    title: String,
+    start: Dp = 48.dp,
+    modifier: Modifier = Modifier,
+    leadingInset: Dp = 0.dp,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
+) {
+    Column(modifier) {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = start, bottom = 8.dp))
         // Scrolling keeps the row's own start beside the card it brings in, so coming back to the
         // first card puts it where it began.
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start)) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start - leadingInset, after = start)) {
             androidx.compose.foundation.lazy.LazyRow(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = start, vertical = 10.dp),
+                modifier = if (leadingInset > 0.dp) Modifier.padding(start = leadingInset).clipToBounds() else Modifier,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = start - leadingInset, end = start, top = 10.dp, bottom = 10.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
                 content = content,
             )
