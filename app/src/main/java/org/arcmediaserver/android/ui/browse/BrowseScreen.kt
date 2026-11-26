@@ -24,7 +24,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import org.arcmediaserver.android.ui.components.rowsBringIntoView
@@ -507,6 +508,9 @@ fun HomeContent(
     // The row last focused, kept while away (a title's page, the player), to come back to.
     var lastRow by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
+    // Each shelf's last focused card (shelf id to card key), kept while the shelf is scrolled
+    // away and while away from Home, so coming back to a shelf lands where it was left.
+    val lastCard = androidx.compose.runtime.saveable.rememberSaveable { HashMap<String, String>() }
     val shelfPosition by rememberUpdatedState<(String) -> Int> { id ->
         // At the first shelf the hero stays visible. Other shelves go to the top of the list.
         val index = visible.indexOfFirst { it.spec.id == id }
@@ -545,7 +549,11 @@ fun HomeContent(
                                 else -> onOpen(card.item)
                             }
                         },
-                        onFocused = { if (isFirst) heroKey = it.key },
+                        onFocused = {
+                            lastCard[row.spec.id] = it.key
+                            if (isFirst) heroKey = it.key
+                        },
+                        lastCard = { lastCard[row.spec.id] },
                         onRetry = { onRetryRow(row.spec) },
                         firstCard = if (isFirst) firstCard else null,
                         rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
@@ -726,7 +734,16 @@ fun runtimeText(minutes: Int): String =
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
+private fun HomeRow(
+    row: HomeRowState,
+    onOpen: (MediaCard) -> Unit,
+    onFocused: (MediaCard) -> Unit,
+    onRetry: () -> Unit,
+    firstCard: FocusRequester?,
+    rowFocus: FocusRequester,
+    /** The key of the card last focused in this shelf, or null before it has been visited. */
+    lastCard: () -> String? = { null },
+) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -740,9 +757,25 @@ private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (
             is LoadState.Ready -> CompositionLocalProvider(
                 LocalBringIntoViewSpec provides minimalBringIntoView(ShelfPadding - ShelfInset, after = ShelfPadding),
                 org.arcmediaserver.android.ui.components.LocalInContinueRow provides (row.spec.source is RowSource.Continue),
-            ) { LazyRow(
-                // Focusing the row returns to the card last focused in it (or its first).
-                modifier = Modifier.padding(start = ShelfInset).clipToBounds().focusRequester(rowFocus).focusRestorer(),
+            ) {
+                val shelf = androidx.compose.foundation.lazy.rememberLazyListState()
+                val cardFocus = remember(row.spec.id) { HashMap<String, FocusRequester>() }
+                LazyRow(
+                state = shelf,
+                // Entering the shelf, from above, below or coming back, lands on the card last
+                // focused in it, or its first on a first visit, as Plex's and Leanback's rows.
+                // Compose's own choice is the card nearest the one left (a different card when
+                // the shelves' card widths differ, and the right-most when moving up), and its
+                // focusRestorer forgets once the shelf has scrolled off screen.
+                modifier = Modifier.padding(start = ShelfInset).clipToBounds().focusRequester(rowFocus)
+                    .focusProperties {
+                        onEnter = {
+                            val visible = shelf.layoutInfo.visibleItemsInfo.map { it.key }
+                            val target = lastCard()?.takeIf { it in visible } ?: cards.value.firstOrNull()?.key?.takeIf { it in visible } ?: visible.firstOrNull() as? String
+                            if (target != null) cardFocus[target]?.requestFocus()
+                        }
+                    }
+                    .focusGroup(),
                 contentPadding = PaddingValues(start = ShelfPadding - ShelfInset, end = ShelfPadding, top = 14.dp, bottom = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
@@ -756,7 +789,8 @@ private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (
                         seasonPoster = row.spec.seasonPosters,
                         width = when (style) { CardStyle.Thumb -> HomeThumbWidth; CardStyle.Backdrop -> HomeBackdropWidth; CardStyle.Poster -> HomePosterWidth },
                         onClick = { onOpen(card) },
-                        modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
+                        modifier = (if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod)
+                            .focusRequester(cardFocus.getOrPut(card.key) { FocusRequester() }),
                     )
                 }
             } }
