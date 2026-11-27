@@ -115,6 +115,40 @@ class BackdropShade(background: Color) : Transformation() {
 }
 
 /**
+ * A card's picture darkened towards the bottom (from [from] of the way down to [darkness] black at
+ * the foot), drawn into it once when it loads, off the main thread, so the title or logo over it
+ * reads; drawn over it on screen, it was a half-card gradient blended on every frame. Shaded in the
+ * picture's own space: cards crop their (wider) pictures at the sides, so it lands the same.
+ */
+class BottomShade(private val from: Float = 0.5f, private val darkness: Float = 0.7f) : Transformation() {
+    override val cacheKey: String = "bottom-shade-1-$from-$darkness"
+
+    override suspend fun transform(input: Bitmap, size: Size): Bitmap {
+        val opaque = !input.hasAlpha()
+        val out = input.copy(Bitmap.Config.ARGB_8888, true)
+        val h = out.height.toFloat()
+        Canvas(out).drawRect(
+            0f, h * from, out.width.toFloat(), h,
+            Paint().apply {
+                shader = LinearGradient(0f, h * from, 0f, h, Color.Transparent.toArgb(), Color.Black.copy(alpha = darkness).toArgb(), Shader.TileMode.CLAMP)
+            },
+        )
+        // Still opaque, so the card's placeholder under it can go (Artwork checks).
+        if (opaque) out.setHasAlpha(false)
+        val onGpu = runCatching { out.copy(Bitmap.Config.HARDWARE, false) }.getOrNull()
+        return if (onGpu != null) {
+            out.recycle()
+            onGpu
+        } else {
+            out
+        }
+    }
+
+    override fun equals(other: Any?) = other is BottomShade && other.from == from && other.darkness == darkness
+    override fun hashCode() = 31 * from.hashCode() + darkness.hashCode()
+}
+
+/**
  * How many backdrops on screen are opaque and fill it, so Arc's root doesn't paint the page
  * colour underneath (on a Chromecast with Google TV every whole-screen fill costs frame time).
  * Null outside the app's root (tests, previews): nothing is reported.

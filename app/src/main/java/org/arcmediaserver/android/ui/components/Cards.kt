@@ -58,6 +58,7 @@ import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.transformations
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.MediaCard
@@ -101,11 +102,22 @@ val ThumbWidth = 220.dp
  * for titles Arc couldn't identify (no artwork) and while the picture loads.
  */
 @Composable
-fun Artwork(url: String?, label: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+fun Artwork(
+    url: String?,
+    label: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    /** Darkened towards the bottom for text over it: drawn into the picture ([BottomShade]). */
+    shadeBottom: Boolean = false,
+) {
     val resolved = url?.let(LocalImageUrl.current)
     val context = LocalContext.current
-    val request = remember(resolved, context) {
-        resolved?.let { ImageRequest.Builder(context).data(it).crossfade(false).build() }
+    val request = remember(resolved, context, shadeBottom) {
+        resolved?.let {
+            ImageRequest.Builder(context).data(it).crossfade(false)
+                .apply { if (shadeBottom) transformations(BottomShade()) }
+                .build()
+        }
     }
     var opaque by remember(request) { mutableStateOf(false) }
     val showPlaceholder = !opaque || contentScale != ContentScale.Crop
@@ -136,6 +148,10 @@ fun Artwork(url: String?, label: String, modifier: Modifier = Modifier, contentS
                 },
             )
         }
+        // Until a shaded picture covers it, the placeholder gets the same shading.
+        if (shadeBottom && showPlaceholder) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
+        }
     }
 }
 
@@ -159,7 +175,9 @@ fun FocusCard(
         scale = CardDefaults.scale(focusedScale = 1.08f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, ArcColors.Foreground), shape = CardShape)),
         glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = Color.Black.copy(alpha = 0.55f), elevation = 18.dp)),
-        colors = CardDefaults.colors(containerColor = ArcColors.Surface, focusedContainerColor = ArcColors.Surface),
+        // No fill of its own: every card's artwork (or its placeholder) covers the whole card, and
+        // on a Chromecast every card painted twice costs frame time.
+        colors = CardDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
     ) {
         Box(Modifier.fillMaxWidth()) { content() }
     }
@@ -173,9 +191,9 @@ fun FocusCard(
 private fun BackdropArt(card: MediaCard) {
     val title = cardTitle(card)
     Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
-        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize())
-        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
+        // Darkened towards the bottom for the logo, drawn into the picture once.
+        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize(), shadeBottom = true)
+        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize(), shadeBottom = true)
         var failed by remember(card.logo) { mutableStateOf(false) }
         val logo = card.logo
         val place = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
