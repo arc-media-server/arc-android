@@ -149,7 +149,13 @@ data class Item(
     val extras: List<Extra> = emptyList(),
     /** The collections it's in, each shown as a row on its page. */
     val collections: List<CollectionRef> = emptyList(),
+    /** The named cut of a movie, when the server distinguishes its editions. */
+    val edition: String? = null,
 ) {
+    val yearAndEdition: String?
+        get() = listOfNotNull(year?.toString(), edition?.takeIf { kind == "movie" && it.isNotBlank() })
+            .joinToString(" · ").takeIf { it.isNotEmpty() }
+
     val isEpisode get() = kind == "episode"
     val isSeries get() = kind == "series"
     /** A movie, an episode or a show (its episodes): what a play queue takes. */

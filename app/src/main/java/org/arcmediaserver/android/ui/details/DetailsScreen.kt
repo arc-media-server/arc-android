@@ -390,7 +390,7 @@ private fun Header(
             if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
             val unwatched = item.unwatchedCount ?: 0
             val meta = listOfNotNull(
-                item.year?.toString()?.takeIf { !item.isEpisode },
+                item.yearAndEdition?.takeIf { !item.isEpisode },
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },

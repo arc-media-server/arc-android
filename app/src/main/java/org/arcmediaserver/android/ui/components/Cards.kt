@@ -250,7 +250,7 @@ fun cardSubtitle(card: MediaCard): String? {
         card.seasonNumber != null -> stringResource(R.string.season_number, card.seasonNumber)
         card.newEpisodes > 0 -> pluralStringResource(R.plurals.new_episodes, card.newEpisodes, card.newEpisodes)
         item.isEpisode -> episodeCode(item)
-        else -> item.year?.toString()
+        else -> item.yearAndEdition
     }
 }
 
