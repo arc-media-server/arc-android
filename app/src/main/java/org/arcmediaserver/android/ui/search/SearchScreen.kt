@@ -139,7 +139,7 @@ private fun SearchField(state: SearchUiState, onType: (String) -> Unit, modifier
                 Icon(ArcIcons.Search, contentDescription = null, tint = if (focused) Color(0xFF444444) else ArcColors.Muted, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(14.dp))
                 Box(Modifier.weight(1f)) {
-                    if (state.text.isEmpty()) Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.titleLarge, color = if (focused) Color(0xFF777777) else ArcColors.Subtle)
+                    if (state.text.isEmpty()) Text(stringResource(R.string.search_placeholder), style = MaterialTheme.typography.titleLarge, color = if (focused) ArcColors.SubtleOnLight else ArcColors.Subtle)
                     inner()
                 }
                 if (state.searching) Spinner(size = 22.dp)
