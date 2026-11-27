@@ -30,6 +30,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import org.arcmediaserver.android.ui.components.rowsBringIntoView
 import org.arcmediaserver.android.ui.components.ScrollByShelf
+import org.arcmediaserver.android.ui.components.footScrollPage
+import org.arcmediaserver.android.ui.components.landsAtFoot
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -528,14 +530,11 @@ fun HomeContent(
         val index = visible.indexOfFirst { it.spec.id == id }
         if (index < 0 || visible[index] === firstReady) 0 else index + if (hero != null) 1 else 0
     }
-    // Focus alone can move the scroll position without recomposing all the shelf definitions.
-    LaunchedEffect(list) {
-        snapshotFlow { lastRow }.collectLatest { id ->
-            if (id != null) list.animateScrollToItem(shelfPosition(id))
-        }
-    }
+    // The focused shelf lands at the foot of the screen, moving down or back up, with the shelves
+    // above it in view (as arc-kodi's Home); the first shelf keeps the hero above it.
+    val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(list, gap = 36.dp)
     CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
-        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize().footScrollPage(foot), contentPadding = PaddingValues(bottom = 36.dp)) {
             if (hero != null) {
                 item(key = "hero") {
                     Box(Modifier.fillParentMaxHeight(HeroHeight).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
@@ -546,7 +545,7 @@ fun HomeContent(
             items(visible, key = { it.spec.id }) { row ->
                 val isFirst = row === firstReady
                 Box(
-                    Modifier.padding(top = 4.dp).onFocusChanged {
+                    Modifier.landsAtFoot(foot, toTop = isFirst).padding(top = 4.dp).onFocusChanged {
                         if (it.hasFocus) lastRow = row.spec.id
                     },
                 ) {
@@ -1081,21 +1080,16 @@ private fun RecommendedView(rows: List<org.arcmediaserver.android.data.Recommend
         return
     }
     val list = rememberLazyListState()
-    var focusedShelf by remember { mutableStateOf<Int?>(null) }
-    val rowCount by rememberUpdatedState(rows.size)
-    LaunchedEffect(list) {
-        snapshotFlow { focusedShelf }.collectLatest { index ->
-            if (index != null && index < rowCount) list.animateScrollToItem(index)
-        }
-    }
+    // As Home: the focused row lands at the foot of the screen, moving down or back up.
+    val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(list, gap = 32.dp)
     CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
-        LazyColumn(state = list, contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        LazyColumn(state = list, modifier = Modifier.footScrollPage(foot), contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             itemsIndexed(rows, key = { i, r -> "$i:${r.type}:${r.name}:${r.genre}" }) { index, row ->
                 val episodes = row.items.any { it.isEpisode }
                 val style = row.style.ifEmpty { if (row.type == "continue" || episodes) "thumb" else "poster" }
                 Shelf(
                     recommendedTitle(row, library),
-                    modifier = Modifier.onFocusChanged { if (it.hasFocus) focusedShelf = index },
+                    modifier = Modifier.landsAtFoot(foot, toTop = index == 0),
                     leadingInset = ShelfInset,
                 ) {
                     itemsIndexed(row.items, key = { _, it -> it.id }) { i, item ->

@@ -366,14 +366,17 @@ fun Shelf(
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = start, bottom = 8.dp))
         // Scrolling keeps the row's own start beside the card it brings in, so coming back to the
         // first card puts it where it began.
+        // Entering the row lands on the card last used in it, or its first (RowFocus).
+        val row = androidx.compose.foundation.lazy.rememberLazyListState()
+        val focus = rememberRowFocus(row)
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start - leadingInset, after = start)) {
             androidx.compose.foundation.lazy.LazyRow(
-                modifier = if (leadingInset > 0.dp) Modifier.padding(start = leadingInset).clipToBounds() else Modifier,
+                state = row,
+                modifier = (if (leadingInset > 0.dp) Modifier.padding(start = leadingInset).clipToBounds() else Modifier).then(focus.modifier()),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(start = start - leadingInset, end = start, top = 10.dp, bottom = 10.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
-                content = content,
-            )
+            ) { focus.wrap(this).content() }
         }
     }
 }
