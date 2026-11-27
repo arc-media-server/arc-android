@@ -46,6 +46,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -428,6 +431,7 @@ private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.
  * along them switches what's shown, as Google TV's tabs do. [onClick] is OK on a tab (a season's
  * menu); [selectedTab] goes on the selected tab (to return the focus to it, or to place a menu).
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PillTabs(
     labels: List<String>,
@@ -436,10 +440,36 @@ fun PillTabs(
     modifier: Modifier = Modifier,
     onClick: ((Int) -> Unit)? = null,
     selectedTab: Modifier = Modifier,
+    /** Space before the first pill, inside the scrolling row (so pills scroll under it, not clipped at it). */
+    start: Dp = 0.dp,
+    /** Space after the last pill, inside the scrolling row. */
+    end: Dp = 0.dp,
 ) {
     // Standalone header-style pills: no holder, 10dp between pills (owner, server #499).
     // One focus group, so a focusRestorer in [modifier] decides which pill focus enters on.
-    Row(modifier.focusGroup().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // More pills than fit (a show with many seasons) scroll sideways, as far as the focused one
+    // needs; before, the ones past the edge were squeezed to nothing, and focus moving onto one
+    // couldn't find its way back up.
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start, after = end),
+    ) {
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    // The space after the last pill only when they scroll: otherwise the row ends at its last
+    // pill, so whatever follows it (a season's warning) sits right after.
+    val endSpace = if (scroll.maxValue > 0) end else 0.dp
+    // The scrolling area reaches a little past the row on both sides (the pills stay where they
+    // were), so a focused pill, drawn a little larger, isn't clipped at the row's ends.
+    val slack = 8.dp
+    Row(
+        modifier.focusGroup().selectableGroup()
+            .layout { measurable, constraints ->
+                val px = slack.roundToPx()
+                val placeable = measurable.measure(constraints.offset(horizontal = 2 * px))
+                layout((placeable.width - 2 * px).coerceAtLeast(0), placeable.height) { placeable.place(-px, 0) }
+            }
+            .horizontalScroll(scroll).padding(start = start + slack, end = endSpace + slack),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         labels.forEachIndexed { i, label ->
             val chosen = i == selected
             androidx.tv.material3.Button(
@@ -460,5 +490,6 @@ fun PillTabs(
                 Text(label, style = MaterialTheme.typography.labelLarge)
             }
         }
+    }
     }
 }

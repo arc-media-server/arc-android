@@ -799,7 +799,9 @@ private fun Seasons(
                 labels, selected, onSelect = { selected = it },
                 // Coming into the tabs (Down from Play, Up from the episodes) lands on the season
                 // shown, not whichever tab is nearest: landing on a tab switches season.
-                modifier = Modifier.padding(start = PageStart - 8.dp).focusRestorer(seasonTab),
+                modifier = Modifier.weight(1f, fill = false).focusRestorer(seasonTab),
+                start = PageStart - 8.dp,
+                end = 48.dp,
                 onClick = { i -> details.seasons.getOrNull(i)?.let { onSeasonMenu(it, tabBounds) } },
                 selectedTab = Modifier.focusRequester(seasonTab).onGloballyPositioned { tabBounds = it.boundsInRoot() },
             )

@@ -542,6 +542,13 @@ class ScreenshotTest {
     }
 
     @Test
+    fun showManySeasons() = shot("show-many-seasons", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown) + List(13) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // More seasons than fit: the tabs scroll sideways to the one focused.
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        DetailsScreen(Details(Fixtures.show, seasons, next = seasons[0].episodes[2]), onPlay = { _: Item, _: Long -> }, onOpen = {})
+    }
+
+    @Test
     fun showMissingEpisodes() = shot("show-missing-episodes", keys = List(2) { androidx.compose.ui.input.key.Key.DirectionDown } + List(2) { androidx.compose.ui.input.key.Key.DirectionRight }) {
         // Show Missing Episodes on: Season 2's last episodes have no file, dimmed and "Not on disk".
         val season = Fixtures.seasons[1].let { s ->
