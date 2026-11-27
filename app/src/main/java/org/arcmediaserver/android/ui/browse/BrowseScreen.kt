@@ -610,7 +610,7 @@ private fun HomeHero(card: MediaCard) {
                 Spacer(Modifier.height(10.dp))
                 val meta = listOfNotNull(
                     if (item.isEpisode) episodeWithTitle(item) else null,
-                    item.year?.toString()?.takeIf { !item.isEpisode },
+                    item.yearAndEdition?.takeIf { !item.isEpisode },
                     item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                     item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
                 ).filter { it.isNotBlank() }
@@ -678,7 +678,7 @@ private fun Overview(card: MediaCard) {
             item,
             listOfNotNull(
                 if (item.isEpisode) episodeWithTitle(item) else null,
-                item.year?.toString()?.takeIf { !item.isEpisode },
+                item.yearAndEdition?.takeIf { !item.isEpisode },
                 item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                 item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
