@@ -24,7 +24,10 @@ object ArcColors {
     val Surface3 = Color(0xFF2A2A35)
     val Foreground = Color(0xFFF5F5F7)
     val Muted = Color(0xFFA1A1AD)
-    val Subtle = Color(0xFF6B6B78)
+    // The faintest text (hints, placeholders): at least 4.5:1 on every surface, as Google's TV guidance asks.
+    val Subtle = Color(0xFF92929F)
+    /** A placeholder in a focused (white) field: 4.8:1 on Foreground. */
+    val SubtleOnLight = Color(0xFF6B6B78)
     // Owner-confirmed TV controls (server #499).
     val Pill = Color.White.copy(alpha = 0.10f)
     val SelectedPill = Color.White.copy(alpha = 0.18f)
@@ -88,6 +91,8 @@ private val typography = Typography(
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
     labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
     labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    // Material's default is 11sp; nothing on a TV goes below 12sp (Google's TV typography).
+    labelSmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
 )
 
 @Composable

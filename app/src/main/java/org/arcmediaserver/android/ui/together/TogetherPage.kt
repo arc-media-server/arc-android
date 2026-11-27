@@ -172,7 +172,7 @@ private fun JoinWithCode(container: AppContainer, modifier: Modifier = Modifier,
                         Modifier.clip(RoundedCornerShape(50)).background(if (focused) Color.White else Color.White.copy(alpha = 0.1f))
                             .padding(horizontal = 22.dp, vertical = 12.dp),
                     ) {
-                        if (code.isEmpty()) Text(stringResource(R.string.together_code_placeholder), style = MaterialTheme.typography.titleLarge, color = if (focused) Color(0xFF777777) else ArcColors.Subtle)
+                        if (code.isEmpty()) Text(stringResource(R.string.together_code_placeholder), style = MaterialTheme.typography.titleLarge, color = if (focused) ArcColors.SubtleOnLight else ArcColors.Subtle)
                         inner()
                     }
                 },
