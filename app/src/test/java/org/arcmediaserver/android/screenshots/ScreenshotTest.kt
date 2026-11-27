@@ -997,6 +997,22 @@ class ScreenshotTest {
         }
     }
 
+    @Test
+    fun playerQualityMenu() = shot("player-menu-quality") {
+        // Automatic after it has stepped down: its row says what it plays at now, and the menu explains it.
+        playerOver("art:still:Breaking Bad") {
+            val state = osdState().copy(quality = -1, automaticKbps = 4000)
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Quality,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Quality, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
     /** Text subtitles on, shown 1.5 s later (or [offsetMs]) than the file has them. */
     private fun timedState(offsetMs: Long = 1_500L) = osdState().let { s ->
         val track = s.plan!!.subtitleTracks.first()

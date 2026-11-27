@@ -664,9 +664,14 @@ internal fun PlayerMenuPanel(
                         cap > 0 -> stringResource(R.string.player_maximum_capped, qualityName(cap))
                         else -> stringResource(R.string.player_original)
                     }
-                    Option(name, null, q == state.quality) { onQuality(q) }
+                    // Automatic shows what it's playing at now, once it has stepped down.
+                    val detail = if (q == -1 && state.quality == -1 && state.automaticKbps > 0) stringResource(R.string.player_automatic_now, qualityName(state.automaticKbps)) else null
+                    Option(name, detail, q == state.quality) { onQuality(q) }
                 }
-                if (cap > 0) body = stringResource(R.string.player_away_limit, qualityName(cap))
+                body = listOfNotNull(
+                    stringResource(R.string.player_automatic_hint).takeIf { state.quality == -1 },
+                    stringResource(R.string.player_away_limit, qualityName(cap)).takeIf { cap > 0 },
+                ).joinToString(" ").ifBlank { null }
             }
             PlayerMenu.Chapters -> {
                 title = stringResource(R.string.player_chapters)
