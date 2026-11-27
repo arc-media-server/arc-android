@@ -58,7 +58,7 @@ class CardMenuHoldTest {
             }
             CompositionLocalProvider(
                 LocalInspectionMode provides true,
-                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.art(request.data.toString()).asImage() },
+                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.image(request) },
                 LocalCardMenu provides menu,
             ) {
                 ArcTheme {

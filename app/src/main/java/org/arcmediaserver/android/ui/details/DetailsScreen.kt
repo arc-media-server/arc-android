@@ -38,6 +38,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import coil3.request.crossfade
+import coil3.request.transformations
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalInspectionMode
 import org.arcmediaserver.android.ui.components.landsAtFoot
 import org.arcmediaserver.android.ui.components.footScrollPage
@@ -193,8 +196,11 @@ fun DetailsScreen(
     // A season's menu (OK on its tab): its number and where its tab is.
     var seasonMenu by remember { mutableStateOf<Pair<Int, androidx.compose.ui.geometry.Rect?>?>(null) }
     val seasonTab = remember { FocusRequester() }
-    Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        HeroBackdrop(item, scrolled)
+    // The page colour is painted only while the backdrop doesn't fill the screen (loading, fading,
+    // dimmed or none): under an opaque backdrop it's a whole-screen fill nobody sees.
+    val covered = remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().drawBehind { if (!covered.value) drawRect(ArcColors.Background) }) {
+        HeroBackdrop(item, scrolled, covered = covered)
         val scope = rememberCoroutineScope()
         // The header always shows whole (as Plex), and below it the focused row lands at the foot
         // of the screen, moving down or back up, with the rows above in view (as arc-kodi's title
@@ -570,21 +576,19 @@ private fun PlayPill(label: String, modifier: Modifier = Modifier, progress: Flo
 /**
  * The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled.
  *
- * The artwork and its shading are kept as one offscreen layer, which Android draws once and then
- * reuses until the artwork changes, so scrolling the page in front of it paints a single saved
- * picture instead of the image and both fades every frame (on a Chromecast, Home's frames took
- * about three times as long with the backdrop as without). Dimming fades that layer rather than
- * painting the page colour over it: both callers draw it over the solid page, so the result is
- * the same, and changing a layer's opacity doesn't repaint it.
+ * Each picture comes with its shading already drawn into it ([BackdropShade], once, off the main
+ * thread), so it's one opaque picture: drawing it is a single pass, with no saved layer to keep
+ * or repaint. A new picture fades in over the last by its alpha, and dimming fades the whole
+ * backdrop: both draw over the solid page, so the result matches painting the page colour over it.
+ *
+ * While it fills the screen opaquely ([whole]: no fade of the caller's own running; not dimmed;
+ * its picture loaded and fully in), it says so through [covered] and [LocalBackdropCover], so
+ * nothing paints the page colour beneath it.
  */
 @Composable
-internal fun HeroBackdrop(item: Item, dim: Boolean) {
+internal fun HeroBackdrop(item: Item, dim: Boolean, whole: Boolean = true, covered: MutableState<Boolean>? = null) {
     val url = org.arcmediaserver.android.ui.browse.backdropOf(item)?.let(org.arcmediaserver.android.ui.components.LocalImageUrl.current)
     val dimAlpha = androidx.compose.animation.core.animateFloatAsState(if (dim) BackdropDim else 0f, label = "dim")
-    // Each picture is drawn once, with its shading, into a layer of its own; a new one fades in over
-    // the last by that layer's alpha, so a fade only blends two finished layers. Fading the pictures
-    // themselves redrew the whole layer every frame: on a Chromecast with Google TV, 40–80 ms of GPU
-    // time per frame each time Home's focus moved along the first shelf.
     // A plain list changed only here and when a fade ends (which bumps [changed]), so composing it
     // never writes back to state it has just read.
     val layers = remember { ArrayList<BackdropLayer>() }
@@ -598,7 +602,29 @@ internal fun HeroBackdrop(item: Item, dim: Boolean) {
         if (shown != null) layers += shown
         if (url != null) layers += BackdropLayer(url, androidx.compose.animation.core.Animatable(if (shown == null && inspecting) 1f else 0f))
     }
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - dimAlpha.value }) {
+    val bottom = layers.firstOrNull()
+    // Read while drawing and fading, so composition hears only when it flips.
+    val covering by remember(bottom, whole) {
+        androidx.compose.runtime.derivedStateOf { whole && bottom != null && bottom.loaded && bottom.alpha.value >= 1f && dimAlpha.value == 0f }
+    }
+    val cover = org.arcmediaserver.android.ui.components.LocalBackdropCover.current
+    val isCovering = covering
+    if (covered != null) LaunchedEffect(isCovering) { covered.value = isCovering }
+    if (cover != null && isCovering) {
+        androidx.compose.runtime.DisposableEffect(cover) {
+            cover.count++
+            onDispose { cover.count-- }
+        }
+    }
+    // One picture: its alpha and the dimming multiply straight onto it. Two (a fade): the pair is
+    // dimmed together, which needs a layer, so the lower one doesn't show through the upper.
+    val single = layers.size <= 1
+    Box(
+        Modifier.fillMaxSize().graphicsLayer {
+            alpha = 1f - dimAlpha.value
+            compositingStrategy = if (single) androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha else androidx.compose.ui.graphics.CompositingStrategy.Auto
+        },
+    ) {
         for (layer in layers.toList()) {
             androidx.compose.runtime.key(layer.url) {
                 BackdropPicture(layer, onShown = {
@@ -614,48 +640,33 @@ internal fun HeroBackdrop(item: Item, dim: Boolean) {
     }
 }
 
-/** One backdrop picture and how far it has faded in. */
-private class BackdropLayer(val url: String, val alpha: androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>)
+/** One backdrop picture, whether it has loaded, and how far it has faded in. */
+private class BackdropLayer(val url: String, val alpha: androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>) {
+    var loaded by mutableStateOf(false)
+}
 
 @Composable
 private fun BackdropPicture(layer: BackdropLayer, onShown: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var loaded by remember { mutableStateOf(false) }
-    LaunchedEffect(loaded) {
-        if (!loaded) return@LaunchedEffect
+    LaunchedEffect(layer.loaded) {
+        if (!layer.loaded) return@LaunchedEffect
         layer.alpha.animateTo(1f, androidx.compose.animation.core.tween(BackdropFadeMs))
         onShown()
     }
-    Box(
-        Modifier.fillMaxSize()
-            .graphicsLayer {
-                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
-                alpha = layer.alpha.value
-            }
-            .drawWithCache {
-                val bg = ArcColors.Background
-                val bottom = Brush.verticalGradient(
-                    0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f),
-                )
-                val left = Brush.horizontalGradient(
-                    0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent,
-                )
-                onDrawWithContent {
-                    drawContent()
-                    drawRect(bottom)
-                    drawRect(left)
-                }
-            },
-    ) {
-        coil3.compose.AsyncImage(
-            // No crossfade of its own: the layer fades instead.
-            model = remember(layer.url) { coil3.request.ImageRequest.Builder(context).data(layer.url).crossfade(false).build() },
-            contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            onSuccess = { loaded = true },
-            modifier = Modifier.fillMaxSize(),
-        )
-    }
+    coil3.compose.AsyncImage(
+        // No crossfade of its own: the picture's alpha fades instead.
+        model = remember(layer.url) {
+            coil3.request.ImageRequest.Builder(context).data(layer.url).crossfade(false)
+                .transformations(org.arcmediaserver.android.ui.components.BackdropShade(ArcColors.Background)).build()
+        },
+        contentDescription = null,
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        onSuccess = { layer.loaded = true },
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            alpha = layer.alpha.value
+            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+        },
+    )
 }
 
 private const val BackdropFadeMs = 250

@@ -4,7 +4,18 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import org.arcmediaserver.android.ui.components.BackdropCover
+import org.arcmediaserver.android.ui.components.LocalBackdropCover
+import org.arcmediaserver.android.ui.theme.ArcColors
 import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.ui.ArcNavHost
 import org.arcmediaserver.android.watchnext.DeepLink
@@ -22,7 +33,21 @@ class MainActivity : ComponentActivity() {
             // Android can restore a task's navigation after process death. That is a fresh
             // launch, while recreation in this process and returning from Home keep their state.
             key(processNavigationKey) {
-                ArcTheme { ArcNavHost() }
+                ArcTheme {
+                    // The page colour is painted here, once, and not where an opaque backdrop
+                    // fills the screen; the window's own background (the same colour, shown while
+                    // Arc starts) goes after the first frame, so it isn't painted under this too.
+                    val cover = remember { BackdropCover() }
+                    LaunchedEffect(Unit) {
+                        withFrameNanos { }
+                        window.setBackgroundDrawable(null)
+                    }
+                    CompositionLocalProvider(LocalBackdropCover provides cover) {
+                        Box(Modifier.fillMaxSize().drawBehind { if (cover.count == 0) drawRect(ArcColors.Background) }) {
+                            ArcNavHost()
+                        }
+                    }
+                }
             }
         }
     }
