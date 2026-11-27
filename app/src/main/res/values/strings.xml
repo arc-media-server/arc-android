@@ -544,6 +544,12 @@
     <string name="together_join_now">Join Now</string>
     <string name="together_not_now">Not Now</string>
     <string name="together_start_failed">Couldn\'t start Watch Together. Check your connection and try again.</string>
+    <string name="settings_match_frame_rate">Match Frame Rate</string>
+    <string name="settings_match_frame_rate_hint">Switches the TV to the video\'s frame rate while it plays, so films don\'t judder. The resolution stays the same.</string>
+    <string name="settings_match_frame_rate_system">Asks the TV for the video\'s frame rate while it plays, so films don\'t judder. The TV\'s own Match content frame rate setting decides when it switches.</string>
+    <string name="settings_audio_passthrough">Audio Passthrough</string>
+    <string name="settings_audio_passthrough_hint">Auto sends Dolby and DTS sound to your receiver or soundbar as it is, when it takes it. Off has this TV decode it. Changes apply from the next title you play.</string>
+    <string name="settings_auto">Auto</string>
     <string name="settings_automatic_sign_in">Sign in automatically</string>
     <string name="settings_automatic_sign_in_hint">Open as %1$s on this device, without asking who\'s watching.</string>
     <string name="settings_automatic_sign_in_pin">Not available for a profile with a PIN: it\'s asked for each time.</string>

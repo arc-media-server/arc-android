@@ -153,7 +153,8 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     fun apiFor(server: HttpUrl): ArcApi = ArcApi(server, baseClient, token = { null })
 
     // Maximum audio channels: sample the output again for each new player, after route changes.
-    val playerCaps get() = deviceCaps(context)
+    // Audio Passthrough off: the TV says it takes no Dolby or DTS as it is, so Arc converts what it can't decode.
+    val playerCaps get() = deviceCaps(context, passthrough = session.audioPassthrough)
 
     /** How this TV appears in Arc's Settings > Devices: the name it was given, e.g. "Living Room TV". */
     val deviceName: String by lazy {

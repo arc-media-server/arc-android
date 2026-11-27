@@ -115,7 +115,7 @@ fun fallbackCaps(caps: PlayerCaps, failedMethod: String): PlayerCaps =
     if (failedMethod == "direct") caps.copy(containers = emptyList()) else caps.copy(containers = emptyList(), video = emptyList())
 
 @OptIn(UnstableApi::class)
-fun deviceCaps(context: Context): PlayerCaps {
+fun deviceCaps(context: Context, passthrough: Boolean = true): PlayerCaps {
     val decoders = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
         .filter { !it.isEncoder }
         .flatMap { it.supportedTypes.map(String::lowercase) }
@@ -124,11 +124,11 @@ fun deviceCaps(context: Context): PlayerCaps {
     // still the way to ask, before playing, what the TV or receiver takes by passthrough.
     @Suppress("DEPRECATION")
     val audio = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
-    val passthrough = passthroughNames(audio::supportsEncoding)
+    val formats = if (passthrough) passthroughNames(audio::supportsEncoding) else emptySet()
     val dvBits = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
         .filter { !it.isEncoder && "video/dolby-vision" in it.supportedTypes.map(String::lowercase) }
         .flatMap { info -> runCatching { info.getCapabilitiesForType("video/dolby-vision").profileLevels.map { it.profile } }.getOrDefault(emptyList()) }
-    return capsFrom(decoders, passthrough, displayHeight(context), hdrTypes(context), dvBits,
+    return capsFrom(decoders, formats, displayHeight(context), hdrTypes(context), dvBits,
         maxAudioChannels = maxAudioChannels(context, audio.maxChannelCount))
 }
 
