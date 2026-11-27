@@ -426,6 +426,8 @@
     <string name="player_quality">Quality</string>
     <string name="player_automatic">Automatic</string>
     <string name="player_original">Original</string>
+    <string name="player_automatic_now">Now %1$s</string>
+    <string name="player_automatic_hint">Automatic plays the original and lowers the quality if the connection can\'t keep up.</string>
     <string name="player_maximum_capped">Maximum (%1$s)</string>
     <string name="player_away_limit">Away from home, streams are limited to %1$s.</string>
     <string name="player_chapters">Chapters</string>
