@@ -42,6 +42,8 @@
 - New `AdaptiveQualityTest`: the web player's six policy tests, case for case (grace and
   cooldowns, measured delivery and the safe floor, stepping up, what restarts the grace, Arc's
   own limit and playback speed, the four-changes budget).
+- New screenshot `tv-player-menu-quality`: Automatic after stepping down ("Now 4 Mbps 720p")
+  with the menu's explanation.
 - **Not tried on a TV or a real slow connection.** Whether it steps down in time on a real
   remote connection, and how long each change rebuffers, still need a real device away from
   home.
