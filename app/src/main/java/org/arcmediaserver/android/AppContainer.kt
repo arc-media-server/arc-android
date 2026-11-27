@@ -63,12 +63,6 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     /** Titles taken out of Continue Watching this session, left off Home's row at once. */
     val offContinue = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
 
-    /**
-     * Ultra Blur colours Arc gave for titles this session, by title id (null: Arc had none). Kept
-     * for the signed-in profile only: cleared when the profile changes or the TV signs out.
-     */
-    val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
-
     /** Google TV's Continue watching row, kept in step with Arc's. */
     val watchNext = org.arcmediaserver.android.watchnext.WatchNextPublisher(context)
 
@@ -133,7 +127,6 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
         hideSpoilers.value = false
         themeMusic.value = true
         showMissingEpisodes.value = false
-        palettes.clear()
         itemChanges.clear()
         offContinue.clear()
         queues.reset()

@@ -1,5 +1,7 @@
 package org.arcmediaserver.android.screenshots
 
+import coil3.request.transformations
+import coil3.asImage
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -163,6 +165,18 @@ object Fixtures {
     )
 
     /** A stand-in for an "art:<kind>:<title>" address: a gradient in a colour from the title. */
+    /**
+     * A fixture picture for an image request, through the request's transformations as Coil would
+     * (a backdrop's shading), at the 1080p screen size, so screenshots show what the TV draws.
+     */
+    fun image(request: coil3.request.ImageRequest): coil3.Image {
+        var bitmap = art(request.data.toString())
+        for (t in request.transformations) {
+            bitmap = kotlinx.coroutines.runBlocking { t.transform(bitmap, coil3.size.Size(1920, 1080)) }
+        }
+        return bitmap.asImage()
+    }
+
     fun art(url: String): Bitmap {
         val (kind, title) = url.removePrefix("art:").split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
         if (kind == "logo") {

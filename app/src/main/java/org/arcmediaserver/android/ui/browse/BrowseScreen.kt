@@ -230,7 +230,8 @@ fun BrowseScreen(
                 enter = androidx.compose.animation.fadeIn(tween(HomeBackdropFadeMs)),
                 exit = androidx.compose.animation.fadeOut(tween(HomeBackdropFadeMs)),
             ) {
-                org.arcmediaserver.android.ui.details.HeroBackdrop(item, dim = false)
+                // Opaque only once its fade in or out has finished.
+                org.arcmediaserver.android.ui.details.HeroBackdrop(item, dim = false, whole = !transition.isRunning)
             }
         }
         Loaded(state.frame, onRetry) { frame ->
@@ -647,40 +648,6 @@ fun backdropOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.
 
 /** The clear logo for a title: its own, or its show's for an episode. */
 fun logoOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seriesLogo ?: it.logo else it.logo }
-
-/**
- * The whole-screen backdrop behind Home and a title's page, as Plex's TV app: the art sits in the
- * top right, whole (16:9, 70% of the width), over an Ultra Blur wash of its own colours (from
- * Arc; the plain page without them), and its left and bottom edges fade into it, so the picture
- * stays clear and the text beside and under it sits on its colours.
- */
-@Composable
-fun ImmersiveBackdrop(item: Item?) {
-    val resolve = LocalImageUrl.current
-    val url = item?.let(::backdropOf)
-    Box(Modifier.fillMaxSize()) {
-        UltraBlur(item?.let(::paletteIdOf))
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .fillMaxWidth(0.7f)
-                .aspectRatio(16f / 9f)
-                // The art's edges fade to see-through, so the wash shows through them.
-                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.45f to Color.Black.copy(alpha = 0.75f), 0.7f to Color.Black), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                    drawRect(Brush.verticalGradient(0.5f to Color.Black, 0.85f to Color.Black.copy(alpha = 0.3f), 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                },
-        ) {
-            Crossfade(url, animationSpec = tween(600), label = "backdrop") { u ->
-                if (u != null) {
-                    AsyncImage(model = resolve(u), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                }
-            }
-        }
-    }
-}
 
 /** A title's clear logo, or its name in large type when it has none (or it doesn't load). */
 @Composable

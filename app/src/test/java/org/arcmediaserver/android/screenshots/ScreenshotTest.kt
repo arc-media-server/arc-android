@@ -70,7 +70,7 @@ class ScreenshotTest {
         compose.setContent {
             CompositionLocalProvider(
                 LocalInspectionMode provides true,
-                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.art(request.data.toString()).asImage() },
+                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.image(request) },
             ) {
                 ArcTheme { Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) { content() } }
             }
