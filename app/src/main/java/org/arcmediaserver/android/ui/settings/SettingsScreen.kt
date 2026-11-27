@@ -80,6 +80,11 @@ data class SettingsUiState(
     val local: Boolean? = null,
     /** A change Arc couldn't save (it was put back). */
     val failed: Boolean = false,
+    /** This TV: Match Frame Rate and Audio Passthrough (Auto), kept on the device. */
+    val matchFrameRate: Boolean = true,
+    val audioPassthrough: Boolean = true,
+    /** Android 12 and later: matching follows the TV's own Match content frame rate setting. */
+    val systemFrameRate: Boolean = android.os.Build.VERSION.SDK_INT >= 31,
 )
 
 /** The profile's playback and subtitle preferences (GET/PATCH /me/prefs), shared with every Arc app. */
@@ -88,6 +93,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         SettingsUiState(
             serverName = container.session.serverName,
             automaticProfileId = container.session.automaticProfileId,
+            matchFrameRate = container.session.matchFrameRate,
+            audioPassthrough = container.session.audioPassthrough,
             address = container.session.server?.let { "${it.scheme}://${it.host}:${it.port}" },
         ),
     )
@@ -151,6 +158,19 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(automaticProfileId = id) }
     }
 
+    fun setMatchFrameRate(enabled: Boolean) {
+        container.session.matchFrameRate = enabled
+        _state.update { it.copy(matchFrameRate = enabled) }
+        ArcLog.Android.info("settings: match frame rate ${if (enabled) "on" else "off"}")
+    }
+
+    /** Takes effect from the next title played: what Arc is told this TV plays changes with it. */
+    fun setAudioPassthrough(enabled: Boolean) {
+        container.session.audioPassthrough = enabled
+        _state.update { it.copy(audioPassthrough = enabled) }
+        ArcLog.Android.info("settings: audio passthrough ${if (enabled) "auto" else "off"}")
+    }
+
     fun signOut(done: () -> Unit) = container.signOut(done)
 }
 
@@ -162,6 +182,8 @@ fun SettingsRoute(onSignedOut: () -> Unit, onSwitchServer: () -> Unit) {
         state,
         onChange = vm::change,
         onAutomaticSignIn = vm::setAutomaticSignIn,
+        onMatchFrameRate = vm::setMatchFrameRate,
+        onAudioPassthrough = vm::setAudioPassthrough,
         onRetry = vm::load,
         onSwitchServer = { vm.signOut(onSwitchServer) },
         onSignOut = { vm.signOut(onSignedOut) },
@@ -192,6 +214,8 @@ fun SettingsContent(
     /** Open on About (screenshots). */
     initialAbout: Boolean = false,
     onAutomaticSignIn: (Boolean) -> Unit = {},
+    onMatchFrameRate: (Boolean) -> Unit = {},
+    onAudioPassthrough: (Boolean) -> Unit = {},
 ) {
     var picking by remember { mutableStateOf<Picking?>(null) }
     var about by remember { mutableStateOf(initialAbout) }
@@ -288,6 +312,19 @@ fun SettingsContent(
                 item { ChoiceRow(R.string.settings_subtitle_position, positions, style.position.ifEmpty { "bottom" }) { setStyle(style.copy(position = it)) } }
                 item { Note(stringResource(if (state.failed) R.string.settings_save_failed else R.string.settings_profile_note), warn = state.failed) }
                 item { Heading(R.string.settings_this_tv) }
+                item {
+                    SettingsRow(
+                        stringResource(R.string.settings_match_frame_rate), if (state.matchFrameRate) on else off,
+                        description = stringResource(if (state.systemFrameRate) R.string.settings_match_frame_rate_system else R.string.settings_match_frame_rate_hint),
+                    ) { onMatchFrameRate(!state.matchFrameRate) }
+                }
+                item {
+                    SettingsRow(
+                        stringResource(R.string.settings_audio_passthrough),
+                        stringResource(if (state.audioPassthrough) R.string.settings_auto else R.string.settings_off),
+                        description = stringResource(R.string.settings_audio_passthrough_hint),
+                    ) { onAudioPassthrough(!state.audioPassthrough) }
+                }
                 state.profile?.let { profile ->
                     val enabled = !profile.hasPin
                     val checked = enabled && state.automaticProfileId == profile.id

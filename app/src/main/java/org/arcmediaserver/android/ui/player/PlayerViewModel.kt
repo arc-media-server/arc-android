@@ -23,6 +23,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioCapabilities
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.common.text.Cue
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +122,8 @@ data class PlayerUiState(
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null): ExoPlayer {
-    val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+    val renderers = (if (container.session.audioPassthrough) DefaultRenderersFactory(context) else DecodedAudioRenderers(context))
+        .setEnableDecoderFallback(true)
     val sources = DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient))
     if (ass != null) sources.setSubtitleParserFactory(ArcSubtitleParsers(AssSubtitleParserFactory(ass)))
     val player = ExoPlayer.Builder(context)
@@ -128,8 +132,27 @@ fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         .setHandleAudioBecomingNoisy(true)
         .build()
+    // Arc matches the frame rate itself (MatchFrameRate, Settings > This TV); Media3's own
+    // seamless-only request would otherwise set the same surface's frame rate as well.
+    player.videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
     ass?.init(player)
     return player
+}
+
+/**
+ * Audio Passthrough off (Settings > This TV): an audio output that never sends Dolby or DTS on as
+ * it is, so the TV decodes everything to PCM. Arc was told the same (no passthrough formats), so
+ * it converts what the TV can't decode.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+private class DecodedAudioRenderers(private val context: Context) : DefaultRenderersFactory(context) {
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+        @Suppress("DEPRECATION")
+        DefaultAudioSink.Builder(this.context)
+            .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .build()
 }
 
 /**

@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -158,6 +159,12 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
     val container = (context.applicationContext as ArcApplication).container
     val vm: PlayerViewModel = viewModel(factory = viewModelFactory { initializer { PlayerViewModel(container, context.applicationContext, itemId, startMs, entryId, carryOn, fileId, together) } })
     val state by vm.state.collectAsStateWithLifecycle()
+    // Match Frame Rate (Settings > This TV): the TV shows the video at its own frame rate while it
+    // plays, and goes back to its own when the player closes.
+    val frameRate = remember(context) { context.findActivity()?.let { org.arcmediaserver.android.playback.FrameRateMatcher(it) } }
+    DisposableEffect(frameRate) { onDispose { frameRate?.release() } }
+    val fps = if (container.session.matchFrameRate) org.arcmediaserver.android.playback.FrameRate.of(state.item, state.plan) else 0f
+    LaunchedEffect(fps) { frameRate?.request(fps) }
     // The next title goes with its queue entry, when it's the queue's.
     // In a Watch Together room, the host's next title moves the whole room on (ArcNavHost follows).
     val onPlayNext: (Item) -> Unit = { next -> if (state.room != null) vm.playNextInRoom(next) else onPlayNextEntry(next, state.nextEntryId) }
@@ -282,6 +289,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     player = vm.player
+                    frameRate?.attach(videoSurfaceView as? android.view.SurfaceView)
                     // libass draws ASS/SSA subtitles over the player's own subtitle view.
                     subtitleView?.withAssSupport(vm.ass)
                 }
@@ -809,4 +817,11 @@ internal fun StatsPanel(title: String, body: String?, rows: List<Pair<String, St
         Spacer(Modifier.height(6.dp))
     }
     LaunchedEffect(Unit) { focus.requestWhenReady() }
+}
+
+/** The activity behind a Compose context (Match Frame Rate needs its window). */
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
