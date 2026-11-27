@@ -56,15 +56,21 @@ class BrowseLayoutTest {
 
     private fun bounds(label: String) = compose.onNodeWithText(label).getUnclippedBoundsInRoot()
 
+    /**
+     * The focused shelf lands at the foot of the screen, with the shelves above it in view (as
+     * arc-kodi's rows), at the same height going down and coming back up; the first shelf goes
+     * back to where it started.
+     */
     private fun assertShelfLanding() {
         val first = bounds("Shelf 1").top
         press(Key.DirectionDown)
-        val second = bounds("Shelf 2").top
-        assertTrue("the second shelf did not scroll into view", second < 120.dp)
+        val landed = bounds("Shelf 2").top
+        assertTrue("the second shelf stayed below the screen ($landed)", landed < 540.dp)
+        assertTrue("the second shelf went to the top, not the foot ($landed)", landed > 120.dp)
         press(Key.DirectionDown)
-        assertTrue("the third shelf did not scroll into view", bounds("Shelf 3").top < 120.dp)
+        assertEquals("the third shelf landed at another height", landed, bounds("Shelf 3").top)
         press(Key.DirectionUp)
-        assertEquals(second, bounds("Shelf 2").top)
+        assertEquals("the second shelf landed at another height coming back up", landed, bounds("Shelf 2").top)
         press(Key.DirectionUp)
         assertEquals(first, bounds("Shelf 1").top)
     }
@@ -106,7 +112,7 @@ class BrowseLayoutTest {
         assertEquals("movie-2-row-1", shown.last())
         val changes = shown.size
         press(Key.DirectionDown)
-        assertTrue(bounds("Shelf 2").top < 120.dp)
+        assertTrue(bounds("Shelf 2").top < 540.dp)
         press(Key.DirectionRight)
         assertEquals(changes, shown.size)
         press(Key.DirectionUp)

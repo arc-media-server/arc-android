@@ -39,6 +39,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import coil3.request.crossfade
 import androidx.compose.ui.platform.LocalInspectionMode
+import org.arcmediaserver.android.ui.components.landsAtFoot
+import org.arcmediaserver.android.ui.components.footScrollPage
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -194,11 +196,12 @@ fun DetailsScreen(
     Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
         HeroBackdrop(item, scrolled)
         val scope = rememberCoroutineScope()
-        // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
-        // pushed the title off the top as soon as Play was focused. Here the page only scrolls
-        // what's needed to show the focused thing, and the header always shows whole (as Plex).
-        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
-            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
+        // The header always shows whole (as Plex), and below it the focused row lands at the foot
+        // of the screen, moving down or back up, with the rows above in view (as arc-kodi's title
+        // page). Cards don't scroll the page themselves; each row asks (landsAtFoot).
+        val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(page, gap = 40.dp)
+        CompositionLocalProvider(LocalBringIntoViewSpec provides org.arcmediaserver.android.ui.components.ScrollByShelf) {
+            LazyColumn(Modifier.fillMaxSize().footScrollPage(foot), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
                         Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp - if (item.isSeries) SeasonBarPeek else 0.dp).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
@@ -209,7 +212,9 @@ fun DetailsScreen(
                 }
                 if (item.isSeries) {
                     item {
-                        Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
+                        Box(Modifier.landsAtFoot(foot)) {
+                            Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
+                        }
                     }
                 }
                 // Under the title, as the web's page: the cast, the collections it's in, More
@@ -217,7 +222,7 @@ fun DetailsScreen(
                 val cast = item.credits.filter { it.role == "actor" }
                 if (cast.isNotEmpty()) {
                     item(key = "cast") {
-                        Box(Modifier.padding(top = 28.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 28.dp)) {
                             Shelf(stringResource(R.string.details_cast), start = PageStart) {
                                 items(cast, key = { it.personId }) { c -> PersonCard(c.name, c.image, c.character) { onPerson(c.personId) } }
                             }
@@ -226,7 +231,7 @@ fun DetailsScreen(
                 }
                 details.related.forEach { row ->
                     item(key = row.key) {
-                        Box(Modifier.padding(top = 20.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 20.dp)) {
                             Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = PageStart) {
                                 items(row.items, key = { it.id }) { t -> MediaCardView(cardFor(t), landscape = row.landscape, onClick = { onOpen(t.id) }) }
                             }
@@ -235,14 +240,14 @@ fun DetailsScreen(
                 }
                 if (item.extras.isNotEmpty()) {
                     item(key = "extras") {
-                        Box(Modifier.padding(top = 20.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 20.dp)) {
                             Shelf(stringResource(R.string.details_extras), start = PageStart) {
                                 items(item.extras, key = { it.id }) { e -> ExtraCard(e) { onExtra(e) } }
                             }
                         }
                     }
                 }
-                item(key = "info") { AboutSection(item, serverName) }
+                item(key = "info") { Box(Modifier.landsAtFoot(foot)) { AboutSection(item, serverName) } }
             }
         }
         val closePanel = {
@@ -809,15 +814,19 @@ private fun Seasons(
             val idx = episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
+        // Entering the episodes lands on the one last used here, else the one to watch next, else
+        // the first on screen (RowFocus), not whichever is nearest the card left above or below.
+        val rowFocus = org.arcmediaserver.android.ui.components.rememberRowFocus(listState)
         CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(PageStart)) {
             LazyRow(
                 state = listState,
+                modifier = rowFocus.modifier(preferred = { (details.focus ?: details.next)?.id }),
                 contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 items(episodes, key = { it.id }) { ep ->
                     val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
-                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod, numbered = !unplacedTab)
+                    rowFocus.Card(ep.id) { EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod, numbered = !unplacedTab) }
                 }
             }
         }
