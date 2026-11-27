@@ -175,6 +175,38 @@ class SeasonTabsFocusTest {
     }
 
     @Test
+    fun `opening a show on a later season scrolls its tab to where moving along the tabs would`() {
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        val linked = androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            ArcTheme {
+                androidx.compose.runtime.key(linked.value) {
+                    val d = if (linked.value) {
+                        Details(Fixtures.show, seasons, next = seasons[13].episodes[2], focus = seasons[13].episodes[2], initialSeason = 13)
+                    } else {
+                        Details(Fixtures.show, seasons, next = seasons[0].episodes[2])
+                    }
+                    DetailsScreen(d, onPlay = { _: Item, _: Long -> }, onOpen = {})
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        repeat(13) { press(Key.DirectionRight) }
+        compose.onNodeWithText("Season 14").assertIsFocused()
+        val moved = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        // Opened straight on Season 14's episode (from Home): the episode has the focus, not the tabs.
+        compose.runOnIdle { linked.value = true }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasText("Season", substring = true)).assertCountEquals(0)
+        val opened = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        assertEquals(moved.left, opened.left)
+        assertEquals(moved.right, opened.right)
+    }
+
+    @Test
     fun `opening a linked episode lands at the same height as navigating down in the show`() {
         val linked = androidx.compose.runtime.mutableStateOf(false)
         val episode = Fixtures.seasons[0].episodes[2]

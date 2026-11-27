@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -450,10 +453,27 @@ fun PillTabs(
     // More pills than fit (a show with many seasons) scroll sideways, as far as the focused one
     // needs; before, the ones past the edge were squeezed to nothing, and focus moving onto one
     // couldn't find its way back up.
+    val spec = minimalBringIntoView(start, after = end)
     androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start, after = end),
+        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides spec,
     ) {
     val scroll = androidx.compose.foundation.rememberScrollState()
+    // Where the chosen pill and the visible stretch of the row are, to show the chosen pill when
+    // the row isn't focused (a page opened on Season 38 from Home): read only by the effect below.
+    val viewport = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(2) }
+    val placedFor = remember { intArrayOf(-1) } // which pill viewport[1] is
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(selected) {
+        // Wait for the row's first layout, when the pills' places and how far it scrolls are known.
+        while (placedFor[0] != selected || viewport[0]?.isAttached != true || viewport[1]?.isAttached != true || scroll.maxValue == Int.MAX_VALUE) {
+            androidx.compose.runtime.withFrameNanos { }
+        }
+        if (focused) return@LaunchedEffect // Focus brings its pill into view itself.
+        val pill = viewport[0]!!.localBoundingBoxOf(viewport[1]!!, clipBounds = false)
+        // The same distance focus would scroll, so the row sits as if you'd moved along it to here.
+        val distance = spec.calculateScrollDistance(pill.left, pill.width, viewport[0]!!.size.width.toFloat())
+        if (distance != 0f) scroll.scrollBy(distance)
+    }
     // The space after the last pill only when they scroll: otherwise the row ends at its last
     // pill, so whatever follows it (a season's warning) sits right after.
     val endSpace = if (scroll.maxValue > 0) end else 0.dp
@@ -461,12 +481,13 @@ fun PillTabs(
     // were), so a focused pill, drawn a little larger, isn't clipped at the row's ends.
     val slack = 8.dp
     Row(
-        modifier.focusGroup().selectableGroup()
+        modifier.onFocusChanged { focused = it.hasFocus }.focusGroup().selectableGroup()
             .layout { measurable, constraints ->
                 val px = slack.roundToPx()
                 val placeable = measurable.measure(constraints.offset(horizontal = 2 * px))
                 layout((placeable.width - 2 * px).coerceAtLeast(0), placeable.height) { placeable.place(-px, 0) }
             }
+            .onPlaced { viewport[0] = it }
             .horizontalScroll(scroll).padding(start = start + slack, end = endSpace + slack),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -474,7 +495,7 @@ fun PillTabs(
             val chosen = i == selected
             androidx.tv.material3.Button(
                 onClick = { onClick?.invoke(i) },
-                modifier = (if (chosen) selectedTab else Modifier)
+                modifier = (if (chosen) selectedTab.onPlaced { viewport[1] = it; placedFor[0] = i } else Modifier)
                     .height(36.dp)
                     .onFocusChanged { if (it.isFocused) onSelect(i) }
                     .semantics { this.selected = chosen },
