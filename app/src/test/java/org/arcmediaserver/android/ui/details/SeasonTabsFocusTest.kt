@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -144,6 +145,33 @@ class SeasonTabsFocusTest {
         assertTrue(focusedText(), focusedText().contains(episodes[3].title))
         press(Key.DirectionDown)
         assertTrue(castFocused(actors[1].name))
+    }
+
+    @Test
+    fun `a show with more seasons than fit scrolls its tabs, and Up still goes back to the top`() {
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        compose.setContent {
+            ArcTheme {
+                DetailsScreen(Details(Fixtures.show, seasons, next = seasons[0].episodes[2]), onPlay = { _: Item, _: Long -> }, onOpen = {})
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        compose.onNodeWithText("Season 1").assertIsFocused()
+        repeat(13) { press(Key.DirectionRight) }
+        compose.onNodeWithText("Season 14").assertIsFocused()
+        val tab = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        assertTrue("the last season's tab is off screen: $tab", tab.left >= 0.dp && tab.right <= 960.dp && tab.right > tab.left + 40.dp)
+        press(Key.DirectionUp)
+        // Focus left the tabs for the buttons above (the page scrolls back up to them).
+        compose.onNode(androidx.compose.ui.test.isFocused()).assertExists()
+        compose.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasText("Season", substring = true)).assertCountEquals(0)
+        // And back to the first season's tab, scrolled back into view.
+        press(Key.DirectionDown)
+        repeat(13) { press(Key.DirectionLeft) }
+        compose.onNodeWithText("Season 1").assertIsFocused()
+        assertTrue(compose.onNodeWithText("Season 1").getUnclippedBoundsInRoot().left >= 0.dp)
     }
 
     @Test
