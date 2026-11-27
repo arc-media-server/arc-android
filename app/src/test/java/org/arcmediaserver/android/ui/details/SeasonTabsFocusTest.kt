@@ -113,6 +113,39 @@ class SeasonTabsFocusTest {
         assertTrue("cast name is below screen: $name", name.top >= 0.dp && name.bottom <= 540.dp)
     }
 
+    /** The focused node's text, merged from the card it's on. */
+    private fun focusedText(): String = compose.onNode(androidx.compose.ui.test.isFocused()).fetchSemanticsNode().config
+        .getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.Text) { null }.orEmpty().joinToString(" ") { it.text }
+
+    /** Whether the focused card is the cast card named [name] (the name sits under its picture). */
+    private fun castFocused(name: String): Boolean {
+        val card = compose.onNode(androidx.compose.ui.test.isFocused()).getUnclippedBoundsInRoot()
+        val label = compose.onNodeWithText(name).getUnclippedBoundsInRoot()
+        val middle = (label.left + label.right) / 2
+        return middle > card.left && middle < card.right
+    }
+
+    @Test
+    fun `rows land at the foot and focus comes back to the card left in them`() {
+        show(initialSeason = 0)
+        press(Key.DirectionDown)
+        press(Key.DirectionDown) // the episodes, on S1 · E3 (Play's)
+        val episodes = Fixtures.seasons[0].episodes
+        press(Key.DirectionRight)
+        assertTrue(focusedText(), focusedText().contains(episodes[3].title))
+        press(Key.DirectionDown) // the cast, on its first card whichever episode was left
+        val actors = Fixtures.show.credits.filter { it.role == "actor" }
+        assertTrue(castFocused(actors.first().name))
+        // The cast row ends 40dp above the foot of the screen, not at the top.
+        val name = compose.onNodeWithText(actors.first().name).getUnclippedBoundsInRoot()
+        assertTrue("cast row went to the top: $name", name.top > 270.dp && name.bottom <= 540.dp)
+        press(Key.DirectionRight)
+        press(Key.DirectionUp)
+        assertTrue(focusedText(), focusedText().contains(episodes[3].title))
+        press(Key.DirectionDown)
+        assertTrue(castFocused(actors[1].name))
+    }
+
     @Test
     fun `opening a linked episode lands at the same height as navigating down in the show`() {
         val linked = androidx.compose.runtime.mutableStateOf(false)
