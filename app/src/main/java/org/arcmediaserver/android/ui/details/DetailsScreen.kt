@@ -862,7 +862,9 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
         FocusCard(onClick = { if (ep.available) onClick() }, onFocused = { focused = it }, modifier = modifier) {
             org.arcmediaserver.android.ui.components.EpisodeArtwork(
                 ep, card.thumb, label = ep.title,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).alpha(if (ep.available) 1f else 0.4f),
+                // A missing episode's faded picture keeps the card colour under it.
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    .then(if (ep.available) Modifier else Modifier.background(ArcColors.Surface).alpha(0.4f)),
             )
             WatchBadge(ep)
             ProgressLine(card.progress)
