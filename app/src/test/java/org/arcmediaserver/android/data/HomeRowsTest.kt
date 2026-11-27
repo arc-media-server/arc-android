@@ -164,4 +164,15 @@ class HomeRowsTest {
         // Hiding the seasonal row keeps it away in season too.
         assertEquals(false, "seasonal" in ids(resolveHomeRows(Prefs(home = listOf(HomeRowPref("seasonal", hidden = true))), libs, java.time.LocalDate.of(2026, 12, 25))))
     }
+
+    @Test fun watchTogetherSitsUnderContinueWatching() {
+        fun place(vararg ids: String) = placeRoomsRow(ids.toList(), isRooms = { it == "rooms" }, isContinue = { it == "continue" })
+        assertEquals(listOf("continue", "rooms", "recent:1"), place("rooms", "continue", "recent:1"))
+        // Continue Watching further down (the profile's order) still has the rooms under it.
+        assertEquals(listOf("recent:1", "continue", "rooms", "recent:2"), place("rooms", "recent:1", "continue", "recent:2"))
+        // No Continue Watching showing: under the first row, so titles keep the top.
+        assertEquals(listOf("recent:1", "rooms", "recent:2"), place("rooms", "recent:1", "recent:2"))
+        assertEquals(listOf("rooms"), place("rooms"))
+        assertEquals(listOf("continue", "recent:1"), place("continue", "recent:1"))
+    }
 }

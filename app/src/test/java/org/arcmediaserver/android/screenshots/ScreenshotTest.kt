@@ -298,6 +298,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeWatchTogether() = shot("home-watch-together", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // A room waiting: its row sits under Continue Watching, which keeps the top and the hero.
+        val rooms = Fixtures.movies.take(2).mapIndexed { i, item ->
+            org.arcmediaserver.android.data.cardFor(item, key = "room:r$i").copy(sub = if (i == 0) "You're hosting" else "Hosted by Sam", progress = null)
+        }
+        val row = org.arcmediaserver.android.ui.browse.HomeRowState(org.arcmediaserver.android.data.WatchTogetherRow, LoadState.Ready(rooms))
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = listOf(row) + Fixtures.homeRows, together = true))
+    }
+
+    @Test
     fun homeSidebar() = shot("home-sidebar") {
         browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows), drawerOpen = true)
     }
