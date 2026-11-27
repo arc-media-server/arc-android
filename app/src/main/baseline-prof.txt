@@ -1,0 +1,5 @@
+# Arc's own code, compiled ahead of time when the app is installed (with the profiles Compose,
+# Coil and the other libraries ship). Without it the first scrolls and screen openings run
+# slower until Android has learnt the hot paths itself. Arc's code is small, so it's all of it.
+HSPLorg/arcmediaserver/android/**;->**(**)**
+Lorg/arcmediaserver/android/**;

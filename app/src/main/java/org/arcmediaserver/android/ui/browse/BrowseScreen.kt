@@ -215,7 +215,9 @@ fun BrowseScreen(
     // the web's profile menu; without it, it switches profile at once.
     var profileMenu by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var joining by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
+    // No background of its own: the window's (the same colour, themes.xml) is already under it,
+    // and on a Chromecast every whole-screen layer Home paints costs frame time.
+    Box(Modifier.fillMaxSize()) {
         // Home's whole-screen hero artwork sits behind the sidebar too.
         // Only behind the first shelf: below it Home is the plain page, as a library's Recommended
         // tab, so the art never belongs to a card that isn't focused and the lower shelves draw
@@ -591,6 +593,9 @@ fun HomeContent(
 /** How long Home's backdrop takes to fade out below the first shelf, and back in. */
 private const val HomeBackdropFadeMs = 300
 
+/** Cards of a shelf made ahead when Home scrolls to it: as many as fit on screen. */
+private const val ShelfPrefetchCards = 7
+
 /** The hero's share of the screen: the first row's cards show in full just under it. */
 private const val HeroHeight = 0.6f
 
@@ -771,7 +776,13 @@ private fun HomeRow(
                 LocalBringIntoViewSpec provides minimalBringIntoView(ShelfPadding - ShelfInset, after = ShelfPadding),
                 org.arcmediaserver.android.ui.components.LocalInContinueRow provides (row.spec.source is RowSource.Continue),
             ) {
-                val shelf = androidx.compose.foundation.lazy.rememberLazyListState()
+                // When Home scrolls, the shelf coming next is made just before it's on screen: all
+                // the cards it shows (seven posters fit), not Compose's default two, so they
+                // aren't composed in the frame the shelf arrives.
+                @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+                val shelf = androidx.compose.foundation.lazy.rememberLazyListState(
+                    prefetchStrategy = androidx.compose.foundation.lazy.LazyListPrefetchStrategy(nestedPrefetchItemCount = ShelfPrefetchCards),
+                )
                 val cardFocus = remember(row.spec.id) { HashMap<String, FocusRequester>() }
                 LazyRow(
                 state = shelf,
