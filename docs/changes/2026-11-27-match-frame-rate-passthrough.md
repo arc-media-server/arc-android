@@ -60,6 +60,8 @@ Settings > This TV has two new rows, both kept on the TV rather than the profile
   - the mode chosen on Android 8 to 11 (same resolution, nearest fitting rate, none when the
     current mode fits or nothing at this resolution does);
   - the frame rate of the version being played comes from Arc's probe.
+- New screenshot `tv-settings-this-tv` (both rows, Passthrough Off, descriptions in full);
+  `tv-launch-picker-setting` still lands on Sign in automatically below them.
 - **Not tried on a TV.** Whether the display actually switches, how long it blanks, and whether
   Off really sends PCM to a receiver can only be seen on real hardware with a real receiver.
   These are real-device checks and stay open until someone tries them.
