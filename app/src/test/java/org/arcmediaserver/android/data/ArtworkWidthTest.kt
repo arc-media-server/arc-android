@@ -17,6 +17,12 @@ class ArtworkWidthTest {
     }
 
     @Test
+    fun `the drawn height goes with the width when it's known`() {
+        assertEquals("$base/api/v1/items/m1/images/backdrop?w=400&h=400", ArtworkWidth.withWidth("$base/api/v1/items/m1/images/backdrop", 400, 400))
+        assertEquals("$base/api/v1/items/m1/images/backdrop?w=400", ArtworkWidth.withWidth("$base/api/v1/items/m1/images/backdrop", 400, 0))
+    }
+
+    @Test
     fun `other addresses, a width already chosen and no width are left alone`() {
         assertNull(ArtworkWidth.withWidth("https://image.tmdb.org/t/p/original/b.jpg", 1920))
         assertNull(ArtworkWidth.withWidth("$base/api/v1/items/m1/stream", 1920))
