@@ -16,15 +16,28 @@ sealed interface RowSource {
     data class Playlist(val id: String, val title: String) : RowSource
     /** This TV's play queue on Arc, from the title it's on: picking a card plays on from there. */
     data object Queue : RowSource
-    /** Watch Together rooms this profile made, was invited to or is in (the app's own row, first). */
+    /** Watch Together rooms this profile made, was invited to or is in (the app's own row). */
     data object WatchTogether : RowSource
 }
 
 /** Home's Queue row, first while there's a queue to carry on (the app's own row, not a saved one). */
 val QueueRow = HomeRowSpec("queue", RowSource.Queue, CardStyle.Thumb)
 
-/** Home's Watch Together row, first while there are rooms (as the web's WatchTogetherRow). */
+/** Home's Watch Together row, while there are rooms (as the web's WatchTogetherRow). */
 val WatchTogetherRow = HomeRowSpec("watch-together", RowSource.WatchTogether, CardStyle.Thumb)
+
+/**
+ * Where Watch Together's row shows on Home: under Continue Watching, or under the first row when
+ * Continue Watching isn't showing. The first row of titles keeps the top, and the hero, in every
+ * Arc app (owner, 27 November). Before, the rooms came first and took the hero's place.
+ */
+fun <T> placeRoomsRow(rows: List<T>, isRooms: (T) -> Boolean, isContinue: (T) -> Boolean): List<T> {
+    val rooms = rows.firstOrNull(isRooms) ?: return rows
+    val rest = rows.filterNot(isRooms)
+    if (rest.isEmpty()) return listOf(rooms)
+    val after = rest.indexOfFirst(isContinue).coerceAtLeast(0) + 1
+    return rest.take(after) + rooms + rest.drop(after)
+}
 
 /** The queue's cards, keyed by entry (the same title can be queued twice). */
 fun queueCards(queue: PlayQueue?): List<MediaCard> = queue?.upcoming().orEmpty().mapNotNull { e -> e.item?.let { cardFor(it, key = QUEUE_KEY + e.id) } }

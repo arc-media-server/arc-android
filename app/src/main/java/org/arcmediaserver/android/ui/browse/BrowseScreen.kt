@@ -501,7 +501,12 @@ fun HomeContent(
         val cards = r.cards
         if (menu != null && r.spec.source is RowSource.Continue && cards is LoadState.Ready) r.copy(cards = LoadState.Ready(cards.value.filterNot { menu.offContinue(it.item.id) })) else r
     }
-    val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
+    // Watch Together's rooms sit under Continue Watching (or the first row showing).
+    val visible = org.arcmediaserver.android.data.placeRoomsRow(
+        rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) },
+        isRooms = { it.spec.source == RowSource.WatchTogether },
+        isContinue = { it.spec.source is RowSource.Continue },
+    )
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
         EmptyHome()
         return
@@ -510,8 +515,8 @@ fun HomeContent(
         LoadingPane()
         return
     }
-    // Only the first shelf drives the hero and its backdrop, which fades out below it.
-    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready }
+    // Only the first shelf of titles drives the hero and its backdrop, which fades out below it.
+    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready && it.spec.source != RowSource.WatchTogether }
     val heroCards = (firstReady?.cards as? LoadState.Ready)?.value.orEmpty()
     var heroKey by remember(firstReady?.spec?.id) { mutableStateOf<String?>(null) }
     val hero = heroCards.firstOrNull { it.key == heroKey } ?: heroCards.firstOrNull()
