@@ -7,6 +7,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -110,6 +112,55 @@ class BrowseLayoutTest {
         press(Key.DirectionUp)
         press(Key.DirectionLeft)
         assertEquals("movie-1-row-1", shown.last())
+    }
+
+    /** The focused card's name. */
+    private fun focusedCard(): String? = compose.onNode(isFocused()).fetchSemanticsNode().config.let { c ->
+        c.getOrElseNullable(SemanticsProperties.ContentDescription) { null }?.firstOrNull()
+            ?: c.getOrElseNullable(SemanticsProperties.Text) { null }?.firstOrNull()?.text
+    }
+
+    @Test
+    fun `Home shelves return to the card last focused in them, or their first`() {
+        // Card widths differ between shelves (as Continue Watching's over posters), so the card
+        // nearest the one left isn't the one in the same place.
+        val styles = listOf(CardStyle.Thumb, CardStyle.Poster, CardStyle.Backdrop, CardStyle.Poster, CardStyle.Thumb)
+        val rows = styles.mapIndexed { i, style ->
+            HomeRowState(
+                HomeRowSpec("row-$i", RowSource.Collection("$i", "Shelf $i"), style),
+                LoadState.Ready((1..12).map { cardFor(Item(id = "r$i-m$it", kind = "movie", title = "R$i M$it")) }),
+            )
+        }
+        compose.setContent {
+            ArcTheme {
+                HomeContent(rows, onOpen = {}, onRetryRow = {}, onFocusedCard = {})
+            }
+        }
+        settle()
+        fun go(key: Key, expected: String) {
+            press(key)
+            assertEquals(expected, focusedCard())
+        }
+        go(Key.DirectionRight, "R0 M2")
+        go(Key.DirectionRight, "R0 M3")
+        // A first visit lands on the shelf's first card, not the one under R0 M3.
+        go(Key.DirectionDown, "R1 M1")
+        repeat(3) { press(Key.DirectionRight) }
+        assertEquals("R1 M4", focusedCard())
+        go(Key.DirectionDown, "R2 M1")
+        go(Key.DirectionDown, "R3 M1")
+        // Moving up lands on the card left in each shelf, though they scrolled off screen.
+        go(Key.DirectionUp, "R2 M1")
+        go(Key.DirectionUp, "R1 M4")
+        go(Key.DirectionUp, "R0 M3")
+        go(Key.DirectionDown, "R1 M4")
+        go(Key.DirectionDown, "R2 M1")
+        go(Key.DirectionDown, "R3 M1")
+        go(Key.DirectionDown, "R4 M1")
+        go(Key.DirectionUp, "R3 M1")
+        go(Key.DirectionUp, "R2 M1")
+        go(Key.DirectionUp, "R1 M4")
+        go(Key.DirectionUp, "R0 M3")
     }
 
     @Test
