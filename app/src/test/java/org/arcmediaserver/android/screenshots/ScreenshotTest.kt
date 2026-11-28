@@ -236,6 +236,18 @@ class ScreenshotTest {
     }
 
     @Test
+    fun deviceLogsSetting() = shot("device-logs-setting", keys = List(16) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(
+                prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs()),
+                profile = Fixtures.profiles.first(),
+                detailedLogs = true,
+            ),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
+        )
+    }
+
+    @Test
     fun settingsAbout() = shot("settings-about") {
         org.arcmediaserver.android.ui.settings.SettingsContent(
             org.arcmediaserver.android.ui.settings.SettingsUiState(

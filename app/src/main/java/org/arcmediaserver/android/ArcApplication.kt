@@ -1,6 +1,7 @@
 package org.arcmediaserver.android
 
 import android.app.Application
+import org.arcmediaserver.android.data.DeviceLogs
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -15,6 +16,13 @@ open class ArcApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = createContainer()
+        val logs = container.deviceLogs
+        logs.record(DeviceLogs.Level.info, DeviceLogs.Event.app_started)
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        if (previous != null) Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching { logs.setCrash(true) }
+            previous.uncaughtException(thread, error)
+        }
     }
 
     /** The app's container; the live screenshot test gives it a session kept without the Keystore. */

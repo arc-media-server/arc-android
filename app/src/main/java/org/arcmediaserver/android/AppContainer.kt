@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 class AppContainer(private val context: Context, val session: SessionStore = sessionStore(context)) {
     /** The application context, for system services (the network, for finding Arc on it). */
     val appContext: Context get() = context
+    val deviceLogs = org.arcmediaserver.android.data.DeviceLogs(context.filesDir.resolve("arc-device-logs.json"))
 
     /** Work that must finish even when its screen has gone (telling Arc playback stopped). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -50,7 +51,7 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     fun api(): ArcApi? {
         val server = session.server ?: return null
         cachedApi?.takeIf { it.baseUrl == server }?.let { return it }
-        return ArcApi(server, baseClient, token = { session.token }).also { cachedApi = it }
+        return ArcApi(server, baseClient, token = { session.token }, deviceLogs = deviceLogs).also { cachedApi = it }
     }
 
     /**
@@ -142,6 +143,7 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
         appScope.launch {
             runCatching { api?.signOut() }
             session.token = null
+            deviceLogs.clear()
             profileChanged()
             watchNext.sync(null)
             org.arcmediaserver.android.data.ArcLog.Android.info("signed out")

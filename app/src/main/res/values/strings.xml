@@ -555,4 +555,12 @@
     <string name="settings_automatic_sign_in">Sign in automatically</string>
     <string name="settings_automatic_sign_in_hint">Open as %1$s on this device, without asking who\'s watching.</string>
     <string name="settings_automatic_sign_in_pin">Not available for a profile with a PIN: it\'s asked for each time.</string>
+    <string name="diagnostics_send">Send logs</string>
+    <string name="diagnostics_detailed">Detailed logging</string>
+    <string name="diagnostics_note">Detailed logging turns off after two hours. Sending shares recent app events with this server’s admin.</string>
+    <string name="diagnostics_crash">Arc encountered an error last time. Send logs to your server?</string>
+    <string name="diagnostics_empty">There are no app logs to send.</string>
+    <string name="diagnostics_sent">Logs sent.</string>
+    <string name="diagnostics_unsupported">Update your Arc server to send logs.</string>
+    <string name="diagnostics_failed">Could not send logs. Try again.</string>
 </resources>

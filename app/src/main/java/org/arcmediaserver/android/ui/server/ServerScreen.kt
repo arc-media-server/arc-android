@@ -143,6 +143,7 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
                 val health = container.apiFor(url).health()
                 if (health.apiVersion < 1) ServerProblem.NotArc else null.also {
                     ArcLog.Android.info("connected to ${health.name} ${health.version} (API v${health.apiVersion})")
+                    if (container.session.server != url) container.deviceLogs.clear()
                     container.session.server = url
                 }
             } catch (e: Exception) {

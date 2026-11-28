@@ -62,6 +62,27 @@ class LiveServerTest {
     }
 
     @Test
+    fun sendDiagnosticLogsToScratchArc() = runBlocking {
+        assumeTrue("set ARC_E2E_URL and ARC_E2E_PASSWORD for a scratch Arc", url.isNotEmpty() && password.isNotEmpty())
+        var token: String? = null
+        val api = ArcApi(url.toHttpUrl(), http, token = { token }, log = ArcLog.Print)
+        val link = api.startLink("E2E Android log sender")
+        approveAsAdmin(link.code)
+        token = (api.pollLink(link.poll) as LinkPoll.Approved).token
+        try {
+            val admin = api.authStatus().profiles.first { it.isAdmin }
+            api.chooseProfile(admin.id, null)
+            api.sendDeviceLogs("""{"platform":"android","entries":[{"time_ms":${System.currentTimeMillis()},"level":"warn","event":"request_failed"}]}""")
+            val req = Request.Builder().url("${url.trimEnd('/')}/api/v1/client-logs")
+                .header("Authorization", "Bearer $token").build()
+            val result = http.newCall(req).execute().use { it.body.string() }
+            assertTrue(result.contains("E2E Android log sender"))
+        } finally {
+            api.signOut()
+        }
+    }
+
+    @Test
     fun signInBrowseAndPlay() = runBlocking {
         assumeTrue("set ARC_E2E_URL and ARC_E2E_PASSWORD to run against a real Arc", url.isNotEmpty() && password.isNotEmpty())
         var token: String? = null

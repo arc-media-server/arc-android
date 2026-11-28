@@ -85,6 +85,9 @@ data class SettingsUiState(
     val audioPassthrough: Boolean = true,
     /** Android 12 and later: matching follows the TV's own Match content frame rate setting. */
     val systemFrameRate: Boolean = android.os.Build.VERSION.SDK_INT >= 31,
+    val detailedLogs: Boolean = false,
+    val sendingLogs: Boolean = false,
+    @StringRes val logStatus: Int? = null,
 )
 
 /** The profile's playback and subtitle preferences (GET/PATCH /me/prefs), shared with every Arc app. */
@@ -92,6 +95,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(
         SettingsUiState(
             serverName = container.session.serverName,
+            detailedLogs = container.deviceLogs.detailed(),
             automaticProfileId = container.session.automaticProfileId,
             matchFrameRate = container.session.matchFrameRate,
             audioPassthrough = container.session.audioPassthrough,
@@ -158,6 +162,24 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         _state.update { it.copy(automaticProfileId = id) }
     }
 
+    fun refreshDetailedLogs() {
+        _state.update { it.copy(detailedLogs = container.deviceLogs.detailed()) }
+    }
+
+    fun toggleDetailedLogs() {
+        container.deviceLogs.setDetailed(!container.deviceLogs.detailed())
+        refreshDetailedLogs()
+    }
+
+    fun sendLogs() {
+        if (_state.value.sendingLogs) return
+        _state.update { it.copy(sendingLogs = true, logStatus = null) }
+        viewModelScope.launch {
+            val status = sendDiagnosticLogs(container)
+            _state.update { it.copy(sendingLogs = false, logStatus = status) }
+        }
+    }
+
     fun setMatchFrameRate(enabled: Boolean) {
         container.session.matchFrameRate = enabled
         _state.update { it.copy(matchFrameRate = enabled) }
@@ -178,12 +200,20 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 fun SettingsRoute(onSignedOut: () -> Unit, onSwitchServer: () -> Unit) {
     val vm = arcViewModel { SettingsViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(vm) {
+        while (true) {
+            vm.refreshDetailedLogs()
+            kotlinx.coroutines.delay(30000)
+        }
+    }
     SettingsContent(
         state,
         onChange = vm::change,
         onAutomaticSignIn = vm::setAutomaticSignIn,
         onMatchFrameRate = vm::setMatchFrameRate,
         onAudioPassthrough = vm::setAudioPassthrough,
+        onToggleDetailedLogs = vm::toggleDetailedLogs,
+        onSendLogs = vm::sendLogs,
         onRetry = vm::load,
         onSwitchServer = { vm.signOut(onSwitchServer) },
         onSignOut = { vm.signOut(onSignedOut) },
@@ -216,6 +246,8 @@ fun SettingsContent(
     onAutomaticSignIn: (Boolean) -> Unit = {},
     onMatchFrameRate: (Boolean) -> Unit = {},
     onAudioPassthrough: (Boolean) -> Unit = {},
+    onToggleDetailedLogs: () -> Unit = {},
+    onSendLogs: () -> Unit = {},
 ) {
     var picking by remember { mutableStateOf<Picking?>(null) }
     var about by remember { mutableStateOf(initialAbout) }
@@ -339,6 +371,13 @@ fun SettingsContent(
                 }
                 item { SettingsRow(stringResource(R.string.settings_server), state.serverName.orEmpty(), onClick = onSwitchServer) }
                 item { SettingsRow(stringResource(R.string.settings_sign_out), "", onClick = onSignOut) }
+                item {
+                    SettingsRow(stringResource(R.string.diagnostics_detailed), if (state.detailedLogs) on else off, onClick = onToggleDetailedLogs)
+                }
+                item {
+                    SettingsRow(stringResource(R.string.diagnostics_send), state.logStatus?.let { stringResource(it) }.orEmpty(),
+                        enabled = !state.sendingLogs, description = stringResource(R.string.diagnostics_note), onClick = onSendLogs)
+                }
                 item { SettingsRow(stringResource(R.string.settings_about), version, Modifier.focusRequester(aboutRow)) { about = true } }
                 item { Note(stringResource(R.string.settings_server_note)) }
             }
