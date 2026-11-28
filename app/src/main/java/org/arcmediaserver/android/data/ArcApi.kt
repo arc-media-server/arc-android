@@ -66,6 +66,21 @@ class ArcApi(
         }
     }
 
+    /**
+     * Signs in with the household password, as this device ([device], its name in Arc's Devices);
+     * the token still needs a profile chosen. The phone's sign-in (a TV links with a code instead).
+     */
+    suspend fun login(password: String, device: String): String =
+        send("POST", "auth/login", JsonObject(mapOf("password" to JsonPrimitive(password), "device" to JsonPrimitive(device))).toString(), TokenAnswer.serializer()).token
+
+    /** Signs in as a friend (their own name and password); the token already has their profile. */
+    suspend fun friendLogin(name: String, password: String, device: String): String =
+        send(
+            "POST", "auth/friend",
+            JsonObject(mapOf("name" to JsonPrimitive(name), "password" to JsonPrimitive(password), "device" to JsonPrimitive(device))).toString(),
+            TokenAnswer.serializer(),
+        ).token
+
     suspend fun authStatus(): AuthStatus = get("auth/status", AuthStatus.serializer())
 
     suspend fun chooseProfile(id: String, pin: String?): Profile {

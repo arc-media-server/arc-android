@@ -102,3 +102,55 @@ fun ArcTheme(content: @Composable () -> Unit) {
         CompositionLocalProvider(LocalContentColor provides ArcColors.Foreground, content = content)
     }
 }
+
+/**
+ * The phone and tablet interface's Material 3 colours: Arc's dark tokens, with white as the only
+ * emphasis (filled buttons white with black text, the navigation bar's chosen item on Surface3),
+ * so Material's own components keep Arc's look with no UI colour.
+ */
+private val mobileScheme = androidx.compose.material3.darkColorScheme(
+    primary = ArcColors.AccentStrong,
+    onPrimary = ArcColors.OnAccent,
+    primaryContainer = ArcColors.Surface3,
+    onPrimaryContainer = ArcColors.Foreground,
+    inversePrimary = ArcColors.OnAccent,
+    secondary = ArcColors.Foreground,
+    onSecondary = ArcColors.OnAccent,
+    secondaryContainer = ArcColors.Surface3,
+    onSecondaryContainer = ArcColors.Foreground,
+    tertiary = ArcColors.Foreground,
+    onTertiary = ArcColors.OnAccent,
+    background = ArcColors.Background,
+    onBackground = ArcColors.Foreground,
+    surface = ArcColors.Background,
+    onSurface = ArcColors.Foreground,
+    surfaceVariant = ArcColors.Surface2,
+    onSurfaceVariant = ArcColors.Muted,
+    surfaceTint = Color.Transparent,
+    surfaceContainerLowest = ArcColors.Background,
+    surfaceContainerLow = ArcColors.Surface,
+    surfaceContainer = ArcColors.Surface,
+    surfaceContainerHigh = ArcColors.Surface2,
+    surfaceContainerHighest = ArcColors.Surface3,
+    inverseSurface = ArcColors.Foreground,
+    inverseOnSurface = ArcColors.Background,
+    outline = ArcColors.Subtle,
+    outlineVariant = ArcColors.Surface3,
+    error = ArcColors.Error,
+    onError = ArcColors.OnAccent,
+    scrim = Color.Black,
+)
+
+/**
+ * The phone and tablet interface's theme: Material 3 with its standard phone type scale, in Arc's
+ * colours. The TV theme sits underneath so the components both interfaces share (artwork and its
+ * placeholders, watched badges) read the same tokens.
+ */
+@Composable
+fun ArcMobileTheme(content: @Composable () -> Unit) {
+    ArcTheme {
+        androidx.compose.material3.MaterialTheme(colorScheme = mobileScheme) {
+            CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides ArcColors.Foreground, content = content)
+        }
+    }
+}

@@ -39,7 +39,7 @@ import org.arcmediaserver.android.ui.signin.SignInRoute
 @Serializable data class DetailsDest(val itemId: String, val episodeId: String? = null)
 
 /** Where a card opens: a title's own page, or for an episode, its show's page on that episode. */
-private fun detailsFor(item: Item) =
+internal fun detailsFor(item: Item) =
     if (item.isEpisode && item.parentId != null) DetailsDest(item.parentId, episodeId = item.id) else DetailsDest(item.id)
 /** The player: [entryId] plays on through the queue from that entry; [carryOn] adds Auto-Play's episode to it. */
 /** [together]: played in this TV's Watch Together room, which decides where and whether it plays. */

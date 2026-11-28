@@ -29,8 +29,10 @@ The Android TV and Google TV app for
 always works, and your Arc artwork fills the screen.
 
 Everything comes from your Arc server through its stable `/api/v1`, so your watch history, resume
-points and settings are the same as on every other Arc app. A phone and tablet interface will
-follow in this same app.
+points and settings are the same as on every other Arc app. On a phone or tablet the same app
+opens a touch interface in Material 3 and Arc's colours: Home, Libraries, Search, title pages and
+the player, signed in with your household password or a code (a first version; see
+`docs/changes/2026-11-28-phone-interface.md` for what's still to come).
 
 > **Alpha software.** It's in daily use, but not yet checked on every TV. Playback, HDR, Dolby
 > Vision and passthrough depend on your TV, streaming box and receiver. See
