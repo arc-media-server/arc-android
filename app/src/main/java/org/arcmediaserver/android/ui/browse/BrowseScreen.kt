@@ -5,6 +5,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 
 import androidx.compose.ui.draw.shadow
 
@@ -23,10 +24,15 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.mutableIntStateOf
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
 import org.arcmediaserver.android.ui.components.rowsBringIntoView
+import org.arcmediaserver.android.ui.components.ScrollByShelf
+import org.arcmediaserver.android.ui.components.footScrollPage
+import org.arcmediaserver.android.ui.components.landsAtFoot
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
@@ -69,6 +75,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -209,9 +217,23 @@ fun BrowseScreen(
     // the web's profile menu; without it, it switches profile at once.
     var profileMenu by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var joining by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
+    // No background of its own: the window's (the same colour, themes.xml) is already under it,
+    // and on a Chromecast every whole-screen layer Home paints costs frame time.
+    Box(Modifier.fillMaxSize()) {
         // Home's whole-screen hero artwork sits behind the sidebar too.
-        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { org.arcmediaserver.android.ui.details.HeroBackdrop(it, homeScrolled) }
+        // Only behind the first shelf: below it Home is the plain page, as a library's Recommended
+        // tab, so the art never belongs to a card that isn't focused and the lower shelves draw
+        // nothing behind them (on a Chromecast, Home ran at Recommended's speed without it).
+        if (state.section == Section.Home && state.frame is LoadState.Ready) focusedCard?.item?.let { item ->
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !homeScrolled,
+                enter = androidx.compose.animation.fadeIn(tween(HomeBackdropFadeMs)),
+                exit = androidx.compose.animation.fadeOut(tween(HomeBackdropFadeMs)),
+            ) {
+                // Opaque only once its fade in or out has finished.
+                org.arcmediaserver.android.ui.details.HeroBackdrop(item, dim = false, whole = !transition.isRunning)
+            }
+        }
         Loaded(state.frame, onRetry) { frame ->
             val drawer = rememberDrawerState(drawerValue)
             ModalNavigationDrawer(
@@ -456,8 +478,8 @@ fun rowTitle(spec: HomeRowSpec): String = when (val s = spec.source) {
  * and overview over its artwork) with the profile's rows beneath, Continue Watching first, just
  * under it. Focus starts on the first card, and moving along a row changes the hero. The hero
  * has no buttons of its own: Select on a card opens its title (a play queue card plays on), and
- * holding Select gives its actions. Further down, the hero scrolls away over a dimmed copy of the
- * artwork. Empty rows are left out.
+ * holding Select gives its actions. Further down, the hero scrolls away and its artwork fades to
+ * the plain page. Empty rows are left out.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -467,7 +489,7 @@ fun HomeContent(
     onRetryRow: (HomeRowSpec) -> Unit,
     onFocusedCard: (MediaCard?) -> Unit,
     onPlayQueued: (Item, String) -> Unit = { _, _ -> },
-    /** Whether the page has scrolled past the hero (the backdrop dims). */
+    /** Whether the page has scrolled past the hero (the backdrop fades out). */
     onScrolled: (Boolean) -> Unit = {},
     /** A Watch Together card: the room's choices. */
     onRoom: (String) -> Unit = {},
@@ -479,7 +501,12 @@ fun HomeContent(
         val cards = r.cards
         if (menu != null && r.spec.source is RowSource.Continue && cards is LoadState.Ready) r.copy(cards = LoadState.Ready(cards.value.filterNot { menu.offContinue(it.item.id) })) else r
     }
-    val visible = rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) }
+    // Watch Together's rooms sit under Continue Watching (or the first row showing).
+    val visible = org.arcmediaserver.android.data.placeRoomsRow(
+        rows.filter { r -> !(r.cards is LoadState.Ready && r.cards.value.isEmpty()) },
+        isRooms = { it.spec.source == RowSource.WatchTogether },
+        isContinue = { it.spec.source is RowSource.Continue },
+    )
     if (rows.isNotEmpty() && rows.all { it.cards is LoadState.Ready && it.cards.value.isEmpty() }) {
         EmptyHome()
         return
@@ -488,10 +515,11 @@ fun HomeContent(
         LoadingPane()
         return
     }
-    // The hero is the focused card, or the one last focused; before any, the first row's first.
-    var focused by remember { mutableStateOf<MediaCard?>(null) }
-    val first = visible.firstNotNullOfOrNull { (it.cards as? LoadState.Ready)?.value?.firstOrNull() }
-    val hero = focused ?: first
+    // Only the first shelf of titles drives the hero and its backdrop, which fades out below it.
+    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready && it.spec.source != RowSource.WatchTogether }
+    val heroCards = (firstReady?.cards as? LoadState.Ready)?.value.orEmpty()
+    var heroKey by remember(firstReady?.spec?.id) { mutableStateOf<String?>(null) }
+    val hero = heroCards.firstOrNull { it.key == heroKey } ?: heroCards.firstOrNull()
     val list = rememberLazyListState()
     val scrolled by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 40 } }
     LaunchedEffect(hero?.key) { onFocusedCard(hero) }
@@ -500,10 +528,19 @@ fun HomeContent(
     // The row last focused, kept while away (a title's page, the player), to come back to.
     var lastRow by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val rowFocus = remember { mutableMapOf<String, FocusRequester>() }
-    val scope = rememberCoroutineScope()
-    val firstReady = visible.firstOrNull { it.cards is LoadState.Ready }
-    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
-        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
+    // Each shelf's last focused card (shelf id to card key), kept while the shelf is scrolled
+    // away and while away from Home, so coming back to a shelf lands where it was left.
+    val lastCard = androidx.compose.runtime.saveable.rememberSaveable { HashMap<String, String>() }
+    val shelfPosition by rememberUpdatedState<(String) -> Int> { id ->
+        // At the first shelf the hero stays visible. Other shelves go to the top of the list.
+        val index = visible.indexOfFirst { it.spec.id == id }
+        if (index < 0 || visible[index] === firstReady) 0 else index + if (hero != null) 1 else 0
+    }
+    // The focused shelf lands at the foot of the screen, moving down or back up, with the shelves
+    // above it in view (as arc-kodi's Home); the first shelf keeps the hero above it.
+    val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(list, gap = 36.dp)
+    CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize().footScrollPage(foot), contentPadding = PaddingValues(bottom = 36.dp)) {
             if (hero != null) {
                 item(key = "hero") {
                     Box(Modifier.fillParentMaxHeight(HeroHeight).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
@@ -514,16 +551,8 @@ fun HomeContent(
             items(visible, key = { it.spec.id }) { row ->
                 val isFirst = row === firstReady
                 Box(
-                    Modifier.padding(top = 4.dp).onFocusChanged {
-                        if (!it.hasFocus) return@onFocusChanged
-                        lastRow = row.spec.id
-                        // The first row sits under the hero, which stays in view while it has focus.
-                        // The focused card asks to be scrolled into view too, and a newer scroll
-                        // cancels an older one: wait a frame so the hero's comes last and wins.
-                        if (isFirst) scope.launch {
-                            androidx.compose.runtime.withFrameNanos { }
-                            list.animateScrollToItem(0)
-                        }
+                    Modifier.landsAtFoot(foot, toTop = isFirst).padding(top = 4.dp).onFocusChanged {
+                        if (it.hasFocus) lastRow = row.spec.id
                     },
                 ) {
                     HomeRow(
@@ -537,7 +566,11 @@ fun HomeContent(
                                 else -> onOpen(card.item)
                             }
                         },
-                        onFocused = { focused = it },
+                        onFocused = {
+                            lastCard[row.spec.id] = it.key
+                            if (isFirst) heroKey = it.key
+                        },
+                        lastCard = { lastCard[row.spec.id] },
                         onRetry = { onRetryRow(row.spec) },
                         firstCard = if (isFirst) firstCard else null,
                         rowFocus = rowFocus.getOrPut(row.spec.id) { FocusRequester() },
@@ -554,13 +587,19 @@ fun HomeContent(
         if (focusedOnce || readyIds.isEmpty()) return@LaunchedEffect
         val back = lastRow?.takeIf { it in readyIds }
         focusedOnce = if (back != null) {
-            list.scrollToItem(visible.indexOfFirst { it.spec.id == back } + 1)
+            list.scrollToItem(shelfPosition(back))
             rowFocus.getOrPut(back) { FocusRequester() }.requestWhenReady()
         } else {
             firstCard.requestWhenReady()
         }
     }
 }
+
+/** How long Home's backdrop takes to fade out below the first shelf, and back in. */
+private const val HomeBackdropFadeMs = 300
+
+/** Cards of a shelf made ahead when Home scrolls to it: as many as fit on screen. */
+private const val ShelfPrefetchCards = 7
 
 /** The hero's share of the screen: the first row's cards show in full just under it. */
 private const val HeroHeight = 0.6f
@@ -576,7 +615,7 @@ private fun HomeHero(card: MediaCard) {
                 Spacer(Modifier.height(10.dp))
                 val meta = listOfNotNull(
                     if (item.isEpisode) episodeWithTitle(item) else null,
-                    item.year?.toString()?.takeIf { !item.isEpisode },
+                    item.yearAndEdition?.takeIf { !item.isEpisode },
                     item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                     item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
                 ).filter { it.isNotBlank() }
@@ -615,40 +654,6 @@ fun backdropOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.
 /** The clear logo for a title: its own, or its show's for an episode. */
 fun logoOf(item: Item): String? = item.images?.let { if (item.isEpisode) it.seriesLogo ?: it.logo else it.logo }
 
-/**
- * The whole-screen backdrop behind Home and a title's page, as Plex's TV app: the art sits in the
- * top right, whole (16:9, 70% of the width), over an Ultra Blur wash of its own colours (from
- * Arc; the plain page without them), and its left and bottom edges fade into it, so the picture
- * stays clear and the text beside and under it sits on its colours.
- */
-@Composable
-fun ImmersiveBackdrop(item: Item?) {
-    val resolve = LocalImageUrl.current
-    val url = item?.let(::backdropOf)
-    Box(Modifier.fillMaxSize()) {
-        UltraBlur(item?.let(::paletteIdOf))
-        Box(
-            Modifier
-                .align(Alignment.TopEnd)
-                .fillMaxWidth(0.7f)
-                .aspectRatio(16f / 9f)
-                // The art's edges fade to see-through, so the wash shows through them.
-                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                .drawWithContent {
-                    drawContent()
-                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.45f to Color.Black.copy(alpha = 0.75f), 0.7f to Color.Black), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                    drawRect(Brush.verticalGradient(0.5f to Color.Black, 0.85f to Color.Black.copy(alpha = 0.3f), 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-                },
-        ) {
-            Crossfade(url, animationSpec = tween(600), label = "backdrop") { u ->
-                if (u != null) {
-                    AsyncImage(model = resolve(u), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                }
-            }
-        }
-    }
-}
-
 /** A title's clear logo, or its name in large type when it has none (or it doesn't load). */
 @Composable
 fun TitleLogo(item: Item, maxHeight: Dp = 96.dp, maxWidth: Dp = 420.dp, textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.displaySmall) {
@@ -678,7 +683,7 @@ private fun Overview(card: MediaCard) {
             item,
             listOfNotNull(
                 if (item.isEpisode) episodeWithTitle(item) else null,
-                item.year?.toString()?.takeIf { !item.isEpisode },
+                item.yearAndEdition?.takeIf { !item.isEpisode },
                 item.contentRating,
                 item.runtimeMin?.takeIf { it > 0 }?.let { runtimeText(it) },
                 item.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() },
@@ -718,7 +723,16 @@ fun runtimeText(minutes: Int): String =
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (MediaCard) -> Unit, onRetry: () -> Unit, firstCard: FocusRequester?, rowFocus: FocusRequester) {
+private fun HomeRow(
+    row: HomeRowState,
+    onOpen: (MediaCard) -> Unit,
+    onFocused: (MediaCard) -> Unit,
+    onRetry: () -> Unit,
+    firstCard: FocusRequester?,
+    rowFocus: FocusRequester,
+    /** The key of the card last focused in this shelf, or null before it has been visited. */
+    lastCard: () -> String? = { null },
+) {
     Column {
         Text(rowTitle(row.spec), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 48.dp, bottom = 4.dp))
         when (val cards = row.cards) {
@@ -730,12 +744,34 @@ private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (
             }
             // Vertical padding leaves room for the focused card to grow without being clipped.
             is LoadState.Ready -> CompositionLocalProvider(
-                LocalBringIntoViewSpec provides minimalBringIntoView(),
+                LocalBringIntoViewSpec provides minimalBringIntoView(ShelfPadding - ShelfInset, after = ShelfPadding),
                 org.arcmediaserver.android.ui.components.LocalInContinueRow provides (row.spec.source is RowSource.Continue),
-            ) { LazyRow(
-                // Focusing the row returns to the card last focused in it (or its first).
-                modifier = Modifier.focusRequester(rowFocus).focusRestorer(),
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp),
+            ) {
+                // When Home scrolls, the shelf coming next is made just before it's on screen: all
+                // the cards it shows (seven posters fit), not Compose's default two, so they
+                // aren't composed in the frame the shelf arrives.
+                @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+                val shelf = androidx.compose.foundation.lazy.rememberLazyListState(
+                    prefetchStrategy = androidx.compose.foundation.lazy.LazyListPrefetchStrategy(nestedPrefetchItemCount = ShelfPrefetchCards),
+                )
+                val cardFocus = remember(row.spec.id) { HashMap<String, FocusRequester>() }
+                LazyRow(
+                state = shelf,
+                // Entering the shelf, from above, below or coming back, lands on the card last
+                // focused in it, or its first on a first visit, as Plex's and Leanback's rows.
+                // Compose's own choice is the card nearest the one left (a different card when
+                // the shelves' card widths differ, and the right-most when moving up), and its
+                // focusRestorer forgets once the shelf has scrolled off screen.
+                modifier = Modifier.padding(start = ShelfInset).clipToBounds().focusRequester(rowFocus)
+                    .focusProperties {
+                        onEnter = {
+                            val visible = shelf.layoutInfo.visibleItemsInfo.map { it.key }
+                            val target = lastCard()?.takeIf { it in visible } ?: cards.value.firstOrNull()?.key?.takeIf { it in visible } ?: visible.firstOrNull() as? String
+                            if (target != null) cardFocus[target]?.requestFocus()
+                        }
+                    }
+                    .focusGroup(),
+                contentPadding = PaddingValues(start = ShelfPadding - ShelfInset, end = ShelfPadding, top = 14.dp, bottom = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 items(cards.value, key = { it.key }) { card ->
@@ -748,7 +784,8 @@ private fun HomeRow(row: HomeRowState, onOpen: (MediaCard) -> Unit, onFocused: (
                         seasonPoster = row.spec.seasonPosters,
                         width = when (style) { CardStyle.Thumb -> HomeThumbWidth; CardStyle.Backdrop -> HomeBackdropWidth; CardStyle.Poster -> HomePosterWidth },
                         onClick = { onOpen(card) },
-                        modifier = if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod,
+                        modifier = (if (firstCard != null && card === cards.value.first()) mod.focusRequester(firstCard) else mod)
+                            .focusRequester(cardFocus.getOrPut(card.key) { FocusRequester() }),
                     )
                 }
             } }
@@ -865,12 +902,11 @@ private fun TitlesWithLetters(page: LibraryPage, first: FocusRequester, onOpen: 
     val scope = rememberCoroutineScope()
     var target by remember(page.query) { mutableStateOf<Int?>(null) }
     val offsets = remember(page.letters, page.query.reverse) { letterOffsets(page.letters, page.query.reverse) }
-    Row(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
-            TitleGrid(page.total, { page.items[it] }, landscape = page.library.kind == "videos", first, onOpen, onNeed, grid, target)
-        }
+    Box(Modifier.fillMaxSize()) {
+        TitleGrid(page.total, { page.items[it] }, landscape = page.library.kind == "videos", first, onOpen, onNeed, grid, target)
         if (page.query.sort == "title" && offsets.size > 1) {
-            LetterBar(offsets.keys.toList()) { letter ->
+            // The grid already leaves a 48dp gutter. Keep the rail there so it can't resize posters.
+            LetterBar(offsets.keys.toList(), Modifier.align(Alignment.TopEnd)) { letter ->
                 val at = offsets.getValue(letter)
                 onNeed(at)
                 target = at
@@ -893,9 +929,9 @@ fun letterOffsets(letters: List<org.arcmediaserver.android.data.LetterCount>, re
 }
 
 @Composable
-private fun LetterBar(letters: List<String>, onJump: (String) -> Unit) {
+private fun LetterBar(letters: List<String>, modifier: Modifier, onJump: (String) -> Unit) {
     androidx.compose.foundation.lazy.LazyColumn(
-        Modifier.width(36.dp).fillMaxHeight().padding(end = 12.dp),
+        modifier.width(36.dp).fillMaxHeight().padding(end = 12.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
     ) {
@@ -1015,12 +1051,19 @@ private fun RecommendedView(rows: List<org.arcmediaserver.android.data.Recommend
         Text(stringResource(R.string.library_recommended_empty), style = MaterialTheme.typography.bodyLarge, color = ArcColors.Muted, modifier = Modifier.padding(start = 48.dp, top = 24.dp))
         return
     }
-    CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
-        LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    val list = rememberLazyListState()
+    // As Home: the focused row lands at the foot of the screen, moving down or back up.
+    val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(list, gap = 32.dp)
+    CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollByShelf) {
+        LazyColumn(state = list, modifier = Modifier.footScrollPage(foot), contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             itemsIndexed(rows, key = { i, r -> "$i:${r.type}:${r.name}:${r.genre}" }) { index, row ->
                 val episodes = row.items.any { it.isEpisode }
                 val style = row.style.ifEmpty { if (row.type == "continue" || episodes) "thumb" else "poster" }
-                Shelf(recommendedTitle(row, library)) {
+                Shelf(
+                    recommendedTitle(row, library),
+                    modifier = Modifier.landsAtFoot(foot, toTop = index == 0),
+                    leadingInset = ShelfInset,
+                ) {
                     itemsIndexed(row.items, key = { _, it -> it.id }) { i, item ->
                         MediaCardView(
                             cardFor(item),
@@ -1067,6 +1110,10 @@ private fun recommendedTitle(row: org.arcmediaserver.android.data.RecommendedRow
         else -> row.title
     }
 }
+
+// Keep the art lined up at 48dp while clipping the row just past the closed sidebar.
+private val ShelfPadding = 48.dp
+private val ShelfInset = 36.dp
 
 /** Home's single row of cards: about seven posters across, with room for the heading and focus. */
 private val HomePosterWidth = 132.dp

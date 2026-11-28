@@ -23,6 +23,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioCapabilities
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.common.text.Cue
 import kotlinx.coroutines.Dispatchers
@@ -87,6 +90,8 @@ data class PlayerUiState(
     val nextEntryId: String? = null,
     /** -1 Automatic, 0 Original, or a limit in kbit/s (the web player's quality menu). */
     val quality: Int = -1,
+    /** Automatic: the limit it's playing at now (kbit/s), or 0 for the original (within Arc's limit). */
+    val automaticKbps: Int = 0,
     val speed: Float = 1f,
     /**
      * Whether the next title is offered (and counted down to): the profile's Auto-Play, or always
@@ -120,7 +125,8 @@ data class PlayerUiState(
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null): ExoPlayer {
-    val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+    val renderers = (if (container.session.audioPassthrough) DefaultRenderersFactory(context) else DecodedAudioRenderers(context))
+        .setEnableDecoderFallback(true)
     val sources = DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(container.mediaClient))
     if (ass != null) sources.setSubtitleParserFactory(ArcSubtitleParsers(AssSubtitleParserFactory(ass)))
     val player = ExoPlayer.Builder(context)
@@ -129,8 +135,27 @@ fun arcPlayer(context: Context, container: AppContainer, ass: AssHandler? = null
         .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
         .setHandleAudioBecomingNoisy(true)
         .build()
+    // Arc matches the frame rate itself (MatchFrameRate, Settings > This TV); Media3's own
+    // seamless-only request would otherwise set the same surface's frame rate as well.
+    player.videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
     ass?.init(player)
     return player
+}
+
+/**
+ * Audio Passthrough off (Settings > This TV): an audio output that never sends Dolby or DTS on as
+ * it is, so the TV decodes everything to PCM. Arc was told the same (no passthrough formats), so
+ * it converts what the TV can't decode.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+private class DecodedAudioRenderers(private val context: Context) : DefaultRenderersFactory(context) {
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+        @Suppress("DEPRECATION")
+        DefaultAudioSink.Builder(this.context)
+            .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .build()
 }
 
 /**
@@ -189,6 +214,13 @@ class PlayerViewModel(
     private var retried = false
     private var loadJob: Job? = null
     private var maxKbps: Int? = null
+    /**
+     * Automatic quality: steps the stream down when the connection can't keep up and back up when
+     * it can, as the web player (docs/changes/2026-11-27-automatic-quality.md).
+     */
+    private val adaptive = org.arcmediaserver.android.playback.AdaptiveQuality(qualities)
+    /** The original's rate (kbit/s): Arc's figure, or measured while playing it. */
+    private var originalKbps = 0
     /** The picture subtitle track Arc is asked to burn into the video, kept across restarts. */
     private var burn: String? = null
     /** The burn last logged, so each burn's outcome is logged once. */
@@ -214,6 +246,38 @@ class PlayerViewModel(
 
     /** Stats for nerds: the decoders and formats really in use. */
     private val statsCollector = org.arcmediaserver.android.playback.PlaybackStatsCollector().also { player.addAnalyticsListener(it) }
+
+    init {
+        // Automatic quality measures each downloaded piece of a converted (HLS) stream: its size,
+        // the time it took (the server's conversion wait included) and how much video it holds.
+        // A file played as it is has no pieces to measure; there Automatic can only step down,
+        // when the player keeps waiting.
+        player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onLoadCompleted(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                loadEventInfo: androidx.media3.exoplayer.source.LoadEventInfo,
+                mediaLoadData: androidx.media3.exoplayer.source.MediaLoadData,
+            ) {
+                if (plan?.hls != true || mediaLoadData.dataType != C.DATA_TYPE_MEDIA) return
+                if (mediaLoadData.trackType != C.TRACK_TYPE_DEFAULT && mediaLoadData.trackType != C.TRACK_TYPE_VIDEO) return
+                val start = mediaLoadData.mediaStartTimeMs
+                val end = mediaLoadData.mediaEndTimeMs
+                if (start == C.TIME_UNSET || end == C.TIME_UNSET || end <= start) return
+                adaptive.observe(System.currentTimeMillis(), loadEventInfo.bytesLoaded, loadEventInfo.loadDurationMs, (end - start) / 1000.0)
+                if (maxKbps == null && adaptive.mediaKbps > 0) originalKbps = adaptive.mediaKbps.toInt()
+            }
+
+            // A seek starts the grace period again: the buffer empties because of it, not the network.
+            override fun onPositionDiscontinuity(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) adaptive.reset(System.currentTimeMillis())
+            }
+        })
+    }
     val stats: StateFlow<org.arcmediaserver.android.playback.PlaybackStats> = statsCollector.stats
 
     /** Text subtitles the app draws itself (see [TextSubtitles]); ASS/SSA go to libass instead. */
@@ -366,6 +430,9 @@ class PlayerViewModel(
                 subtitle = _state.value.subtitle?.takeIf { s -> p.subtitleTracks.any { it.id == s.id } }
             }
             plan = p
+            adaptive.reset(System.currentTimeMillis())
+            // The original's rate, until playing it measures it (Automatic's starting point).
+            if (maxKbps == null) originalKbps = p.sourceKbps.takeIf { it > 0 } ?: 8000
             reportBurn(p)
             // Why it converts is worth explaining later (CLAUDE.md, Logging).
             container.deviceLogs.record(DeviceLogs.Level.debug, DeviceLogs.Event.playback_started)
@@ -650,7 +717,8 @@ class PlayerViewModel(
     /** Quality as the web player offers it: -1 Automatic, 0 Original, or a limit in kbit/s. */
     fun chooseQuality(kbps: Int) {
         if (kbps == _state.value.quality) return
-        _state.update { it.copy(quality = kbps) }
+        // Choosing Automatic again starts from the original; a manual choice stops adapting.
+        _state.update { it.copy(quality = kbps, automaticKbps = 0) }
         val limit = kbps.takeIf { it > 0 }
         if (limit == maxKbps) return
         maxKbps = limit
@@ -686,7 +754,41 @@ class PlayerViewModel(
                 lastReport = System.currentTimeMillis()
                 report("playing")
             }
+            if (_state.value.quality == -1) adapt(p)
         }
+    }
+
+    /**
+     * Automatic quality: asks Arc for the stream again at a lower (or higher) limit when the
+     * policy says so. Not while paused, seeking, loading, failed, stopped, ended or in a Watch
+     * Together room (the room keeps everyone in step; a replan there would hold everyone up).
+     */
+    private fun adapt(p: PlaybackPlan) {
+        val s = _state.value
+        val now = System.currentTimeMillis()
+        val state = player.playbackState
+        val active = player.playWhenReady && (state == Player.STATE_READY || state == Player.STATE_BUFFERING) &&
+            roomSession == null && loadJob?.isActive != true && s.error == null && s.stopped == null && !s.ended
+        val target = adaptive.decide(
+            org.arcmediaserver.android.playback.AdaptiveObservation(
+                now = now,
+                active = active,
+                bufferSeconds = (player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000.0,
+                waiting = state == Player.STATE_BUFFERING,
+                remainingSeconds = (p.durationMs - position()) / 1000.0,
+                playbackRate = player.playbackParameters.speed,
+                currentLimit = maxKbps ?: 0,
+                originalKbps = originalKbps,
+                ceilingKbps = p.serverLimitKbps,
+            ),
+        ) ?: return
+        val from = maxKbps ?: 0
+        // Each change is a decision worth explaining later (at most four in two minutes).
+        log.info("automatic quality: ${if (target == 0 || from in 1 until target) "raising" else "lowering"} to ${if (target == 0) "the original" else "$target kbit/s"} " +
+            "(buffer ${"%.1f".format(java.util.Locale.ROOT, (player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000.0)} s, delivery ${adaptive.deliveryKbps.toInt()} kbit/s)")
+        maxKbps = target.takeIf { it > 0 }
+        _state.update { it.copy(automaticKbps = target) }
+        load(position())
     }
 
     private suspend fun keepAlive() {

@@ -46,6 +46,12 @@ fun minimalBringIntoView(margin: Dp = 48.dp, after: Dp = margin): BringIntoViewS
     }
 }
 
+/** The vertical position of these lists is set by the focused shelf, outside the card. */
+@OptIn(ExperimentalFoundationApi::class)
+internal object ScrollByShelf : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
+
 /**
  * For a grid of cards with captions, as Plex's library: scrolls a whole row at a time, so the
  * screen always shows whole rows. Moving down past the bottom row brings the next row up into its

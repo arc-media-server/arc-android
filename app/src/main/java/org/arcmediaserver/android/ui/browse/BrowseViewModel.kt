@@ -206,7 +206,8 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
         }
-        // Watch Together's rooms, first on Home while there are any (Arc says when they change).
+        // Watch Together's rooms, on Home while there are any (Arc says when they change); the
+        // screen places the row under Continue Watching.
         viewModelScope.launch {
             container.together.available.collect { on -> _state.update { it.copy(together = on) } }
         }

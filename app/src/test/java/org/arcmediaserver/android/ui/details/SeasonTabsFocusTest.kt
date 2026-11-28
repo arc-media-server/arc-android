@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -111,6 +112,124 @@ class SeasonTabsFocusTest {
         val actor = Fixtures.show.credits.first { it.role == "actor" }
         val name = compose.onNodeWithText(actor.name).getUnclippedBoundsInRoot()
         assertTrue("cast name is below screen: $name", name.top >= 0.dp && name.bottom <= 540.dp)
+    }
+
+    /** The focused node's text, merged from the card it's on. */
+    private fun focusedText(): String = compose.onNode(androidx.compose.ui.test.isFocused()).fetchSemanticsNode().config
+        .getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.Text) { null }.orEmpty().joinToString(" ") { it.text }
+
+    /** Whether the focused card is the cast card named [name] (the name sits under its picture). */
+    private fun castFocused(name: String): Boolean {
+        val card = compose.onNode(androidx.compose.ui.test.isFocused()).getUnclippedBoundsInRoot()
+        val label = compose.onNodeWithText(name).getUnclippedBoundsInRoot()
+        val middle = (label.left + label.right) / 2
+        return middle > card.left && middle < card.right
+    }
+
+    @Test
+    fun `rows land at the foot and focus comes back to the card left in them`() {
+        show(initialSeason = 0)
+        press(Key.DirectionDown)
+        press(Key.DirectionDown) // the episodes, on S1 · E3 (Play's)
+        val episodes = Fixtures.seasons[0].episodes
+        press(Key.DirectionRight)
+        assertTrue(focusedText(), focusedText().contains(episodes[3].title))
+        press(Key.DirectionDown) // the cast, on its first card whichever episode was left
+        val actors = Fixtures.show.credits.filter { it.role == "actor" }
+        assertTrue(castFocused(actors.first().name))
+        // The cast row ends 40dp above the foot of the screen, not at the top.
+        val name = compose.onNodeWithText(actors.first().name).getUnclippedBoundsInRoot()
+        assertTrue("cast row went to the top: $name", name.top > 270.dp && name.bottom <= 540.dp)
+        press(Key.DirectionRight)
+        press(Key.DirectionUp)
+        assertTrue(focusedText(), focusedText().contains(episodes[3].title))
+        press(Key.DirectionDown)
+        assertTrue(castFocused(actors[1].name))
+    }
+
+    @Test
+    fun `a show with more seasons than fit scrolls its tabs, and Up still goes back to the top`() {
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        compose.setContent {
+            ArcTheme {
+                DetailsScreen(Details(Fixtures.show, seasons, next = seasons[0].episodes[2]), onPlay = { _: Item, _: Long -> }, onOpen = {})
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        compose.onNodeWithText("Season 1").assertIsFocused()
+        repeat(13) { press(Key.DirectionRight) }
+        compose.onNodeWithText("Season 14").assertIsFocused()
+        val tab = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        assertTrue("the last season's tab is off screen: $tab", tab.left >= 0.dp && tab.right <= 960.dp && tab.right > tab.left + 40.dp)
+        press(Key.DirectionUp)
+        // Focus left the tabs for the buttons above (the page scrolls back up to them).
+        compose.onNode(androidx.compose.ui.test.isFocused()).assertExists()
+        compose.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasText("Season", substring = true)).assertCountEquals(0)
+        // And back to the first season's tab, scrolled back into view.
+        press(Key.DirectionDown)
+        repeat(13) { press(Key.DirectionLeft) }
+        compose.onNodeWithText("Season 1").assertIsFocused()
+        assertTrue(compose.onNodeWithText("Season 1").getUnclippedBoundsInRoot().left >= 0.dp)
+    }
+
+    @Test
+    fun `opening a show on a later season scrolls its tab to where moving along the tabs would`() {
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        val linked = androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            ArcTheme {
+                androidx.compose.runtime.key(linked.value) {
+                    val d = if (linked.value) {
+                        Details(Fixtures.show, seasons, next = seasons[13].episodes[2], focus = seasons[13].episodes[2], initialSeason = 13)
+                    } else {
+                        Details(Fixtures.show, seasons, next = seasons[0].episodes[2])
+                    }
+                    DetailsScreen(d, onPlay = { _: Item, _: Long -> }, onOpen = {})
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        repeat(13) { press(Key.DirectionRight) }
+        compose.onNodeWithText("Season 14").assertIsFocused()
+        val moved = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        // Opened straight on Season 14's episode (from Home): the episode has the focus, not the tabs.
+        compose.runOnIdle { linked.value = true }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        compose.onAllNodes(androidx.compose.ui.test.isFocused() and androidx.compose.ui.test.hasText("Season", substring = true)).assertCountEquals(0)
+        val opened = compose.onNodeWithText("Season 14").getUnclippedBoundsInRoot()
+        assertEquals(moved.left, opened.left)
+        assertEquals(moved.right, opened.right)
+    }
+
+    @Test
+    fun `opening a linked episode lands at the same height as navigating down in the show`() {
+        val linked = androidx.compose.runtime.mutableStateOf(false)
+        val episode = Fixtures.seasons[0].episodes[2]
+        compose.setContent {
+            ArcTheme {
+                androidx.compose.runtime.key(linked.value) {
+                    DetailsScreen(
+                        Details(Fixtures.show, Fixtures.seasons, next = episode, focus = episode.takeIf { linked.value }),
+                        onPlay = { _, _ -> }, onOpen = {},
+                    )
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        val manual = compose.onAllNodesWithText(episode.title).onLast().getUnclippedBoundsInRoot().top
+        compose.runOnIdle { linked.value = true }
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.waitForIdle()
+        val direct = compose.onAllNodesWithText(episode.title).onLast().getUnclippedBoundsInRoot().top
+        assertEquals(manual, direct)
     }
 
     @Test

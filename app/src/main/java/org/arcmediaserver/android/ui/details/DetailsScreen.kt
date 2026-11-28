@@ -12,6 +12,7 @@ import org.arcmediaserver.android.ui.components.Shelf
 import org.arcmediaserver.android.ui.components.PillTabs
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import org.arcmediaserver.android.ui.components.revealOnFocus
 import org.arcmediaserver.android.ui.components.minimalBringIntoView
@@ -36,6 +37,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import coil3.request.crossfade
+import coil3.request.transformations
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalInspectionMode
+import org.arcmediaserver.android.ui.components.landsAtFoot
+import org.arcmediaserver.android.ui.components.footScrollPage
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -186,14 +196,18 @@ fun DetailsScreen(
     // A season's menu (OK on its tab): its number and where its tab is.
     var seasonMenu by remember { mutableStateOf<Pair<Int, androidx.compose.ui.geometry.Rect?>?>(null) }
     val seasonTab = remember { FocusRequester() }
-    Box(Modifier.fillMaxSize().background(ArcColors.Background)) {
-        HeroBackdrop(item, scrolled)
+    // The page colour is painted only while the backdrop doesn't fill the screen (loading, fading,
+    // dimmed or none): under an opaque backdrop it's a whole-screen fill nobody sees.
+    val covered = remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().drawBehind { if (!covered.value) drawRect(ArcColors.Background) }) {
+        HeroBackdrop(item, scrolled, covered = covered)
         val scope = rememberCoroutineScope()
-        // TV lists normally scroll whatever has focus to a pivot a third of the way down, which
-        // pushed the title off the top as soon as Play was focused. Here the page only scrolls
-        // what's needed to show the focused thing, and the header always shows whole (as Plex).
-        CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView()) {
-            LazyColumn(Modifier.fillMaxSize(), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
+        // The header always shows whole (as Plex), and below it the focused row lands at the foot
+        // of the screen, moving down or back up, with the rows above in view (as arc-kodi's title
+        // page). Cards don't scroll the page themselves; each row asks (landsAtFoot).
+        val foot = org.arcmediaserver.android.ui.components.rememberFootScroll(page, gap = 40.dp)
+        CompositionLocalProvider(LocalBringIntoViewSpec provides org.arcmediaserver.android.ui.components.ScrollByShelf) {
+            LazyColumn(Modifier.fillMaxSize().footScrollPage(foot), state = page, contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     Box(
                         Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp - if (item.isSeries) SeasonBarPeek else 0.dp).onFocusChanged { if (it.hasFocus) scope.launch { page.animateScrollToItem(0) } },
@@ -204,9 +218,9 @@ fun DetailsScreen(
                 }
                 if (item.isSeries) {
                     item {
-                        // Each episode reveals its full text. Don't pin the entire seasons block
-                        // to item 1: that competes with the focused card's bring-into-view request.
-                        Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
+                        Box(Modifier.landsAtFoot(foot)) {
+                            Seasons(details, onPlay, episodeFocus, actions, seasonTab, onSeasonMenu = { s, at -> seasonMenu = s.seasonNumber to at })
+                        }
                     }
                 }
                 // Under the title, as the web's page: the cast, the collections it's in, More
@@ -214,7 +228,7 @@ fun DetailsScreen(
                 val cast = item.credits.filter { it.role == "actor" }
                 if (cast.isNotEmpty()) {
                     item(key = "cast") {
-                        Box(Modifier.padding(top = 28.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 28.dp)) {
                             Shelf(stringResource(R.string.details_cast), start = PageStart) {
                                 items(cast, key = { it.personId }) { c -> PersonCard(c.name, c.image, c.character) { onPerson(c.personId) } }
                             }
@@ -223,7 +237,7 @@ fun DetailsScreen(
                 }
                 details.related.forEach { row ->
                     item(key = row.key) {
-                        Box(Modifier.padding(top = 20.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 20.dp)) {
                             Shelf(row.title ?: stringResource(R.string.details_more_like_this), start = PageStart) {
                                 items(row.items, key = { it.id }) { t -> MediaCardView(cardFor(t), landscape = row.landscape, onClick = { onOpen(t.id) }) }
                             }
@@ -232,14 +246,14 @@ fun DetailsScreen(
                 }
                 if (item.extras.isNotEmpty()) {
                     item(key = "extras") {
-                        Box(Modifier.padding(top = 20.dp)) {
+                        Box(Modifier.landsAtFoot(foot).padding(top = 20.dp)) {
                             Shelf(stringResource(R.string.details_extras), start = PageStart) {
                                 items(item.extras, key = { it.id }) { e -> ExtraCard(e) { onExtra(e) } }
                             }
                         }
                     }
                 }
-                item(key = "info") { AboutSection(item, serverName) }
+                item(key = "info") { Box(Modifier.landsAtFoot(foot)) { AboutSection(item, serverName) } }
             }
         }
         val closePanel = {
@@ -306,10 +320,7 @@ fun DetailsScreen(
     LaunchedEffect(item.id) {
         if (initialPanel != DetailsPanel.None) return@LaunchedEffect
         // Opened from an episode's card: land on that episode in its show, as Plex does.
-        if (details.focus != null) {
-            page.scrollToItem(1)
-            if (episodeFocus.requestWhenReady()) return@LaunchedEffect
-        }
+        if (details.focus != null && episodeFocus.requestWhenReady()) return@LaunchedEffect
         primary.requestWhenReady()
     }
 }
@@ -379,7 +390,7 @@ private fun Header(
             if (cut) Text(stringResource(R.string.details_more).uppercase(), style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = 1.sp), color = ArcColors.Foreground)
             val unwatched = item.unwatchedCount ?: 0
             val meta = listOfNotNull(
-                item.year?.toString()?.takeIf { !item.isEpisode },
+                item.yearAndEdition?.takeIf { !item.isEpisode },
                 item.runtimeMin?.takeIf { it > 0 && !item.isSeries }?.let { runtimeText(it) },
                 if (item.isSeries) pluralStringResource(R.plurals.episodes_left, unwatched, unwatched).takeIf { unwatched > 0 } else null,
                 item.rating?.takeIf { it > 0 }?.let { "★ %.1f".format(it) },
@@ -562,22 +573,106 @@ private fun PlayPill(label: String, modifier: Modifier = Modifier, progress: Flo
     }
 }
 
-/** The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled. */
+/**
+ * The full-screen artwork behind the page, shaded at the bottom and left, dimmed once scrolled.
+ *
+ * Each picture comes with its shading already drawn into it ([BackdropShade], once, off the main
+ * thread), so it's one opaque picture: drawing it is a single pass, with no saved layer to keep
+ * or repaint. A new picture fades in over the last by its alpha, and dimming fades the whole
+ * backdrop: both draw over the solid page, so the result matches painting the page colour over it.
+ *
+ * While it fills the screen opaquely ([whole]: no fade of the caller's own running; not dimmed;
+ * its picture loaded and fully in), it says so through [covered] and [LocalBackdropCover], so
+ * nothing paints the page colour beneath it.
+ */
 @Composable
-internal fun HeroBackdrop(item: Item, dim: Boolean) {
-    val url = org.arcmediaserver.android.ui.browse.backdropOf(item)
-    val resolve = org.arcmediaserver.android.ui.components.LocalImageUrl.current
-    val dimAlpha by androidx.compose.animation.core.animateFloatAsState(if (dim) 0.82f else 0f, label = "dim")
-    Box(Modifier.fillMaxSize()) {
-        if (url != null) {
-            coil3.compose.AsyncImage(model = resolve(url), contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
+internal fun HeroBackdrop(item: Item, dim: Boolean, whole: Boolean = true, covered: MutableState<Boolean>? = null) {
+    val url = org.arcmediaserver.android.ui.browse.backdropOf(item)?.let(org.arcmediaserver.android.ui.components.LocalImageUrl.current)
+    val dimAlpha = androidx.compose.animation.core.animateFloatAsState(if (dim) BackdropDim else 0f, label = "dim")
+    // A plain list changed only here and when a fade ends (which bumps [changed]), so composing it
+    // never writes back to state it has just read.
+    val layers = remember { ArrayList<BackdropLayer>() }
+    var changed by remember { mutableIntStateOf(0) }
+    changed.let { } // read here, so the end of a fade recomposes
+    val inspecting = LocalInspectionMode.current
+    if (layers.lastOrNull()?.url != url) {
+        // A picture still loading or fading in is replaced; the last one fully shown stays beneath.
+        val shown = layers.lastOrNull { it.alpha.value >= 1f }
+        layers.clear()
+        if (shown != null) layers += shown
+        if (url != null) layers += BackdropLayer(url, androidx.compose.animation.core.Animatable(if (shown == null && inspecting) 1f else 0f))
+    }
+    val bottom = layers.firstOrNull()
+    // Read while drawing and fading, so composition hears only when it flips.
+    val covering by remember(bottom, whole) {
+        androidx.compose.runtime.derivedStateOf { whole && bottom != null && bottom.loaded && bottom.alpha.value >= 1f && dimAlpha.value == 0f }
+    }
+    val cover = org.arcmediaserver.android.ui.components.LocalBackdropCover.current
+    val isCovering = covering
+    if (covered != null) LaunchedEffect(isCovering) { covered.value = isCovering }
+    if (cover != null && isCovering) {
+        androidx.compose.runtime.DisposableEffect(cover) {
+            cover.count++
+            onDispose { cover.count-- }
         }
-        val bg = ArcColors.Background
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.78f to bg.copy(alpha = 0.75f), 1f to bg.copy(alpha = 0.95f))))
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to bg.copy(alpha = 0.7f), 0.4f to bg.copy(alpha = 0.25f), 0.6f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(bg.copy(alpha = dimAlpha)))
+    }
+    // One picture: its alpha and the dimming multiply straight onto it. Two (a fade): the pair is
+    // dimmed together, which needs a layer, so the lower one doesn't show through the upper.
+    val single = layers.size <= 1
+    Box(
+        Modifier.fillMaxSize().graphicsLayer {
+            alpha = 1f - dimAlpha.value
+            compositingStrategy = if (single) androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha else androidx.compose.ui.graphics.CompositingStrategy.Auto
+        },
+    ) {
+        for (layer in layers.toList()) {
+            androidx.compose.runtime.key(layer.url) {
+                BackdropPicture(layer, onShown = {
+                    // Fully shown: the pictures beneath it are hidden, so they go.
+                    val i = layers.indexOf(layer)
+                    if (i > 0) {
+                        repeat(i) { layers.removeAt(0) }
+                        changed++
+                    }
+                })
+            }
+        }
     }
 }
+
+/** One backdrop picture, whether it has loaded, and how far it has faded in. */
+private class BackdropLayer(val url: String, val alpha: androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>) {
+    var loaded by mutableStateOf(false)
+}
+
+@Composable
+private fun BackdropPicture(layer: BackdropLayer, onShown: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(layer.loaded) {
+        if (!layer.loaded) return@LaunchedEffect
+        layer.alpha.animateTo(1f, androidx.compose.animation.core.tween(BackdropFadeMs))
+        onShown()
+    }
+    coil3.compose.AsyncImage(
+        // No crossfade of its own: the picture's alpha fades instead.
+        model = remember(layer.url) {
+            coil3.request.ImageRequest.Builder(context).data(layer.url).crossfade(false)
+                .transformations(org.arcmediaserver.android.ui.components.BackdropShade(ArcColors.Background)).build()
+        },
+        contentDescription = null,
+        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        onSuccess = { layer.loaded = true },
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            alpha = layer.alpha.value
+            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+        },
+    )
+}
+
+private const val BackdropFadeMs = 250
+
+/** How far the artwork dims once the page scrolls past the hero (the page colour's share). */
+internal const val BackdropDim = 0.82f
 
 /**
  * The About section at the foot of a title's page, as the Apple TV app's: an About card across the
@@ -680,12 +775,15 @@ private fun Seasons(
     }
     // Show Missing Episodes can add or drop seasons, so the tab starts again (on the season kept).
     var selected by rememberSaveable(details.item.id, details.missing) { mutableIntStateOf(details.initialSeason.coerceIn(0, tabs - 1)) }
-    // Coming to the tabs shows the season's episodes too, not just the tabs (as Plex): the page
-    // scrolls the whole block into view. A frame later, so the tab's own (smaller) request is
-    // already on its way and this one, newer, wins.
+    // Reveal the same block whether focus enters through a season tab or a linked episode.
+    // Wait a frame so the focusable child's smaller request starts first.
     val block = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    Column(Modifier.bringIntoViewRequester(block).padding(top = 24.dp)) {
+    Column(
+        Modifier.bringIntoViewRequester(block).onFocusChanged {
+            if (it.hasFocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; block.bringIntoView() }
+        }.focusGroup().padding(top = 24.dp),
+    ) {
         val labels = details.seasons.map { seasonName(it) } + if (outside) listOf(stringResource(R.string.details_not_in_order)) else emptyList()
         val unplacedTab = selected >= details.seasons.size
         val episodes = if (unplacedTab) details.unplaced else details.seasons[selected].episodes
@@ -695,14 +793,15 @@ private fun Seasons(
         // has no menu.
         var tabBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
         Row(
-            Modifier.onFocusChanged { if (it.hasFocus) scope.launch { androidx.compose.runtime.withFrameNanos { }; block.bringIntoView() } },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PillTabs(
                 labels, selected, onSelect = { selected = it },
                 // Coming into the tabs (Down from Play, Up from the episodes) lands on the season
                 // shown, not whichever tab is nearest: landing on a tab switches season.
-                modifier = Modifier.padding(start = PageStart - 8.dp).focusRestorer(seasonTab),
+                modifier = Modifier.weight(1f, fill = false).focusRestorer(seasonTab),
+                start = PageStart - 8.dp,
+                end = 48.dp,
                 onClick = { i -> details.seasons.getOrNull(i)?.let { onSeasonMenu(it, tabBounds) } },
                 selectedTab = Modifier.focusRequester(seasonTab).onGloballyPositioned { tabBounds = it.boundsInRoot() },
             )
@@ -728,15 +827,19 @@ private fun Seasons(
             val idx = episodes.indexOfFirst { it.id == (details.focus ?: details.next)?.id }
             listState.scrollToItem(idx.coerceAtLeast(0))
         }
+        // Entering the episodes lands on the one last used here, else the one to watch next, else
+        // the first on screen (RowFocus), not whichever is nearest the card left above or below.
+        val rowFocus = org.arcmediaserver.android.ui.components.rememberRowFocus(listState)
         CompositionLocalProvider(LocalBringIntoViewSpec provides minimalBringIntoView(PageStart)) {
             LazyRow(
                 state = listState,
+                modifier = rowFocus.modifier(preferred = { (details.focus ?: details.next)?.id }),
                 contentPadding = PaddingValues(start = PageStart, end = 48.dp, top = 18.dp, bottom = 18.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 items(episodes, key = { it.id }) { ep ->
                     val mod = if (ep.id == details.focus?.id) Modifier.focusRequester(episodeFocus) else Modifier
-                    EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod, numbered = !unplacedTab)
+                    rowFocus.Card(ep.id) { EpisodeCard(ep, onClick = { onPlay(ep, ep.resumeMs) }, modifier = mod, numbered = !unplacedTab) }
                 }
             }
         }
@@ -761,7 +864,9 @@ private fun EpisodeCard(ep: Item, onClick: () -> Unit, modifier: Modifier = Modi
         FocusCard(onClick = { if (ep.available) onClick() }, onFocused = { focused = it }, modifier = modifier) {
             org.arcmediaserver.android.ui.components.EpisodeArtwork(
                 ep, card.thumb, label = ep.title,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).alpha(if (ep.available) 1f else 0.4f),
+                // A missing episode's faded picture keeps the card colour under it.
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    .then(if (ep.available) Modifier else Modifier.background(ArcColors.Surface).alpha(0.4f)),
             )
             WatchBadge(ep)
             ProgressLine(card.progress)

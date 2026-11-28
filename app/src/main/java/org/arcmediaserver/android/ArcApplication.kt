@@ -7,6 +7,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import org.arcmediaserver.android.data.ArtworkWidth
 
 open class ArcApplication : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
@@ -27,9 +28,15 @@ open class ArcApplication : Application(), SingletonImageLoader.Factory {
     /** The app's container; the live screenshot test gives it a session kept without the Keystore. */
     protected open fun createContainer(): AppContainer = AppContainer(this)
 
-    /** Artwork comes from Arc with the device token (and may be redirected to the provider). */
+    /**
+     * Artwork comes from Arc with the device token (and may be redirected to the provider), at
+     * the width it's drawn at.
+     */
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
-        .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.mediaClient })) }
+        .components {
+            add(ArtworkWidth())
+            add(OkHttpNetworkFetcherFactory(callFactory = { container.mediaClient }))
+        }
         .crossfade(true)
         .build()
 }

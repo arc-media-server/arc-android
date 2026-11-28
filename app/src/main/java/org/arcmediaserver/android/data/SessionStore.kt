@@ -72,7 +72,26 @@ class SessionStore(private val prefs: SharedPreferences, private val box: Secret
         get() = prefs.getString(KEY_NAME, null)
         set(value) = prefs.edit().apply { if (value.isNullOrBlank()) remove(KEY_NAME) else putString(KEY_NAME, value) }.apply()
 
+    /**
+     * Match Frame Rate (This TV): ask the TV to show films at their own frame rate, so 24p doesn't
+     * judder on a TV set to 60 Hz. On by default, as Plex for Android TV. A device preference that
+     * stays when the server changes.
+     */
+    var matchFrameRate: Boolean
+        get() = prefs.getBoolean(KEY_FRAME_RATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_FRAME_RATE, value).apply()
+
+    /**
+     * Audio Passthrough (This TV): Auto sends Dolby and DTS on to the TV or receiver as they are when
+     * it takes them; Off has the TV decode everything (Arc converts what it can't). Auto by default.
+     */
+    var audioPassthrough: Boolean
+        get() = prefs.getBoolean(KEY_PASSTHROUGH, true)
+        set(value) = prefs.edit().putBoolean(KEY_PASSTHROUGH, value).apply()
+
     private companion object {
+        const val KEY_FRAME_RATE = "match_frame_rate"
+        const val KEY_PASSTHROUGH = "audio_passthrough"
         const val KEY_NAME = "server_name"
         const val KEY_SERVER = "server"
         const val KEY_AUTO_PROFILE = "auto_profile_id"

@@ -22,9 +22,9 @@ val LocalHideSpoilers = compositionLocalOf { false }
  * background where Arc has one.
  */
 @Composable
-fun EpisodeArtwork(item: Item, thumb: String?, label: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+fun EpisodeArtwork(item: Item, thumb: String?, label: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop, shadeBottom: Boolean = false) {
     val art = episodeArt(item, thumb, LocalHideSpoilers.current)
-    Artwork(art.url, label = label, modifier = if (art.blur) modifier.clipToBounds().blur(24.dp) else modifier, contentScale = contentScale)
+    Artwork(art.url, label = label, modifier = if (art.blur) modifier.clipToBounds().blur(24.dp) else modifier, contentScale = contentScale, shadeBottom = shadeBottom)
 }
 
 /** A title's description, or a note in its place while it's an episode whose spoilers are hidden. */

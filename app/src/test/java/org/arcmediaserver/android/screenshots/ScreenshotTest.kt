@@ -1,5 +1,6 @@
 package org.arcmediaserver.android.screenshots
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.foundation.layout.padding
@@ -69,7 +70,7 @@ class ScreenshotTest {
         compose.setContent {
             CompositionLocalProvider(
                 LocalInspectionMode provides true,
-                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.art(request.data.toString()).asImage() },
+                LocalAsyncImagePreviewHandler provides AsyncImagePreviewHandler { request -> Fixtures.image(request) },
             ) {
                 ArcTheme { Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) { content() } }
             }
@@ -209,12 +210,26 @@ class ScreenshotTest {
     }
 
     @Test
-    fun launchPickerSetting() = shot("launch-picker-setting", keys = List(12) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+    fun launchPickerSetting() = shot("launch-picker-setting", keys = List(14) { androidx.compose.ui.input.key.Key.DirectionDown }) {
         org.arcmediaserver.android.ui.settings.SettingsContent(
             org.arcmediaserver.android.ui.settings.SettingsUiState(
                 prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs()),
                 profile = Fixtures.profiles.first(),
                 automaticProfileId = Fixtures.profiles.first().id,
+            ),
+            onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
+        )
+    }
+
+    /** This TV: Match Frame Rate and Audio Passthrough (Off), with Audio Passthrough focused. */
+    @Test
+    fun settingsThisTv() = shot("settings-this-tv", keys = List(13) { androidx.compose.ui.input.key.Key.DirectionDown }) {
+        org.arcmediaserver.android.ui.settings.SettingsContent(
+            org.arcmediaserver.android.ui.settings.SettingsUiState(
+                prefs = LoadState.Ready(org.arcmediaserver.android.data.Prefs()),
+                serverName = "Living Room Arc",
+                profile = Fixtures.profiles.first(),
+                audioPassthrough = false,
             ),
             onChange = { _, _, _ -> }, onRetry = {}, onSwitchServer = {}, onSignOut = {},
         )
@@ -266,6 +281,13 @@ class ScreenshotTest {
     }
 
     @Test
+    fun homeShelfScrolledRight() = shot("home-shelf-scrolled-right", keys = List(6) { Key.DirectionRight }) {
+        val cards = (Fixtures.movies + Fixtures.moreMovies).map { org.arcmediaserver.android.data.cardFor(it) }
+        val row = Fixtures.homeRows.first().copy(cards = LoadState.Ready(cards))
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = listOf(row)))
+    }
+
+    @Test
     fun cardMenuOnContinue() = shot("card-menu-continue") {
         // A card on Home's Continue Watching row: its menu offers Remove from Continue Watching.
         Box(Modifier.fillMaxSize().background(org.arcmediaserver.android.ui.theme.ArcColors.Background)) {
@@ -299,6 +321,16 @@ class ScreenshotTest {
         androidx.compose.runtime.CompositionLocalProvider(org.arcmediaserver.android.ui.components.LocalCardMenu provides menu) {
             browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = Fixtures.homeRows))
         }
+    }
+
+    @Test
+    fun homeWatchTogether() = shot("home-watch-together", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown)) {
+        // A room waiting: its row sits under Continue Watching, which keeps the top and the hero.
+        val rooms = Fixtures.movies.take(2).mapIndexed { i, item ->
+            org.arcmediaserver.android.data.cardFor(item, key = "room:r$i").copy(sub = if (i == 0) "You're hosting" else "Hosted by Sam", progress = null)
+        }
+        val row = org.arcmediaserver.android.ui.browse.HomeRowState(org.arcmediaserver.android.data.WatchTogetherRow, LoadState.Ready(rooms))
+        browse(BrowseUiState(frame = LoadState.Ready(Fixtures.frame), rows = listOf(row) + Fixtures.homeRows, together = true))
     }
 
     @Test
@@ -430,6 +462,21 @@ class ScreenshotTest {
     }
 
     @Test
+    fun recommendedShelfScrolledRight() = shot("recommended-shelf-scrolled-right", keys = List(6) { Key.DirectionRight }) {
+        val movies = Fixtures.movies + Fixtures.moreMovies
+        val row = org.arcmediaserver.android.data.RecommendedRow(type = "continue", style = "arc", items = movies)
+        browse(
+            BrowseUiState(
+                frame = LoadState.Ready(Fixtures.frame),
+                section = Section.Library(1),
+                library = LoadState.Ready(LibraryPage.of(Fixtures.libraries[0], movies)),
+                libraryTab = org.arcmediaserver.android.ui.browse.LibraryTab.Recommended,
+                libraryExtras = libraryExtras.copy(recommended = LoadState.Ready(listOf(row))),
+            ),
+        )
+    }
+
+    @Test
     fun libraryFolders() = shot("library-folders") {
         // A home videos library's Folders tab, two folders deep: the way down above, two folders
         // (cover, Folder tag, count) and a video of its own.
@@ -528,6 +575,13 @@ class ScreenshotTest {
             onPlay = { _: Item, _: Long -> },
             onOpen = {},
         )
+    }
+
+    @Test
+    fun showManySeasons() = shot("show-many-seasons", keys = listOf(androidx.compose.ui.input.key.Key.DirectionDown) + List(13) { androidx.compose.ui.input.key.Key.DirectionRight }) {
+        // More seasons than fit: the tabs scroll sideways to the one focused.
+        val seasons = (1..14).map { n -> Fixtures.seasons[0].copy(seasonNumber = n, name = "") }
+        DetailsScreen(Details(Fixtures.show, seasons, next = seasons[0].episodes[2]), onPlay = { _: Item, _: Long -> }, onOpen = {})
     }
 
     @Test
@@ -960,6 +1014,22 @@ class ScreenshotTest {
             )
             PlayerMenuPanel(
                 menu = PlayerMenu.Playback, state = state, plan = state.plan!!,
+                onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
+            )
+        }
+    }
+
+    @Test
+    fun playerQualityMenu() = shot("player-menu-quality") {
+        // Automatic after it has stepped down: its row says what it plays at now, and the menu explains it.
+        playerOver("art:still:Breaking Bad") {
+            val state = osdState().copy(quality = -1, automaticKbps = 4000)
+            PlayerControls(
+                state = state, visible = true, scrubMs = null, menu = PlayerMenu.Quality,
+                onPlayPause = {}, onBack10 = {}, onForward10 = {}, onScrub = {}, onSkip = {}, onNext = {}, onMenu = {}, onClose = {},
+            )
+            PlayerMenuPanel(
+                menu = PlayerMenu.Quality, state = state, plan = state.plan!!,
                 onAudio = {}, onSubtitle = {}, onVersion = {}, onQuality = {}, onChapter = {}, onSpeed = {},
             )
         }

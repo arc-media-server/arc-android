@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,16 +37,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -52,7 +60,11 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil3.BitmapImage
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.request.transformations
 import org.arcmediaserver.android.R
 import org.arcmediaserver.android.data.Item
 import org.arcmediaserver.android.data.MediaCard
@@ -96,20 +108,55 @@ val ThumbWidth = 220.dp
  * for titles Arc couldn't identify (no artwork) and while the picture loads.
  */
 @Composable
-fun Artwork(url: String?, label: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
-    val resolve = LocalImageUrl.current
-    Box(modifier.background(Brush.linearGradient(listOf(ArcColors.Surface3, ArcColors.Surface)))) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleSmall,
-            color = ArcColors.Muted,
-            textAlign = TextAlign.Center,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.Center).padding(12.dp),
-        )
-        if (url != null) {
-            AsyncImage(model = resolve(url), contentDescription = null, contentScale = contentScale, modifier = Modifier.fillMaxSize())
+fun Artwork(
+    url: String?,
+    label: String,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    /** Darkened towards the bottom for text over it: drawn into the picture ([BottomShade]). */
+    shadeBottom: Boolean = false,
+) {
+    val resolved = url?.let(LocalImageUrl.current)
+    val context = LocalContext.current
+    val request = remember(resolved, context, shadeBottom) {
+        resolved?.let {
+            ImageRequest.Builder(context).data(it).crossfade(false)
+                .apply { if (shadeBottom) transformations(BottomShade()) }
+                .build()
+        }
+    }
+    var opaque by remember(request) { mutableStateOf(false) }
+    val showPlaceholder = !opaque || contentScale != ContentScale.Crop
+    val placeholder = if (showPlaceholder) {
+        Modifier.background(Brush.linearGradient(listOf(ArcColors.Surface3, ArcColors.Surface)))
+    } else Modifier
+    Box(modifier.then(placeholder)) {
+        if (showPlaceholder && label.isNotEmpty()) {
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                color = ArcColors.Muted,
+                textAlign = TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.Center).padding(12.dp),
+            )
+        }
+        if (request != null) {
+            AsyncImage(
+                model = request,
+                contentDescription = label.takeIf { !showPlaceholder && it.isNotEmpty() },
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
+                onSuccess = {
+                    // Opaque artwork covers the placeholder. Transparent artwork still needs it.
+                    opaque = (it.result.image as? BitmapImage)?.bitmap?.hasAlpha() == false
+                },
+            )
+        }
+        // Until a shaded picture covers it, the placeholder gets the same shading.
+        if (shadeBottom && showPlaceholder) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
         }
     }
 }
@@ -134,7 +181,9 @@ fun FocusCard(
         scale = CardDefaults.scale(focusedScale = 1.08f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, ArcColors.Foreground), shape = CardShape)),
         glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = Color.Black.copy(alpha = 0.55f), elevation = 18.dp)),
-        colors = CardDefaults.colors(containerColor = ArcColors.Surface, focusedContainerColor = ArcColors.Surface),
+        // No fill of its own: every card's artwork (or its placeholder) covers the whole card, and
+        // on a Chromecast every card painted twice costs frame time.
+        colors = CardDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
     ) {
         Box(Modifier.fillMaxWidth()) { content() }
     }
@@ -148,9 +197,9 @@ fun FocusCard(
 private fun BackdropArt(card: MediaCard) {
     val title = cardTitle(card)
     Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
-        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize())
-        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize())
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.5f).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
+        // Darkened towards the bottom for the logo, drawn into the picture once.
+        if (card.item.isEpisode) EpisodeArtwork(card.item, card.backdrop, label = "", modifier = Modifier.fillMaxSize(), shadeBottom = true)
+        else Artwork(url = card.backdrop, label = "", modifier = Modifier.fillMaxSize(), shadeBottom = true)
         var failed by remember(card.logo) { mutableStateOf(false) }
         val logo = card.logo
         val place = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp)
@@ -201,7 +250,7 @@ fun cardSubtitle(card: MediaCard): String? {
         card.seasonNumber != null -> stringResource(R.string.season_number, card.seasonNumber)
         card.newEpisodes > 0 -> pluralStringResource(R.plurals.new_episodes, card.newEpisodes, card.newEpisodes)
         item.isEpisode -> episodeCode(item)
-        else -> item.year?.toString()
+        else -> item.yearAndEdition
     }
 }
 
@@ -327,20 +376,31 @@ fun MediaCardView(
 /**
  * A titled row of cards (search results, a title's cast and related rows): the heading, then a
  * row that leaves room for the focused card to grow. [start] lines it up with the screen's text.
+ * [leadingInset] moves the start of the scrolling viewport into that clearance.
  */
 @Composable
-fun Shelf(title: String, start: Dp = 48.dp, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    Column {
+fun Shelf(
+    title: String,
+    start: Dp = 48.dp,
+    modifier: Modifier = Modifier,
+    leadingInset: Dp = 0.dp,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
+) {
+    Column(modifier) {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = start, bottom = 8.dp))
         // Scrolling keeps the row's own start beside the card it brings in, so coming back to the
         // first card puts it where it began.
+        // Entering the row lands on the card last used in it, or its first (RowFocus).
+        val row = androidx.compose.foundation.lazy.rememberLazyListState()
+        val focus = rememberRowFocus(row)
         @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start)) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides minimalBringIntoView(start - leadingInset, after = start)) {
             androidx.compose.foundation.lazy.LazyRow(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = start, vertical = 10.dp),
+                state = row,
+                modifier = (if (leadingInset > 0.dp) Modifier.padding(start = leadingInset).clipToBounds() else Modifier).then(focus.modifier()),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = start - leadingInset, end = start, top = 10.dp, bottom = 10.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
-                content = content,
-            )
+            ) { focus.wrap(this).content() }
         }
     }
 }
@@ -374,6 +434,7 @@ private fun initials(name: String) = name.split(" ").filter { it.isNotBlank() }.
  * along them switches what's shown, as Google TV's tabs do. [onClick] is OK on a tab (a season's
  * menu); [selectedTab] goes on the selected tab (to return the focus to it, or to place a menu).
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PillTabs(
     labels: List<String>,
@@ -382,15 +443,59 @@ fun PillTabs(
     modifier: Modifier = Modifier,
     onClick: ((Int) -> Unit)? = null,
     selectedTab: Modifier = Modifier,
+    /** Space before the first pill, inside the scrolling row (so pills scroll under it, not clipped at it). */
+    start: Dp = 0.dp,
+    /** Space after the last pill, inside the scrolling row. */
+    end: Dp = 0.dp,
 ) {
     // Standalone header-style pills: no holder, 10dp between pills (owner, server #499).
     // One focus group, so a focusRestorer in [modifier] decides which pill focus enters on.
-    Row(modifier.focusGroup().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // More pills than fit (a show with many seasons) scroll sideways, as far as the focused one
+    // needs; before, the ones past the edge were squeezed to nothing, and focus moving onto one
+    // couldn't find its way back up.
+    val spec = minimalBringIntoView(start, after = end)
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides spec,
+    ) {
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    // Where the chosen pill and the visible stretch of the row are, to show the chosen pill when
+    // the row isn't focused (a page opened on Season 38 from Home): read only by the effect below.
+    val viewport = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(2) }
+    val placedFor = remember { intArrayOf(-1) } // which pill viewport[1] is
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(selected) {
+        // Wait for the row's first layout, when the pills' places and how far it scrolls are known.
+        while (placedFor[0] != selected || viewport[0]?.isAttached != true || viewport[1]?.isAttached != true || scroll.maxValue == Int.MAX_VALUE) {
+            androidx.compose.runtime.withFrameNanos { }
+        }
+        if (focused) return@LaunchedEffect // Focus brings its pill into view itself.
+        val pill = viewport[0]!!.localBoundingBoxOf(viewport[1]!!, clipBounds = false)
+        // The same distance focus would scroll, so the row sits as if you'd moved along it to here.
+        val distance = spec.calculateScrollDistance(pill.left, pill.width, viewport[0]!!.size.width.toFloat())
+        if (distance != 0f) scroll.scrollBy(distance)
+    }
+    // The space after the last pill only when they scroll: otherwise the row ends at its last
+    // pill, so whatever follows it (a season's warning) sits right after.
+    val endSpace = if (scroll.maxValue > 0) end else 0.dp
+    // The scrolling area reaches a little past the row on both sides (the pills stay where they
+    // were), so a focused pill, drawn a little larger, isn't clipped at the row's ends.
+    val slack = 8.dp
+    Row(
+        modifier.onFocusChanged { focused = it.hasFocus }.focusGroup().selectableGroup()
+            .layout { measurable, constraints ->
+                val px = slack.roundToPx()
+                val placeable = measurable.measure(constraints.offset(horizontal = 2 * px))
+                layout((placeable.width - 2 * px).coerceAtLeast(0), placeable.height) { placeable.place(-px, 0) }
+            }
+            .onPlaced { viewport[0] = it }
+            .horizontalScroll(scroll).padding(start = start + slack, end = endSpace + slack),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         labels.forEachIndexed { i, label ->
             val chosen = i == selected
             androidx.tv.material3.Button(
                 onClick = { onClick?.invoke(i) },
-                modifier = (if (chosen) selectedTab else Modifier)
+                modifier = (if (chosen) selectedTab.onPlaced { viewport[1] = it; placedFor[0] = i } else Modifier)
                     .height(36.dp)
                     .onFocusChanged { if (it.isFocused) onSelect(i) }
                     .semantics { this.selected = chosen },
@@ -406,5 +511,6 @@ fun PillTabs(
                 Text(label, style = MaterialTheme.typography.labelLarge)
             }
         }
+    }
     }
 }

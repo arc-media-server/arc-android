@@ -64,12 +64,6 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     /** Titles taken out of Continue Watching this session, left off Home's row at once. */
     val offContinue = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
 
-    /**
-     * Ultra Blur colours Arc gave for titles this session, by title id (null: Arc had none). Kept
-     * for the signed-in profile only: cleared when the profile changes or the TV signs out.
-     */
-    val palettes = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<org.arcmediaserver.android.data.PaletteColors>>()
-
     /** Google TV's Continue watching row, kept in step with Arc's. */
     val watchNext = org.arcmediaserver.android.watchnext.WatchNextPublisher(context)
 
@@ -134,7 +128,6 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
         hideSpoilers.value = false
         themeMusic.value = true
         showMissingEpisodes.value = false
-        palettes.clear()
         itemChanges.clear()
         offContinue.clear()
         queues.reset()
@@ -162,7 +155,8 @@ class AppContainer(private val context: Context, val session: SessionStore = ses
     fun apiFor(server: HttpUrl): ArcApi = ArcApi(server, baseClient, token = { null })
 
     // Maximum audio channels: sample the output again for each new player, after route changes.
-    val playerCaps get() = deviceCaps(context)
+    // Audio Passthrough off: the TV says it takes no Dolby or DTS as it is, so Arc converts what it can't decode.
+    val playerCaps get() = deviceCaps(context, passthrough = session.audioPassthrough)
 
     /** How this TV appears in Arc's Settings > Devices: the name it was given, e.g. "Living Room TV". */
     val deviceName: String by lazy {
