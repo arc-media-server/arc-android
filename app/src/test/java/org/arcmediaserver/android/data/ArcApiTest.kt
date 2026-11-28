@@ -372,4 +372,31 @@ class ArcApiTest {
         answer(404, """{"error":"not found"}""")
         assertNull(api.artworkPalette("m3"))
     }
+
+    @Test
+    fun `password sign-in sends the device's name and returns the token`() = runTest {
+        token = null
+        answer(200, """{"token":"device-token"}""")
+        assertEquals("device-token", api.login("household-pass", "Pixel 9"))
+        val req = server.takeRequest()
+        assertEquals("/api/v1/auth/login", req.url.encodedPath)
+        assertEquals("POST", req.method)
+        assertEquals("""{"password":"household-pass","device":"Pixel 9"}""", req.body?.utf8())
+        assertNull(req.headers["Authorization"])
+    }
+
+    @Test
+    fun `a friend signs in with their name, and a wrong password is Arc's own message`() = runTest {
+        answer(200, """{"token":"friend-token"}""")
+        assertEquals("friend-token", api.friendLogin("Sam", "pw", "Pixel 9"))
+        assertEquals("/api/v1/auth/friend", server.takeRequest().url.encodedPath)
+        answer(401, """{"error":"wrong password"}""")
+        try {
+            api.login("nope", "Pixel 9")
+            fail("expected a failure")
+        } catch (e: ApiException) {
+            assertEquals(401, e.status)
+            assertEquals("wrong password", e.message)
+        }
+    }
 }

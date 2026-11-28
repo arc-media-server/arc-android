@@ -148,6 +148,53 @@ fun qualityName(kbps: Int): String {
     return "$rate ${height}p"
 }
 
+/**
+ * The video, with the profile's subtitle style and libass for ASS/SSA, and the text subtitles the
+ * app loads itself on a view of their own (so the player never clears them). Shared by the TV's
+ * player and the phone's.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
+internal fun VideoSurface(vm: PlayerViewModel, state: PlayerUiState, frameRate: org.arcmediaserver.android.playback.FrameRateMatcher? = null) {
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                useController = false
+                isFocusable = false
+                keepScreenOn = true
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setShutterBackgroundColor(android.graphics.Color.BLACK)
+                player = vm.player
+                frameRate?.attach(videoSurfaceView as? android.view.SurfaceView)
+                // libass draws ASS/SSA subtitles over the player's own subtitle view.
+                subtitleView?.withAssSupport(vm.ass)
+            }
+        },
+        // Text subtitles in the profile's style, not Android's caption settings (a black box).
+        update = { view ->
+            // Zoom Mode (Playback menu): fill the screen, cropping the edges, or fit the picture.
+            view.resizeMode = if (state.zoom) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
+            view.subtitleView?.apply {
+                setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+                setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
+            }
+        },
+        onRelease = { it.player = null },
+        modifier = Modifier.fillMaxSize(),
+    )
+    // Text subtitles the app loads itself, on their own view so the player never clears them.
+    val cues by vm.cues.collectAsStateWithLifecycle()
+    AndroidView(
+        factory = { ctx -> androidx.media3.ui.SubtitleView(ctx) },
+        update = { view ->
+            view.setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
+            view.setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
+            view.setCues(cues)
+        },
+        modifier = Modifier.fillMaxSize(),
+    )
+}
+
 /** The skip offered now: an intro or recap while it plays, or the credits (web Player.tsx). */
 fun skippable(markers: List<Marker>, positionMs: Long): Marker? =
     markers.firstOrNull { positionMs >= it.startMs && positionMs < it.endMs - 1_500 }
@@ -280,43 +327,7 @@ fun PlayerRoute(itemId: String, startMs: Long, entryId: String? = null, carryOn:
             }
             .focusable(),
     ) {
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    useController = false
-                    isFocusable = false
-                    keepScreenOn = true
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    setShutterBackgroundColor(android.graphics.Color.BLACK)
-                    player = vm.player
-                    frameRate?.attach(videoSurfaceView as? android.view.SurfaceView)
-                    // libass draws ASS/SSA subtitles over the player's own subtitle view.
-                    subtitleView?.withAssSupport(vm.ass)
-                }
-            },
-            // Text subtitles in the profile's style, not Android's caption settings (a black box).
-            update = { view ->
-                // Zoom Mode (Playback menu): fill the screen, cropping the edges, or fit the picture.
-                view.resizeMode = if (state.zoom) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
-                view.subtitleView?.apply {
-                    setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
-                    setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
-                }
-            },
-            onRelease = { it.player = null },
-            modifier = Modifier.fillMaxSize(),
-        )
-        // Text subtitles the app loads itself, on their own view so the player never clears them.
-        val cues by vm.cues.collectAsStateWithLifecycle()
-        AndroidView(
-            factory = { ctx -> androidx.media3.ui.SubtitleView(ctx) },
-            update = { view ->
-                view.setStyle(org.arcmediaserver.android.playback.captionStyle(state.subtitleStyle))
-                view.setFractionalTextSize(org.arcmediaserver.android.playback.subtitleTextFraction(state.subtitleStyle))
-                view.setCues(cues)
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        VideoSurface(vm, state, frameRate)
         when {
             state.stopped != null -> StoppedPane(state.stopped!!, onClose)
             state.error != null -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f))) {
@@ -489,10 +500,10 @@ fun UpNextCard(next: Item, seconds: Int, onPlayNow: () -> Unit, onCancel: () -> 
 private fun languageName(code: String?): String? = org.arcmediaserver.android.playback.languageName(code)
 
 @Composable
-private fun audioName(t: AudioTrack, i: Int): String = languageName(t.language) ?: stringResource(R.string.player_track, i + 1)
+internal fun audioName(t: AudioTrack, i: Int): String = languageName(t.language) ?: stringResource(R.string.player_track, i + 1)
 
 @Composable
-private fun audioDetail(t: AudioTrack): String = listOfNotNull(
+internal fun audioDetail(t: AudioTrack): String = listOfNotNull(
     org.arcmediaserver.android.ui.components.codecName(t.codec),
     when (t.channels) {
         0 -> null
@@ -506,10 +517,10 @@ private fun audioDetail(t: AudioTrack): String = listOfNotNull(
 ).joinToString(" · ")
 
 @Composable
-private fun subtitleName(t: SubtitleTrack, i: Int): String = languageName(t.language) ?: t.title ?: stringResource(R.string.player_track, i + 1)
+internal fun subtitleName(t: SubtitleTrack, i: Int): String = languageName(t.language) ?: t.title ?: stringResource(R.string.player_track, i + 1)
 
 @Composable
-private fun subtitleDetail(t: SubtitleTrack): String? = listOfNotNull(
+internal fun subtitleDetail(t: SubtitleTrack): String? = listOfNotNull(
     if (t.forced) stringResource(R.string.player_forced) else null,
     if (t.hearingImpaired) "SDH" else null,
     t.title?.takeIf { title -> !sameLanguage(title, t.language) && !title.equals("forced", true) && !title.equals("sdh", true) },
@@ -825,7 +836,7 @@ internal fun StatsPanel(title: String, body: String?, rows: List<Pair<String, St
 }
 
 /** The activity behind a Compose context (Match Frame Rate needs its window). */
-private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+internal tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
     is android.app.Activity -> this
     is android.content.ContextWrapper -> baseContext.findActivity()
     else -> null

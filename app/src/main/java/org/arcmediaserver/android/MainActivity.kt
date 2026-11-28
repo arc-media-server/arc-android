@@ -3,7 +3,10 @@ package org.arcmediaserver.android
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,6 +23,8 @@ import org.arcmediaserver.android.data.ArcLog
 import org.arcmediaserver.android.ui.ArcNavHost
 import org.arcmediaserver.android.watchnext.DeepLink
 import org.arcmediaserver.android.ui.theme.ArcTheme
+import org.arcmediaserver.android.ui.theme.ArcMobileTheme
+import org.arcmediaserver.android.ui.mobile.MobileNavHost
 
 class MainActivity : ComponentActivity() {
     private companion object {
@@ -29,11 +34,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) resumeFrom(intent)
+        val tv = FormFactor.isTv(this)
+        // Phones and tablets draw under the status and navigation bars, as Android 15 and later
+        // expect of every app; the TV keeps its full-screen window.
+        if (!tv) enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        ArcLog.Android.info(if (tv) "starting the TV interface" else "starting the phone and tablet interface")
         setContent {
             // Android can restore a task's navigation after process death. That is a fresh
             // launch, while recreation in this process and returning from Home keep their state.
             key(processNavigationKey) {
-                ArcTheme {
+                if (!tv) {
+                    ArcMobileTheme {
+                        LaunchedEffect(Unit) {
+                            withFrameNanos { }
+                            window.setBackgroundDrawable(null)
+                        }
+                        Box(Modifier.fillMaxSize().background(ArcColors.Background)) { MobileNavHost() }
+                    }
+                } else ArcTheme {
                     // The page colour is painted here, once, and not where an opaque backdrop
                     // fills the screen; the window's own background (the same colour, shown while
                     // Arc starts) goes after the first frame, so it isn't painted under this too.

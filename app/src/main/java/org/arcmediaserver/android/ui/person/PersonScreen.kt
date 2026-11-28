@@ -147,7 +147,7 @@ fun PersonScreen(page: PersonPage, onOpen: (Item) -> Unit) {
     LaunchedEffect(page.person.id) { if (rows.isNotEmpty()) first.requestWhenReady() }
 }
 
-private fun initials(name: String) = name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
+internal fun initials(name: String) = name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
 
 @Composable
 private fun roleName(role: String): String? = when (role) {
@@ -160,7 +160,7 @@ private fun roleName(role: String): String? = when (role) {
 
 /** "Acting · 14 titles in your libraries". */
 @Composable
-private fun summary(page: PersonPage): String {
+internal fun summary(page: PersonPage): String {
     val count = PersonRows.titleCount(page)
     val titles = pluralStringResource(R.plurals.person_in_libraries, count, count)
     val known = when (PersonRows.mainRole(page)) {
@@ -186,7 +186,7 @@ private fun partLine(c: PersonCredit, kind: PersonRows.Kind): String {
 }
 
 @Composable
-private fun rowTitle(kind: PersonRows.Kind): String = stringResource(
+internal fun rowTitle(kind: PersonRows.Kind): String = stringResource(
     when (kind) {
         PersonRows.Kind.Movies -> R.string.person_row_movies
         PersonRows.Kind.Shows -> R.string.person_row_shows
